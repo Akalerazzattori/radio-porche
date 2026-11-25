@@ -32,6 +32,30 @@ Principio rector: **sencillez**. Una acción principal por pantalla, nada técni
 - Calidad adaptable a la conexión. Aviso si se detecta acople.
 - Limitaciones a comunicar con honestidad en la UI o ayuda: en datos móviles alguna conexión directa puede fallar; con wifi va casi siempre.
 
+## 3b. Escucha con cascos (retorno) y acoples
+
+Como en una radio real: **todo el que habla lleva cascos** (cable o Bluetooth). La UI lo pide al entrar al micro.
+- **Presentador**: oye en sus cascos la mezcla local (cortes y música sin retraso, porque la mezcla está en su móvil) + las voces de los invitados.
+- **Invitado en casa**: recibe la mezcla del presentador **menos su propia voz** (mix-minus: el presentador genera una mezcla por invitado sin su voz). Retraso tipo videollamada.
+- **Invitado en el patio**: las voces las oye en directo en la sala, así que por sus cascos recibe **solo música y cortes** (sin voces, para no oírlas dos veces). Su móvil no reproduce nada por el altavoz.
+- **"Oírme"** (todos: presentador e invitados): botón para oír tu propia voz en tus cascos, monitorizada en local (micro → cascos en el mismo móvil, sin pasar por la red). **Apagado por defecto** (con Bluetooth el retraso de unas décimas molesta). Nota en la UI: "Con cascos de cable suena sin retraso".
+- Como todos llevan cascos: desactivar `echoCancellation` del navegador (mejor calidad de voz y música); mantener supresión de ruido en "Mejorada". Si alguien entra sin cascos, reactivar la cancelación de eco para esa persona.
+- Oyentes: 1–3 s de retraso, sin importancia.
+
+## 3c. Mesa de mezclas del presentador
+
+- **Deslizadores de volumen en antena**: Música, Cortes y cada micro. Grandes y cómodos con el pulgar.
+- Botones rápidos con fundido suave (~1,5 s): **Subir música** / **Bajar música** (a nivel de fondo).
+- **Ducking automático** (interruptor, activado por defecto): la música baja sola cuando alguien habla y vuelve al callar. Si se mueve el deslizador a mano, manda el manual.
+- **Silenciarme** (un toque) y **Solo música**: silencia todos los micros y sube la música; al quitarlo, la música vuelve a fondo y los micros se abren.
+- **Pre-escucha** (cue): oír un corte o una canción solo en tus cascos antes de lanzarlo al aire.
+
+## 3d. Fuentes de audio externas (noticias, vídeos)
+
+- Cortes y música aceptan **MP3/audio y también vídeo (MP4/MOV)**: la app extrae el audio en el navegador. Así se puede grabar la pantalla del móvil con el vídeo y subirlo como corte.
+- **"Compartir pestaña con audio"** (solo presentador desde ordenador con Chrome, `getDisplayMedia` con audio): el sonido de una pestaña (p. ej. un vídeo de YouTube que se está comentando) entra en la mezcla con su propio deslizador. En móvil no existe esta opción; ocultarla.
+- No descargar de URLs de YouTube. Aviso breve sobre derechos (cita breve para comentar ≠ emitir contenido completo).
+
 ## 4. Voz
 
 Procesado en el propio móvil antes de enviar.
