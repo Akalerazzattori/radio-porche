@@ -48,7 +48,8 @@ Como en una radio real: **todo el que habla lleva cascos** (cable o Bluetooth). 
 - Botones rápidos con fundido suave (~1,5 s): **Subir música** / **Bajar música** (a nivel de fondo).
 - **Ducking automático** (interruptor, activado por defecto): la música baja sola cuando alguien habla y vuelve al callar. Si se mueve el deslizador a mano, manda el manual.
 - **Silenciarme** (un toque) y **Solo música**: silencia todos los micros y sube la música; al quitarlo, la música vuelve a fondo y los micros se abren.
-- **Pre-escucha** (cue): oír un corte o una canción solo en tus cascos antes de lanzarlo al aire.
+- **Pre-escucha** (cue): oír un corte o una canción solo en tus cascos antes de lanzarlo al aire (icono de cascos en cada cassette, o mantener pulsado).
+- **Efectos y música son dos zonas distintas** en la cabina: **Efectos/cortes** = cassettes de un disparo, cortos, pueden sonar varios y encima de la música; **Música de fondo** = una pista a la vez, en bucle opcional, con su deslizador. Cada cassette lleva escrito en su etiqueta el **nombre del audio y su duración**; se pueden agrupar por sección del programa (p. ej. "¿Pero usted quién es?").
 
 ## 3d. Fuentes de audio externas (noticias, vídeos)
 
