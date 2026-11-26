@@ -57,6 +57,13 @@ Como en una radio real: **todo el que habla lleva cascos** (cable o Bluetooth). 
 - **"Compartir pestaña con audio"** (solo presentador desde ordenador con Chrome, `getDisplayMedia` con audio): el sonido de una pestaña (p. ej. un vídeo de YouTube que se está comentando) entra en la mezcla con su propio deslizador. En móvil no existe esta opción; ocultarla.
 - No descargar de URLs de YouTube. Aviso breve sobre derechos (cita breve para comentar ≠ emitir contenido completo).
 
+## 3e. Un solo estudio por programa
+
+- El **estudio** es el único dispositivo que mezcla y emite (móvil u ordenador). Para programas con vídeo/pestaña con audio, el estudio es el ordenador con Chrome.
+- Si el anfitrión abre su sala desde otro dispositivo mientras está en el aire, preguntar: "Ya estás emitiendo desde otro dispositivo. ¿Pasar el estudio a este?". Si acepta, el anterior pasa a oyente (silenciado). Nunca dos estudios a la vez.
+- El móvil del anfitrión puede entrar a su propia sala como **invitado en modo Patio** (solo micro) mientras el ordenador es el estudio.
+- Audio de "Compartir pestaña": no enviarlo a los cascos de invitados en modo Patio (ya lo oyen en directo en la tele). Sí a invitados en modo Casa.
+
 ## 4. Voz
 
 Procesado en el propio móvil antes de enviar.
