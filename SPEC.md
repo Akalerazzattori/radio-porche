@@ -15,6 +15,7 @@ Principio rector: **sencillez**. Una acción principal por pantalla, nada técni
 - **Web app** (PWA instalable en la pantalla de inicio). Sin tiendas de apps por ahora.
 - **Cloudflare Workers + Durable Objects con SQLite**, plan gratuito (5 GB de almacenamiento por cuenta). Un solo Worker sirve la web estática, los WebSockets (salas, chat, señalización) y los datos.
 - **Sin Supabase, sin SQL manual, sin claves ni variables secretas.** El usuario solo importa el repo en Cloudflare (Workers & Pages → Importar repositorio → Deploy). Cada push a `main` redespliega solo.
+- Desplegar como **Worker con static assets** (wrangler.jsonc en la raíz, binding de Durable Object y migración `new_sqlite_classes`), **NO como proyecto de Cloudflare Pages**. El usuario ya tiene GitHub conectado a Cloudflare y ve `radio-porche` en la lista; al terminar, indicarle el camino exacto en Workers (Workers & Pages → Create application → Import a repository) y avisarle de que no use el asistente de Pages.
 - Código en este repo (GitHub de Akalerazzattori).
 - Grabaciones guardadas troceadas en SQLite de Durable Objects (filas ≤ 2 MB). Voz comprimida: ~30 MB/hora (Opus ~64 kbps mono).
 - Al terminar: comprobar que compila (`wrangler deploy --dry-run`). **No hacer capturas ni revisiones visuales** para ahorrar tokens.
