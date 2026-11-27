@@ -493,3 +493,24 @@ body { -webkit-user-select: none; user-select: none; }
 .tools button.on { background: var(--red); border-color: var(--red); color: var(--cream); }
 .rec-thumb { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; flex: none; }
 .link-code { font: 700 46px var(--mono); letter-spacing: .18em; text-align: center; color: var(--yellow); }
+
+/* ---------- Arreglos de maquetación ---------- */
+/* Lo que va dentro de una zona con scroll no se encoge: así se puede deslizar */
+.scroll > *, .sheet-body > *, .list > * { flex-shrink: 0; }
+/* En cada pantalla solo se adaptan las zonas elásticas; si aun así no cabe, la pantalla desliza */
+.screen { overflow-y: auto; overscroll-behavior: contain; }
+.screen > * { flex-shrink: 0; }
+.screen > .fill, .screen > .station, .screen > .cover-big, .screen > .wavebox, .screen > .chat { flex-shrink: 1; }
+@media (min-width: 620px) {
+  #app { max-width: 460px; height: calc(100dvh - 32px); max-height: 960px; }
+}
+@media (min-width: 620px) and (max-height: 780px) {
+  #app { height: 100dvh; max-height: none; border-radius: 0; box-shadow: none; }
+}
+.welcome-logo { height: auto; }
+.desk-aside img { height: auto; }
+.rec-row { cursor: pointer; }
+.rec-row .prog { height: 4px; background: var(--line); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.rec-row .prog i { display: block; height: 100%; width: var(--p, 0%); background: var(--yellow); }
+.thumb-play { position: relative; flex: none; }
+.thumb-play .pp { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(18,13,12,.35); border-radius: 12px; color: var(--cream); }

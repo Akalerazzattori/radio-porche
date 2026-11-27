@@ -11,7 +11,7 @@ export async function render(view, _p, { go }) {
   mount(view, html`
     <section class="screen">
       <div class="top">
-        <div><h1 class="h1">Archivo</h1></div>
+        <div><h1 class="h1">Podcasts</h1></div>
         <span class="mono muted small" data-el="count"></span>
       </div>
       <div class="promo">

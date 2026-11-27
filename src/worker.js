@@ -121,7 +121,7 @@ export default {
       const o = url.origin;
       const urls = [
         `<url><loc>${o}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>`,
-        `<url><loc>${o}/archivo</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`,
+        `<url><loc>${o}/podcasts</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`,
         ...['aviso-legal', 'privacidad', 'condiciones', 'normas'].map((s) => `<url><loc>${o}/legal/${s}</loc><priority>0.2</priority></url>`),
         ...d.porches.map((p) => `<url><loc>${o}/porche/${escAttr(p.slug)}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`),
         ...d.podcasts.map((p) => `<url><loc>${o}/p/${escAttr(p.id)}</loc><lastmod>${new Date(p.created).toISOString().slice(0, 10)}</lastmod><priority>0.6</priority></url>`),

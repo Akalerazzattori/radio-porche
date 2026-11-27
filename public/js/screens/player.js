@@ -95,7 +95,7 @@ export async function render(view, [id], { back, go }) {
   let p = player.p?.id === id ? player.p : null;
   if (!p) {
     try { p = (await api(`/api/podcasts/${id}`)).podcast; } catch (e) {
-      mount(view, html`<section class="screen"><div class="top"><h1 class="h1">Archivo</h1><button class="icon-btn" data-act="back">${icon('close')}</button></div><div class="empty"><img src="/img/scenes/escena-2.webp" alt=""><p>${e.message}</p></div></section>`);
+      mount(view, html`<section class="screen"><div class="top"><h1 class="h1">Podcasts</h1><button class="icon-btn" data-act="back">${icon('close')}</button></div><div class="empty"><img src="/img/scenes/escena-2.webp" alt=""><p>${e.message}</p></div></section>`);
       view.querySelector('[data-act=back]').onclick = back;
       return;
     }
@@ -107,7 +107,7 @@ export async function render(view, [id], { back, go }) {
     <section class="screen">
       <div class="top">
         <button class="icon-btn" data-act="back" aria-label="Cerrar">${icon('down')}</button>
-        <div class="h3 center grow">${p.part > 1 ? `Parte ${p.part} · ` : ''}Del archivo</div>
+        <div class="h3 center grow">${p.part > 1 ? `Parte ${p.part} · ` : ''}Podcast</div>
         <button class="icon-btn" data-act="more" aria-label="Más">${icon('more')}</button>
       </div>
       ${p.hidden ? html`<div class="banner red">Este podcast está oculto por reportes y solo lo ves tú.</div>` : ''}

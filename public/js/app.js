@@ -14,7 +14,7 @@ const app = document.getElementById('app');
 
 const ROUTES = [
   { re: /^\/$/, mod: () => import('./screens/onair.js'), tab: 'aire' },
-  { re: /^\/archivo$/, mod: () => import('./screens/archive.js'), tab: 'archivo' },
+  { re: /^\/(?:archivo|podcasts)$/, mod: () => import('./screens/archive.js'), tab: 'archivo' },
   { re: /^\/avisos$/, mod: () => import('./screens/notices.js'), tab: 'avisos' },
   { re: /^\/perfil$/, mod: () => import('./screens/profile.js'), tab: 'perfil' },
   { re: /^\/mi-porche$/, mod: () => import('./screens/myporch.js'), tab: 'porche' },
@@ -74,7 +74,7 @@ function paintTabbar() {
   const t = (id, href, ic, label) => html`<a href="${href}" class="${currentTab === id ? 'on' : ''}" ${currentTab === id ? html`aria-current="page"` : ''}><span class="dot">${icon(ic)}${id === 'avisos' && badge ? html`<span class="badge">${badge}</span>` : ''}</span>${label}</a>`;
   mount(tabbar, html`
     ${t('aire', '/', 'radio', 'En el aire')}
-    ${t('archivo', '/archivo', 'folder', 'Archivo')}
+    ${t('archivo', '/podcasts', 'folder', 'Podcasts')}
     <a href="${onAir && live.porch ? `/porche/${live.porch.slug}` : '/mi-porche'}" class="center ${onAir ? 'onair' : ''}" aria-label="${onAir ? 'Volver a la cabina' : 'Mi porche: salir al aire'}">${onAir ? html`${icon('mic')}<small>ON AIR</small>` : icon('home')}</a>
     ${t('avisos', '/avisos', 'bell', 'Avisos')}
     ${t('perfil', '/perfil', 'user', 'Perfil')}`);

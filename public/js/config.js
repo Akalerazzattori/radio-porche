@@ -13,10 +13,10 @@ export const APP = {
 
 // --- Datos legales (sustituir antes de abrir al público) ---
 export const LEGAL = {
-  TITULAR: '[TITULAR]',
-  NIF: '[NIF]',
-  CORREO: '[CORREO]',
-  DOMICILIO: '[DOMICILIO]',
+  TITULAR: 'Marc Font',
+  NIF: '38884935P',
+  CORREO: 'phawna.info@gmail.com',
+  DOMICILIO: 'Escoles 51, 08380, España',
   // Si cambias cualquier texto legal, sube esta versión: la app pedirá aceptar de nuevo.
   TERMS_VERSION: '2026-11-27',
 };

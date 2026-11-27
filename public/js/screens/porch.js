@@ -393,6 +393,7 @@ function buildGreenRoom(view, porch, ctx) {
         <div class="h3">3 · ¿Cómo sales?</div>
         <div class="modes">${BROADCAST_MODES.map((m) => html`
           <label class="radio-opt"><input type="radio" name="mode" value="${m.id}" ${m.id === 'rec' ? 'checked' : ''}><div class="grow"><div class="t">${m.name}</div><div class="d">${m.hint}</div></div>${m.id === 'rec' ? html`<span class="rec-chip">REC</span>` : ''}</label>`)}</div>
+        <label class="toggle-row"><span class="grow"><b>Sonar la sintonía al salir</b><div class="muted tiny">Si lo activas, al entrar en antena suena la sintonía de serie.</div></span><span class="switch"><input type="checkbox" data-el="jingle" ${localStorage.getItem('rp_jingle') === '1' ? 'checked' : ''}><span></span></span></label>
         <div class="row between"><div class="h3">Sonidos preparados</div><span class="yellow-t b" data-el="ncortes"></span></div>
         <a class="cassettes" href="/mi-porche?tab=sonidos">
           ${[1, 2, 3, 4].map((n) => html`<img src="/img/cassettes/cassette-${n}.webp" alt="" width="64" height="38">`)}
@@ -469,7 +470,9 @@ function buildGreenRoom(view, porch, ctx) {
     cancelAnimationFrame(holdRaf); holdStart = 0;
     const title = $el('title').value.trim();
     localStorage.setItem('rp_lasttitle', title);
-    ctl.golive(view.querySelector('input[name=mode]:checked').value, title);
+    const jingle = $el('jingle').checked;
+    localStorage.setItem('rp_jingle', jingle ? '1' : '0');
+    ctl.golive(view.querySelector('input[name=mode]:checked').value, title, jingle);
     beep(1200, 0.3);
     goLiveOverlay();
   }
@@ -778,7 +781,13 @@ function buildBooth(view, porch, ctx) {
       case 'unpin': live.send({ t: 'pin', text: '' }); break;
       case 'end': {
         const rec = ctl.rec();
-        if (!(await confirmSheet('¿Terminar la emisión?', rec ? 'Se cerrará la grabación y se guardará en Borradores (en el aparato que hace de estudio).' : 'Los oyentes dejarán de oírte.', { ok: 'Fin emisión', danger: true }))) return;
+        const min = LIMITS.MIN_PUBLISH_MIN;
+        let msg = 'Los oyentes dejarán de oírte.';
+        if (rec) {
+          msg = 'Los oyentes dejarán de oírte. La grabación se guardará en Borradores (en el aparato que hace de estudio).';
+          if (rec.elapsed < min * 60) msg += ` Ojo: esta parte dura ${fmtTime(rec.elapsed)}. Con menos de ${min} minutos no podrás publicarla, solo guardarla en privado.`;
+        }
+        if (!(await confirmSheet('¿Terminar la emisión?', msg, { ok: 'Fin emisión', danger: true }))) return;
         if (remote) { live.ctl('end'); toast('Emisión terminada'); return; }
         await live.endBroadcast(true);
         const parts = live.recParts.slice();

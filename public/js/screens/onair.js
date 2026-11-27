@@ -11,7 +11,7 @@ export async function render(view, _p, { go }) {
     <section class="screen">
       <div class="top">
         <div><h1 class="h1">En el aire</h1><div class="sub">${weekdayGreeting()}</div></div>
-        <a class="icon-btn" href="/archivo?buscar=1" aria-label="Buscar">${icon('search')}</a>
+        <a class="icon-btn" href="/podcasts?buscar=1" aria-label="Buscar">${icon('search')}</a>
       </div>
       <div class="stats">
         <div class="card stat"><span class="big-num red-t" data-el="nlive">–</span><div class="lbl">porches en directo</div></div>

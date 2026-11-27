@@ -50,6 +50,7 @@ export async function render(view, _p, { go }) {
 
   async function show(t) {
     tab = t;
+    stopRec?.();
     history.replaceState(history.state, '', `/mi-porche?tab=${t}`);
     view.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
     if (t === 'grabaciones') await recordingsTab();
@@ -60,35 +61,63 @@ export async function render(view, _p, { go }) {
   view.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => show(b.dataset.tab)));
   view.querySelector('[data-act=share]').onclick = () => shareUrl(`${location.origin}/porche/${porch.slug}`, porch.name);
 
-  // ---------- Grabaciones (en el móvil)
+  // ---------- Grabaciones (en el móvil). Toca la foto o el título para escucharla aquí mismo.
+  let recAudio = null, recPlaying = null, recRaf = 0;
+  function stopRec() { try { recAudio?.pause(); } catch {} if (recAudio?.src) URL.revokeObjectURL(recAudio.src); recAudio = null; recPlaying = null; cancelAnimationFrame(recRaf); }
   async function recordingsTab() {
+    stopRec();
     const list = (await db.all('recordings')).sort((a, b) => b.created - a.created);
     const left = (r) => Math.max(0, Math.ceil((r.created + LIMITS.DRAFT_DAYS * 86400000 - Date.now()) / 86400000));
     mount(panel, html`<div class="list">
       <div class="banner yellow small">${icon('lock')} Lo grabado vive solo en este móvil hasta que lo publiques. Los borradores se borran solos a los ${LIMITS.DRAFT_DAYS} días.</div>
       ${list.length ? list.map((r) => html`
-        <div class="item">
-          <img class="rec-thumb" src="${recordingThumb(r)}" alt="">
+        <div class="item rec-row" data-play="${r.id}">
+          <div class="thumb-play"><img class="rec-thumb" src="${recordingThumb(r)}" alt=""><span class="pp" data-pp="${r.id}">${icon('play')}</span></div>
           <div class="grow">
             <div class="t ellip">${r.title}${r.part > 1 ? ` · Parte ${r.part}` : ''}</div>
             <div class="m">${r.kind === 'draft' ? `Borrador · se borra en ${left(r)} días` : 'Privado'} · ${fmtDur(r.duration)} · ${fmtDate(r.created)}</div>
-            ${r.duration < LIMITS.MIN_PUBLISH_MIN * 60 ? html`<div class="m orange-t">Dura menos de ${LIMITS.MIN_PUBLISH_MIN} min: te sugerimos descartarlo.</div>` : ''}
+            ${r.duration < LIMITS.MIN_PUBLISH_MIN * 60 ? html`<div class="m orange-t">Menos de ${LIMITS.MIN_PUBLISH_MIN} min: no se puede publicar.</div>` : ''}
+            <div class="prog" data-prog="${r.id}"><i></i></div>
           </div>
           <div class="col gap-s">
-            <a class="btn sm yellow" href="/editor/${r.id}">${icon('scissors')} Editar audio</a>
+            <a class="btn sm yellow" href="/editor/${r.id}">${icon('scissors')} Editar</a>
             <button class="btn sm ghost" data-det="${r.id}">${icon('edit')} Título y foto</button>
             <button class="btn sm ghost" data-del="${r.id}">${icon('trash')} Borrar</button>
           </div>
         </div>`) : html`<div class="empty"><img src="/img/scenes/escena-2.webp" alt=""><p>Aún no hay grabaciones. Sal al aire en modo <b>Directo + grabación</b> y aparecerán aquí.</p></div>`}
     </div>`);
+    const paintPP = () => {
+      panel.querySelectorAll('[data-pp]').forEach((el) => mount(el, icon(recPlaying === el.dataset.pp && recAudio && !recAudio.paused ? 'pause' : 'play')));
+    };
     panel.onclick = async (e) => {
+      if (e.target.closest('a')) return;
       const d = e.target.closest('[data-det]');
       if (d) { const r = list.find((x) => x.id === d.dataset.det); if ((await recordingDetailsSheet(r)) === 'ok') recordingsTab(); return; }
-      const b = e.target.closest('[data-del]');
-      if (!b) return;
-      if (!(await confirmSheet('¿Borrar esta grabación?', 'Se borra de este móvil y no se puede recuperar.', { ok: 'Borrar', danger: true }))) return;
-      await db.del('recordings', b.dataset.del);
-      recordingsTab();
+      const del = e.target.closest('[data-del]');
+      if (del) {
+        if (!(await confirmSheet('¿Borrar esta grabación?', 'Se borra de este móvil y no se puede recuperar.', { ok: 'Borrar', danger: true }))) return;
+        stopRec(); await db.del('recordings', del.dataset.del); recordingsTab(); return;
+      }
+      const prog = e.target.closest('[data-prog]');
+      if (prog && recAudio && recPlaying === prog.dataset.prog) {
+        const rc = prog.getBoundingClientRect();
+        recAudio.currentTime = ((e.clientX - rc.left) / rc.width) * (recAudio.duration || 0);
+        return;
+      }
+      const row = e.target.closest('[data-play]');
+      if (!row) return;
+      const id = row.dataset.play;
+      if (recPlaying === id && recAudio) { recAudio.paused ? recAudio.play() : recAudio.pause(); paintPP(); return; }
+      stopRec();
+      const r = list.find((x) => x.id === id);
+      recAudio = new Audio(URL.createObjectURL(r.blob));
+      recPlaying = id;
+      recAudio.onended = () => paintPP();
+      try { await recAudio.play(); } catch { toast('No se puede reproducir en este navegador', 'bad'); }
+      paintPP();
+      const bar = panel.querySelector(`[data-prog="${id}"]`);
+      const loop = () => { if (!recAudio) return; setPct(bar, '--p', recAudio.duration && isFinite(recAudio.duration) ? (recAudio.currentTime / recAudio.duration) * 100 : (recAudio.currentTime / r.duration) * 100); recRaf = requestAnimationFrame(loop); };
+      loop();
     };
   }
 
@@ -285,6 +314,7 @@ export async function render(view, _p, { go }) {
   }
 
   show(tab);
+  return () => stopRec();
 }
 
 // Grabar un corte con el móvil y recortarlo

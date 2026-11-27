@@ -317,7 +317,7 @@ export const live = {
         if (!this.state.live) {
           if (!this.voice) { try { await this.startVoice(localStorage.getItem('rp_hp') !== '0'); } catch {} }
           this.goLive(['ensayo', 'directo', 'rec'].includes(a.mode) ? a.mode : 'directo', String(a.title || '').slice(0, 80));
-          this.introJingle();
+          if (a.jingle === true) this.introJingle();
         }
         break;
       case 'end': if (this.state.live) { await this.endBroadcast(true); toast('El mando a distancia ha terminado la emisión. La grabación está en Borradores.'); } break;
