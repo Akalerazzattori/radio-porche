@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Radio Porche · Radios de barrio en directo</title>
+  <meta name="description" content="Abre tu porche y emite en directo con tus amigos desde el móvil. Escucha radios de barrio, comenta en el chat, pide micro y escucha los podcasts grabados.">
+  <meta name="theme-color" content="#120d0c">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="/">
+  <meta property="og:site_name" content="Radio Porche">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Radio Porche · Radios de barrio en directo">
+  <meta property="og:description" content="Abre tu porche y emite en directo con tus amigos desde el móvil. Tu móvil es el micro.">
+  <meta property="og:image" content="/img/og.jpg">
+  <meta property="og:url" content="/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Radio Porche · Radios de barrio en directo">
+  <meta name="twitter:description" content="Abre tu porche y emite en directo con tus amigos desde el móvil.">
+  <meta name="twitter:image" content="/img/og.jpg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/png" href="/img/favicon.png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Radio Porche">
+  <link rel="preload" href="/fonts/anton-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/archivo-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/app.css">
+  <script id="ld" type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Radio Porche","applicationCategory":"MultimediaApplication","operatingSystem":"Web","inLanguage":"es","description":"Red de radios de barrio: emite en directo desde el móvil con tus amigos, chatea, pide micro y publica podcasts.","offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"}}</script>
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body>
+  <aside class="desk-aside" aria-hidden="true">
+    <img src="/img/logo.webp" alt="" width="340" height="227">
+    <span class="stamp">EN DIRECTO DESDE EL PORCHE</span>
+    <p>Radio de barrio con sonido de emisora.<br>Tu móvil es el micro.</p>
+  </aside>
+  <div id="app">
+    <main id="view" aria-live="polite">
+      <noscript>
+        <div class="screen">
+          <h1 class="h1">Radio Porche</h1>
+          <p>Radios de barrio en directo desde el móvil. Necesitas activar JavaScript para escuchar y emitir.</p>
+        </div>
+      </noscript>
+    </main>
+    <div id="mini" hidden></div>
+    <nav id="tabbar" aria-label="Navegación principal"></nav>
+  </div>
+  <div class="desk-right" aria-hidden="true"></div>
+  <div id="overlays"></div>
+  <div id="toasts" role="status"></div>
+</body>
+</html>

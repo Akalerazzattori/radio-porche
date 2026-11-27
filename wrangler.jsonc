@@ -1,0 +1,28 @@
+{
+  // Radio Porche: un solo Worker sirve la web, los WebSockets y los datos.
+  // Desplegar como WORKER (no como Cloudflare Pages).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "radio-porche",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-06-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "HUB", "class_name": "Hub" },
+      { "name": "ROOM", "class_name": "Room" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Hub", "Room"] }
+  ],
+  "vars": {
+    // Opcional: clave PÚBLICA de Turnstile. La secreta va como secret (ver README).
+    "TURNSTILE_SITEKEY": ""
+  },
+  "observability": { "enabled": true }
+}

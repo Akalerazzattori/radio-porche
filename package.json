@@ -1,0 +1,15 @@
+{
+  "name": "radio-porche",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Radios de barrio en directo. Cloudflare Worker + Durable Objects (SQLite).",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "wrangler deploy --dry-run --outdir=.wrangler/dry"
+  },
+  "devDependencies": {
+    "wrangler": "4.169.0"
+  }
+}

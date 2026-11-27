@@ -1,0 +1,94 @@
+{
+ "version": 1,
+ "note": "Biblioteca de serie incluida en el repo. Zonas: fx (efectos), bg (musica de fondo), song (canciones). Para añadir: copia el mp3 aqui y añade una linea.",
+ "items": [
+  {
+   "id": "sintonia",
+   "zone": "fx",
+   "name": "Sintonía",
+   "file": "/library/sintonia.mp3",
+   "duration": 5.5,
+   "section": "Apertura"
+  },
+  {
+   "id": "bocina",
+   "zone": "fx",
+   "name": "Bocina",
+   "file": "/library/bocina.mp3",
+   "duration": 1.1,
+   "section": ""
+  },
+  {
+   "id": "redoble",
+   "zone": "fx",
+   "name": "Redoble",
+   "file": "/library/redoble.mp3",
+   "duration": 3.2,
+   "section": ""
+  },
+  {
+   "id": "campanilla",
+   "zone": "fx",
+   "name": "Campanilla",
+   "file": "/library/campanilla.mp3",
+   "duration": 2.5,
+   "section": ""
+  },
+  {
+   "id": "aplausos",
+   "zone": "fx",
+   "name": "Aplausos",
+   "file": "/library/aplausos.mp3",
+   "duration": 4.0,
+   "section": ""
+  },
+  {
+   "id": "tachan",
+   "zone": "fx",
+   "name": "¡Tachán!",
+   "file": "/library/tachan.mp3",
+   "duration": 2.6,
+   "section": ""
+  },
+  {
+   "id": "pitidos",
+   "zone": "fx",
+   "name": "Pitidos de la hora",
+   "file": "/library/pitidos.mp3",
+   "duration": 6.0,
+   "section": "Apertura"
+  },
+  {
+   "id": "rasca",
+   "zone": "fx",
+   "name": "Rasca de vinilo",
+   "file": "/library/rasca.mp3",
+   "duration": 0.9,
+   "section": ""
+  },
+  {
+   "id": "calor-de-agosto",
+   "zone": "bg",
+   "name": "Calor de agosto",
+   "file": "/library/calor-de-agosto.mp3",
+   "duration": 20.0,
+   "section": ""
+  },
+  {
+   "id": "noche-de-patio",
+   "zone": "bg",
+   "name": "Noche de patio",
+   "file": "/library/noche-de-patio.mp3",
+   "duration": 24.6,
+   "section": ""
+  },
+  {
+   "id": "porche-boogie",
+   "zone": "song",
+   "name": "Porche Boogie (instrumental)",
+   "file": "/library/porche-boogie.mp3",
+   "duration": 69.8,
+   "section": ""
+  }
+ ]
+}
