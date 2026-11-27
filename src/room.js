@@ -132,8 +132,14 @@ export class Room extends DurableObject {
       return reject('private', 'Es un ensayo privado. Solo entra quien tiene invitación.');
     }
 
+    // La misma pestaña reconectando: cerrar su conexión vieja (evita fantasmas y avisos repetidos)
+    const tab = typeof auth.tab === 'string' ? auth.tab.slice(0, 24) : '';
+    let rejoin = false;
+    if (tab) for (const w of others) { const x = this.att(w); if (x.tab === tab) { rejoin = true; x.left = true; this.setAtt(w, x); try { w.close(4003, 'replaced'); } catch {} if (x.role === 'host') { this.state.studio = null; } } }
+    const devAlready = !!auth.ident && this.sockets().some((w) => w !== server && this.att(w).dev === auth.ident.deviceId);
     const cid = randomId(6);
     const a = {
+      tab,
       cid, ip: auth.ip, dev: auth.ident?.deviceId || '', name: auth.ident?.name || '', isNew: !!auth.ident?.isNew,
       isOwner: !!auth.isOwner, isMod: !!auth.isMod, invited: hasInvite, role: 'listener', mode: '', hp: false,
       muted: false, last: Date.now(), lastChat: 0, chatWin: 0, chatN: 0, lastMic: 0, lastReact: 0, micReq: null,
@@ -152,7 +158,7 @@ export class Room extends DurableObject {
     });
     if (studioBusy) this.send(server, { t: 'studioBusy' });
     if (a.role === 'host') this.broadcast({ t: 'studio', cid, state: this.publicState() }, (x) => x.cid !== cid);
-    if (a.name && a.role !== 'host' && this.state.live) this.system(`${a.name} se ha unido`);
+    if (a.name && a.role !== 'host' && this.state.live && !rejoin && !devAlready) this.system(`${a.name} se ha unido`);
     this.pushPeople();
     const al = await this.ctx.storage.getAlarm();
     if (!al) await this.ctx.storage.setAlarm(Date.now() + 30_000);

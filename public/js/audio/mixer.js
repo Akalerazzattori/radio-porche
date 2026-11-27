@@ -58,6 +58,8 @@ export class Mixer {
   get listenerStream() { return this.listenerDest.stream; }
   get patioStream() { return this.patioDest.stream; }
 
+  /** Retorno: oír la emisión (música, efectos, invitados) en este aparato. Sin cascos, mejor apagado. */
+  setMonitor(on) { this.monitorOn = !!on; this.monitor.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.05); }
   setOnAir(on) { this.onAir.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.05); }
 
   // ---------- Voces

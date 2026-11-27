@@ -57,6 +57,9 @@ export const live = {
     if (session.token) q.set('t', session.token);
     if (this.opts.mod) q.set('m', this.opts.mod);
     if (this.opts.invite) q.set('i', this.opts.invite);
+    let tab = sessionStorage.getItem('rp_tab');
+    if (!tab) { tab = Math.random().toString(36).slice(2, 12); sessionStorage.setItem('rp_tab', tab); }
+    q.set('c', tab);
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${proto}://${location.host}/api/room/${this.porch.id}/ws?${q}`);
     this.ws = ws;
@@ -68,7 +71,7 @@ export const live = {
       clearInterval(this.pingIv);
       this.linkState = 'closed';
       emit('update');
-      if (this.closedByUser || e.code === 4000 || e.code === 4001) return;
+      if (this.closedByUser || e.code === 4000 || e.code === 4001 || e.code === 4003) return;
       const wait = Math.min(15000, 800 * 2 ** this.retry++);
       this.reconnectTimer = setTimeout(() => { if (!this.closedByUser && this.porch) this.open(); }, wait);
     };
@@ -234,6 +237,7 @@ export const live = {
       onState: () => emit('update'),
     });
     if (this.voice) this.mixer.addVoice('me', { node: this.voice.node, local: true, name: session.name });
+    this.mixer.setMonitor(localStorage.getItem('rp_hp') !== '0');
     if (this.state.live) { this.mixer.setOnAir(!this.state.paused); keepAwake(true); }
     this.remote = false;
     this.loadItems();
@@ -257,7 +261,7 @@ export const live = {
     if (!it) return false;
     const buf = await decode(it);
     if (cue) { this.mixer.cue(buf); return true; }
-    if (it.zone === 'fx') {
+    if (it.zone === 'fx' || it.zone === 'jingle') {
       const h = this.mixer.playFx(buf, { onEnd: () => { this.fxPlaying.delete(key); emit('sounds'); } });
       this.fxPlaying.set(key, h);
     } else {
@@ -347,7 +351,8 @@ export const live = {
     const fx = await getSetting('voiceFx', null);
     if (fx) v.setEffect(fx);
     this.voice = v;
-    if (this.mixer) this.mixer.addVoice('me', { node: v.node, local: true, name: session.name });
+    this.headphones = headphones;
+    if (this.mixer) { this.mixer.addVoice('me', { node: v.node, local: true, name: session.name }); this.mixer.setMonitor(headphones); }
     emit('update');
     return v;
   },

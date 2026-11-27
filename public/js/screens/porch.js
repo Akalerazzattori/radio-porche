@@ -1,7 +1,7 @@
 // Pantalla de un porche: Oyente (con chat y pedir micro), Invitado con micro,
 // Camerino (antes de salir) y Cabina (en directo) para quien presenta.
 import { api, session } from '../api.js';
-import { LIMITS, VOICE_FX, BROADCAST_MODES, QUICK_REACTIONS, ZONES } from '../config.js';
+import { LIMITS, VOICE_FX, BROADCAST_MODES, QUICK_REACTIONS, ZONES, SOUND_TABS } from '../config.js';
 import { html, mount, icon, raw, toast, sheet, confirmSheet, fmtTime, fmtShortDur, fmtDate, initial, avatarColor, haptic, canShareTab, setPct, esc, on } from '../util.js';
 import { porchCover, requireIdentity, personMenu, shareUrl, isBlocked, nameColor, copy } from '../common.js';
 import { live, onLive } from '../live.js';
@@ -382,7 +382,7 @@ function buildGreenRoom(view, porch, ctx) {
           ${raw(meterHtml())}
           <div data-el="voice"></div>
           <div class="row gap wrap">
-            <button class="btn sm yellow" data-act="startmic">${icon('mic')} Probar micro</button>
+            <button class="btn sm yellow pulse-hint" data-act="startmic">${icon('mic')} Probar micro</button>
             <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="hp" ${headphones ? 'checked' : ''}><span></span></span> Llevo cascos</label>
             <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="monitor"><span></span></span> Oírme</label>
           </div>
@@ -393,13 +393,11 @@ function buildGreenRoom(view, porch, ctx) {
         <div class="h3">3 · ¿Cómo sales?</div>
         <div class="modes">${BROADCAST_MODES.map((m) => html`
           <label class="radio-opt"><input type="radio" name="mode" value="${m.id}" ${m.id === 'rec' ? 'checked' : ''}><div class="grow"><div class="t">${m.name}</div><div class="d">${m.hint}</div></div>${m.id === 'rec' ? html`<span class="rec-chip">REC</span>` : ''}</label>`)}</div>
-        <label class="toggle-row"><span class="grow"><b>Sonar la sintonía al salir</b><div class="muted tiny">Si lo activas, al entrar en antena suena la sintonía de serie.</div></span><span class="switch"><input type="checkbox" data-el="jingle" ${localStorage.getItem('rp_jingle') === '1' ? 'checked' : ''}><span></span></span></label>
-        <div class="row between"><div class="h3">Sonidos preparados</div><span class="yellow-t b" data-el="ncortes"></span></div>
-        <a class="cassettes" href="/mi-porche?tab=sonidos">
-          ${[1, 2, 3, 4].map((n) => html`<img src="/img/cassettes/cassette-${n}.webp" alt="" width="64" height="38">`)}
-          <span class="muted small" data-el="more"></span>
-        </a>
-        <div class="row between"><div class="h3">Contigo en el camerino</div><button class="yellow-t b small" data-act="invite">+ Invitar al micro</button></div>
+        <label class="toggle-row"><span class="grow"><b>Sintonía al salir</b> <span class="muted tiny">suena al entrar en antena</span></span><span class="switch"><input type="checkbox" data-el="jingle" ${localStorage.getItem('rp_jingle') === '1' ? 'checked' : ''}><span></span></span></label>
+        <div class="row between"><div class="h3">4 · Tu botonera</div>${remote ? '' : html`<a class="btn sm ghost" href="/mi-porche?tab=sonidos">${icon('edit')} Editar botonera</a>`}</div>
+        <div class="tapes" data-el="tapes"></div>
+        <div class="muted tiny" data-el="ncortes"></div>
+        <div class="row between"><div class="h3">Contigo en el camerino</div><button class="btn sm yellow" data-act="invite">${icon('plus')} Invitar al micro</button></div>
         <div class="col gap-s" data-el="guests"></div>
         <div class="col gap-s" data-el="reqs"></div>
       </div>
@@ -417,8 +415,10 @@ function buildGreenRoom(view, porch, ctx) {
     loop();
   }
   ctl.sounds().then((items) => {
-    $el('ncortes').textContent = `${items.length}`;
-    $el('more').textContent = 'Efectos, fondo y canciones · añadir';
+    const n = (zs) => items.filter((i) => zs.includes(i.zone)).length;
+    $el('ncortes').textContent = SOUND_TABS.map((t) => `${n(t.zones)} ${t.label.toLowerCase()}`).join(' · ');
+    const pick = [...items.filter((i) => i.zone === 'jingle'), ...items.filter((i) => i.zone === 'fx'), ...items.filter((i) => i.zone !== 'jingle' && i.zone !== 'fx')].slice(0, 4);
+    mount($el('tapes'), html`${pick.map((it, i) => html`<div class="tape-card"><img src="/img/cassettes/cassette-${(i % 6) + 1}.webp" alt="" width="138" height="82"><span class="tape-label">${it.name}</span></div>`)}`);
   });
 
   async function startMic() {
@@ -426,7 +426,7 @@ function buildGreenRoom(view, porch, ctx) {
       audioCtx();
       await live.startVoice(headphones);
       const b = view.querySelector('[data-act=startmic]');
-      if (b) b.textContent = '✓ Micro listo';
+      if (b) { b.textContent = '✓ Micro listo'; b.classList.remove('pulse-hint'); }
       return true;
     } catch { toast('No se ha podido abrir el micro. Revisa los permisos del navegador.', 'bad'); return false; }
   }
@@ -521,15 +521,14 @@ function buildBooth(view, porch, ctx) {
   const ctl = makeCtl();
   const remote = ctl.remote;
   let tab = 'voces';
-  let zone = 'fx', origin = 'serie';
+  let stab = 'jingle', origin = 'serie';
   let items = [];
   mount(view, html`
     <section class="screen is-live">
-      <div class="onair-band">
+      <div class="onair-top">
         <button class="band-back" data-act="x" aria-label="Salir de la cabina (la emisión sigue)">${icon('back')}</button>
-        <span class="live-chip glow" data-el="onair">En el aire</span>
-        <span class="mono clock" data-el="clock">00:00:00</span>
-        <span class="rec-chip off" data-el="rec">REC</span>
+        <div class="onair-sign" data-el="sign"><span class="lamp"></span><span data-el="onair">En el aire</span></div>
+        <div class="onair-meta"><span class="mono clock" data-el="clock">00:00:00</span><span class="rec-chip off" data-el="rec">REC</span></div>
       </div>
       <div class="row between small" data-el="partrow"></div>
       ${remote ? remoteBanner() : ''}
@@ -539,7 +538,7 @@ function buildBooth(view, porch, ctx) {
       </div>
       <div class="fill scroll" data-el="panel"></div>
       <div class="quick">
-        <button data-q="selfmute">${icon('mic')}<span>Silenciarme</span></button>
+        <button data-q="selfmute">${icon('micoff')}<span>Cortar mi micro</span></button>
         <button data-q="solo">${icon('music')}<span>Solo música</span></button>
         <button data-q="up">▲<span>Música alta</span></button>
         <button data-q="down">▼<span>Música de fondo</span></button>
@@ -558,9 +557,7 @@ function buildBooth(view, porch, ctx) {
     $el('clock').textContent = fmtTime(s.since ? (Date.now() - s.since) / 1000 : 0, true);
     const onair = $el('onair');
     onair.textContent = s.paused ? 'En pausa' : 'En el aire';
-    onair.classList.toggle('off', !!s.paused);
-    onair.classList.toggle('glow', !s.paused);
-    view.querySelector('.onair-band').classList.toggle('paused', !!s.paused);
+    view.querySelector('.onair-sign').classList.toggle('paused', !!s.paused);
     const rec = ctl.rec();
     $el('rec').classList.toggle('off', !rec);
     const pr = $el('partrow');
@@ -582,7 +579,19 @@ function buildBooth(view, porch, ctx) {
   function voicesPanel() {
     const guests = live.people.filter((p) => p.role === 'guest');
     const rows = [{ cid: 'me', name: `${session.name} (estudio)`, me: true }, ...guests];
-    mount(panel, html`<div class="list">${rows.map((g) => html`
+    const hp = localStorage.getItem('rp_hp') !== '0';
+    mount(panel, html`<div class="list">
+      ${remote ? '' : html`<div class="card col gap-s">
+        <b>Tu micro y tus cascos</b>
+        <div class="row gap wrap">
+          <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="hp" ${hp ? 'checked' : ''}><span></span></span> Llevo cascos</label>
+          <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="ret" ${live.mixer?.monitorOn ? 'checked' : ''}><span></span></span> Oír la emisión</label>
+          <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="monitor" ${live.voice?.monitorOn ? 'checked' : ''}><span></span></span> Oírme</label>
+        </div>
+        <div class="muted tiny">Sin cascos, deja «Oír la emisión» apagado: si suena por el altavoz, el micro lo recoge y se acopla. Con gente alrededor, usa siempre cascos.</div>
+        <div data-el="vsel"></div>
+      </div>`}
+      ${rows.map((g) => html`
       <div class="voice-row" data-cid="${g.cid}">
         <span class="av ${avatarColor(g.name)}">${initial(g.name)}</span>
         <div class="grow col gap-s">
@@ -604,6 +613,8 @@ function buildBooth(view, porch, ctx) {
       }
     };
     paintMute();
+    const vselEl = panel.querySelector('[data-el=vsel]');
+    if (vselEl) { const vs = voiceSelector(() => live.voice); mount(vselEl, vs.tpl); vs.bind(vselEl); }
     const loop = () => {
       for (const row of panel.querySelectorAll('[data-cid]')) setMeter(row.querySelector('.meter'), ctl.voiceLevel(row.dataset.cid));
       raf = requestAnimationFrame(loop);
@@ -615,33 +626,40 @@ function buildBooth(view, porch, ctx) {
   async function soundsPanel() {
     items = await ctl.sounds();
     const paintPads = () => {
-      const list = items.filter((i) => i.zone === zone && i.origin === origin);
-      const sections = [...new Set(list.map((i) => i.section || ''))];
+      const T = SOUND_TABS.find((x) => x.id === stab);
+      const list = items.filter((i) => T.zones.includes(i.zone) && i.origin === origin);
+      const groups = [];
+      for (const z of T.zones) {
+        const inZ = list.filter((i) => i.zone === z);
+        for (const sec of [...new Set(inZ.map((i) => i.section || ''))]) {
+          const title = [T.zones.length > 1 ? (z === 'bg' ? 'De fondo · en bucle' : 'Canciones') : '', sec].filter(Boolean).join(' · ');
+          groups.push({ title, items: inZ.filter((i) => (i.section || '') === sec) });
+        }
+      }
       const music = ctl.music();
       const fxKeys = new Set(ctl.fxKeys());
       let idx = 0;
       const padHtml = (it) => {
         const playing = fxKeys.has(it.key) || (music && music.key === it.key);
         return html`<button class="pad c${idx++ % 6} ${playing ? 'playing' : ''}" data-pad="${it.key}">
-          <span class="n">${it.name}</span><span class="d">${fmtShortDur(it.duration)}${it.zone === 'bg' ? ' · bucle' : ''}</span><span class="p"></span><span class="zone-ic" aria-hidden="true">${it.zone === 'fx' ? '⚡' : it.zone === 'bg' ? '♫' : '♪'}</span>
+          <span class="n">${it.name}</span><span class="d">${fmtShortDur(it.duration)}${it.zone === 'bg' ? ' · bucle' : ''}</span><span class="p"></span><span class="zone-ic" aria-hidden="true">${it.zone === 'fx' ? '⚡' : it.zone === 'jingle' ? '📻' : it.zone === 'bg' ? '♫' : '♪'}</span>
           <span class="cue" data-cue="${it.key}" role="button" aria-label="Pre-escuchar ${it.name} solo en tus cascos">${icon('hp')}</span>
         </button>`;
       };
       mount(panel, html`
         <div class="col gap">
-          <div class="seg">${Object.entries(ZONES).map(([k, z]) => html`<button data-zone="${k}" class="${zone === k ? 'on' : ''}">${z.label}</button>`)}</div>
+          <div class="seg">${SOUND_TABS.map((t) => html`<button data-stab="${t.id}" class="${stab === t.id ? 'on' : ''}">${t.label}</button>`)}</div>
           <div class="row between gap">
             <div class="seg dark grow"><button data-origin="serie" class="${origin === 'serie' ? 'on' : ''}">De serie</button><button data-origin="mias" class="${origin === 'mias' ? 'on' : ''}">Mías</button></div>
             ${remote ? '' : html`<a class="btn sm ghost" href="/mi-porche?tab=sonidos" aria-label="Añadir sonidos">${icon('plus')}</a>`}
           </div>
-          <div class="muted tiny">${ZONES[zone].hint} ${zone === 'fx' ? 'Toca para que suene. Icono de cascos: lo oyes solo tú antes de lanzarlo.' : 'Toca para que suene; toca otra vez para pararla.'}</div>
-          ${zone !== 'fx' ? html`<div class="card tight now">
+          <div class="muted tiny">${T.hint} ${stab === 'music' ? 'Toca para que suene; toca otra vez para pararla.' : 'Toca para que suene. Círculo de cascos: lo oyes solo tú antes de lanzarlo.'}</div>
+          ${stab === 'music' ? html`<div class="card tight now">
             <div class="vinyl ${music ? 'spin' : ''}"></div>
             <div class="grow"><div class="b ellip">${music ? music.name : 'Sin música sonando'}</div><div class="muted small mono" data-el="mpos">—</div></div>
-            <label class="row gap-s small">Repetir <span class="switch"><input type="checkbox" data-act="loop" ${zone === 'bg' ? 'checked' : ''}><span></span></span></label>
             ${music ? html`<button class="btn sm ghost" data-act="stopmusic">Parar</button>` : ''}
           </div>` : ''}
-          <div class="pads">${list.length ? sections.map((s) => html`${s ? html`<div class="sec-title">${s}</div>` : ''}${list.filter((i) => (i.section || '') === s).map(padHtml)}`) : html`<p class="muted small sec-title">${origin === 'mias' ? (remote ? 'Los sonidos propios del estudio aparecen aquí.' : 'Aún no has añadido sonidos propios. Pulsa + para subir MP3, vídeo o grabar.') : 'No hay sonidos de serie en esta zona.'}</p>`}</div>
+          <div class="pads">${list.length ? groups.map((g) => html`${g.title ? html`<div class="sec-title">${g.title}</div>` : ''}${g.items.map(padHtml)}`) : html`<p class="muted small sec-title">${origin === 'mias' ? (remote ? 'Los sonidos propios del estudio aparecen aquí.' : 'Aún no has añadido nada aquí. Pulsa + para subir MP3, vídeo o grabar.') : 'No hay sonidos de serie en esta pestaña.'}</p>`}</div>
         </div>`);
     };
     paintPads();
@@ -713,8 +731,7 @@ function buildBooth(view, porch, ctx) {
     if (!it) return;
     haptic(8);
     if (cue) { ctl.cue(it); toast(`Pre-escucha: ${it.name} (solo en tus cascos)`); return; }
-    const loop = panel.querySelector('[data-act=loop]');
-    ctl.fire(key, { loop: it.zone === 'fx' ? undefined : loop ? loop.checked : it.zone === 'bg' });
+    ctl.fire(key, { loop: it.zone === 'bg' ? true : it.zone === 'song' ? false : undefined });
     setTimeout(() => soundsPanel.repaint?.(), remote ? 900 : 80);
   }
   // Mantener pulsado un cassette = pre-escucha
@@ -736,7 +753,7 @@ function buildBooth(view, porch, ctx) {
     if ((b = t.closest('[data-deny]'))) return live.send({ t: 'deny', cid: b.dataset.deny });
     if ((b = t.closest('[data-cue]'))) { e.stopPropagation(); return fire(b.dataset.cue, true); }
     if ((b = t.closest('[data-pad]'))) { if (pressed) { pressed = false; return; } b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 120); return fire(b.dataset.pad, false); }
-    if ((b = t.closest('[data-zone]'))) { zone = b.dataset.zone; return soundsPanel.repaint(); }
+    if ((b = t.closest('[data-stab]'))) { stab = b.dataset.stab; return soundsPanel.repaint(); }
     if ((b = t.closest('[data-origin]'))) { origin = b.dataset.origin; return soundsPanel.repaint(); }
     if ((b = t.closest('[data-mute]'))) {
       const cid = b.dataset.mute;
@@ -806,7 +823,15 @@ function buildBooth(view, porch, ctx) {
     s.parentElement.querySelector('.v').textContent = Math.round((v / s.max) * 100);
     ctl.setFader(s.dataset.fader, v);
   });
-  view.addEventListener('change', (e) => {
+  view.addEventListener('change', async (e) => {
+    if (e.target.matches('[data-act=hp]')) {
+      const on = e.target.checked; localStorage.setItem('rp_hp', on ? '1' : '0');
+      live.mixer?.setMonitor(on);
+      const ret = panel.querySelector('[data-act=ret]'); if (ret) ret.checked = on;
+      if (live.voice) { try { await live.startVoice(on); } catch {} }
+      toast(on ? 'Con cascos: oyes la emisión y la voz suena más limpia.' : 'Sin cascos: tu móvil no suena (evita acoples) y se activa la cancelación de eco.');
+    }
+    if (e.target.matches('[data-act=ret]')) live.mixer?.setMonitor(e.target.checked);
     if (e.target.matches('[data-act=ducking]')) ctl.setDucking(e.target.checked);
     if (e.target.matches('[data-act=monitor]')) live.voice?.setMonitor(e.target.checked);
     if (e.target.matches('[data-act=hearhere]')) live.setHearHere(e.target.checked);

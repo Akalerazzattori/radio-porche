@@ -1,7 +1,7 @@
 // Mi porche: ir al camerino, grabaciones (borradores y privados), publicados (editar),
 // sonidos propios (efectos, música de fondo, canciones) y datos del porche.
 import { api, session } from '../api.js';
-import { LIMITS, ZONES } from '../config.js';
+import { LIMITS, ZONES, SOUND_TABS } from '../config.js';
 import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtDur, fmtDate, fmtShortDur, fmtBytes, setPct, esc } from '../util.js';
 import { requireIdentity, porchCover, podcastCover, shareUrl, copy } from '../common.js';
 import { db } from '../db.js';
@@ -42,7 +42,7 @@ export async function render(view, _p, { go }) {
         ? html`<a class="btn red big" href="/porche/${porch.slug}">${icon('radio')} Estás en el aire · volver a la cabina</a>`
         : html`<a class="btn red big" href="/porche/${porch.slug}">${icon('mic')} Ir a la cabina</a>`}
       <div class="seg">
-        <button data-tab="grabaciones">Grabaciones</button><button data-tab="publicados">Publicados</button><button data-tab="sonidos">Sonidos</button><button data-tab="porche">Porche</button>
+        <button data-tab="grabaciones">Grabaciones</button><button data-tab="publicados">Publicados</button><button data-tab="sonidos">Botonera</button><button data-tab="porche">Porche</button>
       </div>
       <div class="fill scroll" data-el="panel"></div>
     </section>`);
@@ -51,6 +51,7 @@ export async function render(view, _p, { go }) {
   async function show(t) {
     tab = t;
     stopRec?.();
+    stopPrev?.();
     history.replaceState(history.state, '', `/mi-porche?tab=${t}`);
     view.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
     if (t === 'grabaciones') await recordingsTab();
@@ -187,69 +188,80 @@ export async function render(view, _p, { go }) {
     return s.done;
   }
 
-  // ---------- Sonidos
-  let zone = 'fx';
-  let previewSrc = null;
+  // ---------- Botonera: Cortinillas · Efectos · Música
+  let stab = 'jingle';
+  let prevSrc = null, prevKey = null;
+  const stopPrev = () => { try { prevSrc?.stop(); } catch {} prevSrc = null; prevKey = null; };
   async function soundsTab() {
+    stopPrev();
     const [std, mine] = await Promise.all([loadStandard(), loadMine()]);
-    const z = ZONES[zone];
-    const myList = mine.filter((s) => s.zone === zone);
-    const stdList = std.filter((s) => s.zone === zone);
+    const T = SOUND_TABS.find((t) => t.id === stab);
+    const myList = mine.filter((x) => T.zones.includes(x.zone));
+    const stdList = std.filter((x) => T.zones.includes(x.zone));
+    const kind = (x) => (x.zone === 'bg' ? ' · de fondo, en bucle' : x.zone === 'song' ? ' · canción' : '');
+    const row = (x, own) => html`
+      <div class="item">
+        <button class="play-dot" data-prev="${x.origin}:${x.id}" aria-label="Escuchar o parar">${icon('play')}</button>
+        <div class="grow"><div class="t ellip">${x.name}</div><div class="m">${fmtShortDur(x.duration)}${kind(x)}${x.section ? ` · ${x.section}` : ''}${own ? '' : ' · libre de derechos'}</div></div>
+        ${own ? html`<button class="icon-btn" data-ren="${x.id}" aria-label="Renombrar">${icon('edit')}</button><button class="icon-btn" data-delsnd="${x.id}" aria-label="Borrar">${icon('trash')}</button>` : ''}
+      </div>`;
     mount(panel, html`<div class="col gap">
-      <div class="seg">${Object.entries(ZONES).map(([k, v]) => html`<button data-zone="${k}" class="${k === zone ? 'on' : ''}">${v.label}</button>`)}</div>
-      <div class="muted small">${z.hint}</div>
-      ${zone === 'song' ? html`<div class="banner red small">Las canciones comerciales en podcasts publicados pueden tener problemas de derechos. Usa fragmentos breves o música libre.</div>` : ''}
+      <div class="seg">${SOUND_TABS.map((t) => html`<button data-stab="${t.id}" class="${t.id === stab ? 'on' : ''}">${t.label}</button>`)}</div>
+      <div class="muted small">${T.hint}</div>
+      ${stab === 'music' ? html`<div class="banner red small">Las canciones comerciales en podcasts publicados pueden tener problemas de derechos. Usa fragmentos breves o música libre.</div>` : ''}
       <div class="row gap">
         <label class="btn yellow grow">${icon('upload')} Subir archivo<input type="file" accept="audio/*,video/mp4,video/quicktime,.mp3,.m4a,.wav,.ogg,.mp4,.mov" hidden data-act="file"></label>
         <button class="btn ghost grow" data-act="rec">${icon('mic')} Grabar</button>
       </div>
-      <div class="muted tiny">MP3 o cualquier audio, y también vídeo MP4/MOV (graba la pantalla con el vídeo y súbelo: extraemos el audio aquí, en tu móvil). No se descarga nada de YouTube.</div>
+      <div class="muted tiny">MP3 o cualquier audio, y también vídeo MP4/MOV: sacamos el audio aquí, en tu móvil. No se descarga nada de YouTube.</div>
       <div class="h3">Mías · ${myList.length}</div>
-      <div class="list">${myList.length ? myList.map((s) => html`
-        <div class="item">
-          <button class="play-dot" data-prev="mias:${s.id}" aria-label="Escuchar">${icon('play')}</button>
-          <div class="grow"><div class="t ellip">${s.name}</div><div class="m">${fmtShortDur(s.duration)}${s.section ? ` · ${s.section}` : ''}</div></div>
-          <button class="icon-btn" data-ren="${s.id}" aria-label="Renombrar">${icon('edit')}</button>
-          <button class="icon-btn" data-delsnd="${s.id}" aria-label="Borrar">${icon('trash')}</button>
-        </div>`) : html`<p class="muted small">Aún no has añadido nada en esta zona.</p>`}</div>
+      <div class="list">${myList.length ? myList.map((x) => row(x, true)) : html`<p class="muted small">Aún no has añadido nada aquí. Se guarda solo en este móvil.</p>`}</div>
       <div class="h3">De serie · ${stdList.length}</div>
-      <div class="list">${stdList.map((s) => html`
-        <div class="item"><button class="play-dot" data-prev="serie:${s.id}" aria-label="Escuchar">${icon('play')}</button><div class="grow"><div class="t ellip">${s.name}</div><div class="m">${fmtShortDur(s.duration)}${s.section ? ` · ${s.section}` : ''} · libre de derechos</div></div></div>`)}</div>
+      <div class="list">${stdList.map((x) => row(x, false))}</div>
     </div>`);
     const all = [...std, ...mine];
+    const paintBtns = () => panel.querySelectorAll('[data-prev]').forEach((el) => mount(el, icon(el.dataset.prev === prevKey ? 'pause' : 'play')));
+    const askZone = async () => (stab === 'music' ? await sheet(html`<h2 class="h2">¿Cómo la vas a usar?</h2><button class="opt" data-close="bg">♫ Música de fondo <span class="muted small">· en bucle, baja sola cuando habláis</span></button><button class="opt" data-close="song">♪ Canción <span class="muted small">· suena una vez</span></button>`).done : T.zones[0]);
     panel.onclick = async (e) => {
       let b;
-      if ((b = e.target.closest('[data-zone]'))) { zone = b.dataset.zone; return soundsTab(); }
+      if ((b = e.target.closest('[data-stab]'))) { stab = b.dataset.stab; return soundsTab(); }
       if ((b = e.target.closest('[data-prev]'))) {
-        const it = all.find((x) => x.origin + ':' + x.id === b.dataset.prev);
-        try { previewSrc?.stop(); } catch {}
+        const key = b.dataset.prev;
+        if (prevKey === key) { stopPrev(); paintBtns(); return; }
+        stopPrev();
+        const it = all.find((x) => x.origin + ':' + x.id === key);
         const c = audioCtx();
         const buf = await decode(it);
-        previewSrc = c.createBufferSource(); previewSrc.buffer = buf; previewSrc.connect(c.destination); previewSrc.start();
-        setTimeout(() => { try { previewSrc.stop(); } catch {} }, Math.min(buf.duration, 20) * 1000);
+        prevSrc = c.createBufferSource(); prevSrc.buffer = buf; prevSrc.connect(c.destination); prevSrc.start();
+        prevKey = key;
+        const me2 = prevSrc;
+        prevSrc.onended = () => { if (prevSrc === me2) { prevSrc = null; prevKey = null; paintBtns(); } };
+        paintBtns();
         return;
       }
       if ((b = e.target.closest('[data-ren]'))) {
-        const s = mine.find((x) => x.id === b.dataset.ren);
-        const name = await promptSheet('Nombre del sonido', { value: s.name, max: 40 });
+        const x = mine.find((y) => y.id === b.dataset.ren);
+        const name = await promptSheet('Nombre en la botonera', { value: x.name, max: 40 });
         if (name === null || name === undefined) return;
-        const section = await promptSheet('Sección del programa (opcional)', { value: s.section || '', max: 40, placeholder: '¿Pero usted quién es?' });
-        await renameSound(s.id, { name: name || s.name, section: section || '' });
+        const section = await promptSheet('Sección del programa (opcional)', { value: x.section || '', max: 40, placeholder: '¿Pero usted quién es?' });
+        await renameSound(x.id, { name: name || x.name, section: section || '' });
         return soundsTab();
       }
       if ((b = e.target.closest('[data-delsnd]'))) {
         if (!(await confirmSheet('¿Borrar este sonido?', 'Se borra de este móvil.', { ok: 'Borrar', danger: true }))) return;
         await deleteSound(b.dataset.delsnd); return soundsTab();
       }
-      if (e.target.closest('[data-act=rec]')) return recordSoundSheet(zone).then(soundsTab);
+      if (e.target.closest('[data-act=rec]')) { const z = await askZone(); if (!z) return; return recordSoundSheet(z).then(soundsTab); }
     };
     panel.querySelector('[data-act=file]').onchange = async (e) => {
       const f = e.target.files[0];
       if (!f) return;
-      const name = await promptSheet('Nombre para el cassette', { value: f.name.replace(/\.[^.]+$/, '').slice(0, 40), max: 40 });
+      const z = await askZone();
+      if (!z) return;
+      const name = await promptSheet('Nombre en la botonera', { value: f.name.replace(/\.[^.]+$/, '').slice(0, 40), max: 40 });
       if (name === null || name === undefined) return;
       toast('Preparando el audio…');
-      try { await importSound(f, { zone, name }); toast('Añadido a tus sonidos', 'good'); } catch (err) { toast(err.message, 'bad'); }
+      try { await importSound(f, { zone: z, name }); toast('Añadido a tu botonera', 'good'); } catch (err) { toast(err.message, 'bad'); }
       soundsTab();
     };
   }
@@ -314,7 +326,7 @@ export async function render(view, _p, { go }) {
   }
 
   show(tab);
-  return () => stopRec();
+  return () => { stopRec(); stopPrev(); };
 }
 
 // Grabar un corte con el móvil y recortarlo

@@ -1,14 +1,38 @@
 {
  "version": 1,
- "note": "Biblioteca de serie incluida en el repo. Zonas: fx (efectos), bg (musica de fondo), song (canciones). Para añadir: copia el mp3 aqui y añade una linea.",
+ "note": "Biblioteca de serie incluida en el repo. Zonas: jingle (cortinillas), fx (efectos), bg (música de fondo), song (canciones). Para añadir: copia el mp3 aquí y añade una línea.",
  "items": [
   {
    "id": "sintonia",
-   "zone": "fx",
+   "zone": "jingle",
    "name": "Sintonía",
    "file": "/library/sintonia.mp3",
    "duration": 5.5,
-   "section": "Apertura"
+   "section": ""
+  },
+  {
+   "id": "pitidos",
+   "zone": "jingle",
+   "name": "Pitidos de la hora",
+   "file": "/library/pitidos.mp3",
+   "duration": 6.0,
+   "section": ""
+  },
+  {
+   "id": "separador",
+   "zone": "jingle",
+   "name": "Separador",
+   "file": "/library/separador.mp3",
+   "duration": 2.2,
+   "section": ""
+  },
+  {
+   "id": "despedida",
+   "zone": "jingle",
+   "name": "Despedida",
+   "file": "/library/despedida.mp3",
+   "duration": 5.0,
+   "section": ""
   },
   {
    "id": "bocina",
@@ -49,14 +73,6 @@
    "file": "/library/tachan.mp3",
    "duration": 2.6,
    "section": ""
-  },
-  {
-   "id": "pitidos",
-   "zone": "fx",
-   "name": "Pitidos de la hora",
-   "file": "/library/pitidos.mp3",
-   "duration": 6.0,
-   "section": "Apertura"
   },
   {
    "id": "rasca",

@@ -50,7 +50,7 @@ export const LIMITS = {
 
   // Salas
   ROOM_MAX_CONN: 25,
-  ROOM_MAX_PER_IP: 3,
+  ROOM_MAX_PER_IP: 12, // en el patio todos comparten la misma wifi (misma IP)
   ROOM_MAX_MICS: 8,
   WS_MAX_BYTES: 8 * 1024,
   WS_IDLE_SEC: 75,
@@ -79,12 +79,21 @@ export const LIMITS = {
 
 export const NAME_PATTERN = "^[A-Za-zÀ-ÖØ-öø-ÿ0-9 ._'-]+$";
 
-// --- Zonas de sonido de la cabina ---
+// --- La botonera: tipos de sonido ---
+// jingle = cortinillas (falcas de entrada, salida, separadores), fx = efectos (ruidos cortos),
+// bg = música de fondo (en bucle), song = canciones (suenan una vez).
 export const ZONES = {
-  fx: { label: 'Efectos', hint: 'Cortos, de un toque. Suenan encima de todo.' },
+  jingle: { label: 'Cortinillas', hint: 'Falcas para entrar, salir o separar secciones. Suenan una vez.' },
+  fx: { label: 'Efectos', hint: 'Ruidos cortos de un toque: aplausos, bocina… Suenan encima de todo.' },
   bg: { label: 'Música de fondo', hint: 'Una pista en bucle bajo las voces. Baja sola cuando alguien habla.' },
-  song: { label: 'Canciones', hint: 'Temas completos que suenan una vez. Ojo con los derechos si publicas.' },
+  song: { label: 'Canciones', hint: 'Temas que suenan una vez. Ojo con los derechos si publicas.' },
 };
+// Pestañas de la botonera (3): Cortinillas · Efectos · Música (fondo + canciones)
+export const SOUND_TABS = [
+  { id: 'jingle', label: 'Cortinillas', zones: ['jingle'], hint: 'Falcas para entrar, salir o separar secciones del programa.' },
+  { id: 'fx', label: 'Efectos', zones: ['fx'], hint: 'Ruidos cortos de un toque. Pueden sonar encima de la música.' },
+  { id: 'music', label: 'Música', zones: ['bg', 'song'], hint: 'Música de fondo (en bucle, baja sola cuando habláis) y canciones.' },
+];
 
 // --- Voz ---
 export const VOICE_FX = [
