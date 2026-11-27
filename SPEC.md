@@ -150,6 +150,99 @@ Barra inferior: **En el aire · Archivo · [botón central rojo: Mi porche / sal
 - Botones grandes (mín. 44 px), mucho contraste, una sola acción principal por pantalla.
 - Movimiento: dial con inercia y "clic" por emisora; luz ON AIR con resplandor rojo.
 
+## 10. Almacenamiento: qué se guarda dónde (decidido)
+
+- **En el móvil (IndexedDB, nunca en el servidor):** borradores, podcasts privados, cortes y música que añada cada usuario, y sus ajustes.
+- **En el servidor (Durable Objects SQLite, troceado en filas ≤2 MB):** solo los podcasts **publicados**, con su portada, título y metadatos, más la biblioteca **estándar** de música y efectos libres de derechos que ofrece la app (pocos y ligeros).
+- **Descargar:** cualquiera puede descargar un podcast publicado; cada uno puede descargar sus privados.
+- **Copia para cambiar de móvil:** botón **Exportar copia** que genera un único archivo con todo lo privado (podcasts, cortes, música y ajustes) para guardarlo en iCloud o Drive o pasarlo por AirDrop, y **Importar copia** en el móvil nuevo. Avisar en la UI de que la app web **no se traspasa sola** al cambiar de iPhone y de que borrar los datos del navegador la borra. Pedir `navigator.storage.persist()`.
+- Una "Parte 2" se enlaza con la "Parte 1" (serie de un mismo programa).
+
+## 11. Duración y edición
+
+- Contador de **minutos en antena** siempre visible en la cabina.
+- **Máximo 40 min por parte.** Aviso a los 35 min ("Te quedan 5 minutos: despide la Parte 1") y otro al minuto 39. Al llegar a 40 se cierra la grabación de esa parte y se ofrece **Continuar en Parte 2** sin cortar el directo para los oyentes. Constante configurable.
+- **Mínimo 5 min para publicar.** Menos de 5 min: solo guardar en privado o borrar.
+- **Sin cupo de publicación por ahora**, pero dejar la constante preparada (`MAX_PUBLICADOS`, desactivada) para un futuro plan premium.
+- **Editor al terminar:** forma de onda con zoom; seleccionar un trozo y **Eliminar**; recortar inicio y final; deshacer; escuchar antes de guardar. Todo en el navegador, sin subir nada hasta publicar. Después: **Guardar privado**, **Publicar** (portada y título) o **Borrar**.
+
+## 12. Seguridad (adaptado de dos proyectos anteriores; implementar en el Worker y en los Durable Objects)
+
+**Identidad sin cuentas**
+- Al entrar: nombre (2–30 caracteres, lista blanca de caracteres) + **id de dispositivo** aleatorio + **token firmado (HMAC)** que emite el Worker. Las acciones de escritura exigen el token.
+- **Cloudflare Turnstile** al crear la identidad y al publicar. Si no hay clave configurada, la app funciona sin él (sin bloquear el despliegue). La clave secreta se pone como *secret* del Worker; documentarlo en el README como paso opcional.
+- Login con Google: fuera de alcance por ahora; dejar la identidad desacoplada para añadirlo después.
+
+**Límites (servidor, no solo cliente)**
+- Por dispositivo y por IP (`CF-Connecting-IP`), con contadores en un Durable Object:
+  - chat: 1 mensaje/2 s y 20/min, máx. 300 caracteres;
+  - peticiones de micro: 1 cada 30 s;
+  - creación de identidades: 5/hora por IP;
+  - publicaciones: 5/día por dispositivo;
+  - reportes: 10/día.
+- Más estricto para identidades de menos de 24 h.
+- **Límite global de emergencia** (p. ej. 30 publicaciones/hora en total) y un interruptor de administrador **Pausar publicaciones / Pausar nuevos porches**.
+- Salas: máx. 25 conexiones por sala, máx. 3 conexiones simultáneas por IP, máx. 8 micros; cerrar WebSockets inactivos; mensajes WebSocket ≤ 8 KB.
+- Subidas: solo audio Opus/WebM/MP4; tamaño máximo coherente con 40 min (~25 MB); el **servidor comprueba duración y tamaño reales** (no fiarse del cliente) y rechaza lo que dure menos de 5 min o más de 41; portada JPEG/WebP ≤ 500 KB (reducida en el navegador). Validar tipo por cabecera de archivo, no por extensión.
+- Almacenamiento: tope por porche de lo publicado (constante) y aviso al acercarse al límite global de 5 GB.
+
+**Validación y permisos**
+- El servidor **reconstruye cada objeto desde una lista blanca** de campos, ignora lo desconocido y recorta las longitudes; los mismos límites con `maxlength` en el cliente.
+- `esc()`/`textContent` para todo texto de usuarios (contra XSS).
+- Solo el dueño del porche (token) puede emitir, expulsar, silenciar y publicar o borrar sus podcasts. Enlace de **moderador** secreto y regenerable.
+- Comparación de secretos en tiempo constante. Ningún secreto en el cliente.
+
+**Cabeceras** (las sirve el Worker en todas las respuestas)
+- CSP:
+  - `default-src 'self'`;
+  - `connect-src 'self' wss:`;
+  - `media-src 'self' blob:`;
+  - `img-src 'self' data: blob:`;
+  - `script-src 'self'` más Turnstile;
+  - `frame-src` de Turnstile;
+  - `frame-ancestors 'none'`;
+  - `object-src 'none'`;
+  - `base-uri 'self'`.
+  Evitar `'unsafe-inline'`: scripts en archivos.
+- `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security`.
+- `Permissions-Policy: microphone=(self), camera=(self), geolocation=()`.
+- Fuentes **alojadas en el propio Worker** (no Google Fonts) y dependencias con versión fijada.
+
+**Moderación**
+- **Reportar** con motivos cerrados: spam, insultos/acoso, odio, datos privados de otros, menores, contenido ilegal, derechos de autor, otro. No se puede reportar lo propio; un reporte por objeto y persona.
+- **Ocultación automática**: 3 reportes de identidades con más de 24 h, o 2 si el motivo es "menores" o "ilegal". Reversible. El autor sigue viéndolo con un aviso.
+- Bloquear persona (deja de verla y oírla). En directo, el presentador silencia o expulsa y bloquea ese dispositivo en su porche.
+- Filtro sencillo de insultos y enlaces en el chat (lista de palabras editable).
+- **Panel de administración** oculto (enlace secreto del dueño de la app): ver reportes, ocultar/restaurar/borrar, bloquear dispositivos, interruptores de pausa y un registro de acciones.
+
+**Privacidad**
+- Sin cookies de seguimiento ni analítica; solo almacenamiento funcional. Sin banner (pendiente de confirmar con abogado).
+- No guardar IP más allá de los contadores temporales (ventanas cortas, sin histórico).
+- Chat del directo: no se guarda tras cerrar la sala.
+- Botón **Borrar todos mis datos** (servidor: publicados, identidad y reportes anonimizados; móvil: IndexedDB) y **Descargar mis datos**.
+- Aviso de grabación visible y aceptación antes de entrar al micro cuando hay REC.
+
+## 13. Textos legales (pantallas dentro de la app, con marcadores [TITULAR], [NIF], [CORREO])
+
+Escribir en castellano, en apartados cortos y lenguaje claro:
+- **Aviso legal (LSSI)**: titular, objeto, propiedad intelectual (el contenido es de quien lo crea) y notificación de contenidos ilícitos (botón Reportar + correo).
+- **Política de privacidad**:
+  - quién trata los datos;
+  - qué datos: nombre, id de dispositivo, publicados, reportes, IP temporal;
+  - para qué y base legal;
+  - cuánto tiempo;
+  - con quién: Cloudflare como encargado;
+  - derechos y reclamación ante la AEPD;
+  - qué se guarda en el móvil.
+- **Condiciones de uso**: mayores de 18; cada persona es responsable de lo que dice y publica; cómo funcionan grabación y publicación; retirada y bloqueo; servicio "tal cual"; ley española.
+- **Normas de la comunidad**:
+  - libertad de expresión con límites: nada de injurias o calumnias, odio, acoso, datos privados de otros sin permiso, menores ni contenido ilegal;
+  - pedir permiso antes de grabar a alguien;
+  - música y vídeos de otros: solo fragmentos breves para comentar.
+- **Aviso de cookies/almacenamiento**: un párrafo dentro de la privacidad.
+- Aceptación de condiciones con **versión** guardada; si cambia la versión, se vuelve a pedir.
+- Nota en el README: revisar con un abogado antes de abrir al público.
+
 ## 9. Fuera de alcance por ahora
 
-App de tiendas (requiere cuenta de desarrollador de Apple), publicación en Spotify/Apple Podcasts vía RSS, clips de vídeo para redes, transcripción con IA, servidor de audio para audiencias grandes.
+App de tiendas (requiere cuenta de desarrollador de Apple), login con Google, transcripción automática de los podcasts (más adelante, con la IA de Cloudflare), cupos premium, publicación en Spotify/Apple Podcasts vía RSS, clips de vídeo para redes, transcripción con IA, servidor de audio para audiencias grandes.
