@@ -2,7 +2,7 @@
 import { api, session } from '../api.js';
 import { LEGAL } from '../config.js';
 import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, initial, avatarColor, fmtBytes } from '../util.js';
-import { requireIdentity, recoveryLink, copy, recoverSheet, unblockAll, blockedList } from '../common.js';
+import { requireIdentity, recoveryLink, copy, recoverSheet, unblockAll, blockedList, linkDeviceSheet } from '../common.js';
 import { exportBackup, importBackup, wipeLocal, storageEstimate, requestPersist } from '../db.js';
 import { live } from '../live.js';
 
@@ -19,11 +19,12 @@ export async function render(view, _p, { go }) {
             <div class="grow"><div class="b">${session.name}</div><div class="muted tiny">Identidad guardada en este dispositivo</div></div>
             <button class="btn sm ghost" data-act="rename">${icon('edit')}</button>
           </div>`
-        : html`<div class="card col gap-s"><b>Aún no has entrado</b><p class="muted small">Puedes escuchar sin entrar. Para chatear, pedir micro o abrir tu porche, entra solo con un nombre.</p><button class="btn yellow" data-act="login">Entrar con mi nombre</button><button class="btn ghost" data-act="recover">Ya tengo porche en otro móvil</button></div>`}
+        : html`<div class="card col gap-s"><b>Aún no has entrado</b><p class="muted small">Puedes escuchar sin entrar. Para chatear, pedir micro o abrir tu porche, entra solo con un nombre.</p><button class="btn yellow" data-act="login">Entrar con mi nombre</button><button class="btn ghost" data-act="recover">Ya tengo porche en otro aparato</button></div>`}
 
-        <div class="h3">Cambiar de móvil</div>
+        <div class="h3">Otros aparatos</div>
         <div class="group">
-          ${logged ? html`<button class="li" data-act="recovery">${icon('link')} <span class="grow">Copiar enlace de recuperación</span></button>` : ''}
+          ${logged ? html`<button class="li" data-act="link">${icon('link')} <span class="grow">Vincular otro aparato (ordenador)</span><span class="muted tiny">código de 6 cifras</span></button>` : html`<button class="li" data-act="recover">${icon('link')} <span class="grow">Ya tengo porche en otro aparato</span></button>`}
+          ${logged ? html`<button class="li" data-act="recovery">${icon('shield')} <span class="grow">Copiar enlace de recuperación</span></button>` : ''}
           <button class="li" data-act="export">${icon('dl')} <span class="grow">Exportar copia</span><span class="muted tiny">borradores, sonidos, ajustes</span></button>
           <label class="li">${icon('upload')} <span class="grow">Importar copia</span><input type="file" hidden data-act="import" accept=".rpbk,application/octet-stream,*/*"></label>
         </div>
@@ -39,7 +40,7 @@ export async function render(view, _p, { go }) {
         <div class="h3">Ayuda</div>
         <div class="group">
           <button class="li" data-act="help">${icon('hp')} <span class="grow">Cómo emitir bien (cascos, wifi…)</span></button>
-          <a class="li" href="/admin">${icon('shield')} <span class="grow">Administración</span></a>
+          <a class="li" href="/admin">${icon('settings')} <span class="grow">Administración</span><span class="muted tiny">con tu enlace secreto</span></a>
         </div>
 
         <div class="h3">Legal</div>
@@ -59,6 +60,7 @@ export async function render(view, _p, { go }) {
     switch (b.dataset.act) {
       case 'login': if (await requireIdentity()) go('/perfil', { replace: true }); break;
       case 'recover': if (await recoverSheet()) go('/perfil', { replace: true }); break;
+      case 'link': linkDeviceSheet(); break;
       case 'rename': {
         const n = await promptSheet('Tu nombre', { value: session.name, max: 30 });
         if (!n) return;

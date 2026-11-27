@@ -62,7 +62,7 @@ export class Room extends DurableObject {
     for (const w of this.sockets()) {
       const a = this.att(w);
       if (!full && a.role === 'listener') continue;
-      out.push({ cid: a.cid, name: a.name || 'Oyente', role: a.role, mode: a.mode || '', hp: !!a.hp, muted: !!a.muted, isMod: !!a.isMod, dev: a.dev || '', micReq: a.micReq || null });
+      out.push({ cid: a.cid, owner: !!a.isOwner, name: a.name || 'Oyente', role: a.role, mode: a.mode || '', hp: !!a.hp, muted: !!a.muted, isMod: !!a.isMod, dev: a.dev || '', micReq: a.micReq || null });
     }
     return out;
   }
@@ -174,7 +174,7 @@ export class Room extends DurableObject {
     const a = this.att(ws);
     a.last = Date.now();
     const isHost = a.role === 'host';
-    const canMod = isHost || a.isMod;
+    const canMod = isHost || a.isMod || a.isOwner;
 
     switch (msg.t) {
       case 'chat': {
@@ -230,7 +230,7 @@ export class Room extends DurableObject {
         a.micReq = null; this.setAtt(ws, a); this.pushPeople(); return;
       }
       case 'grant': case 'deny': {
-        if (!isHost) return;
+        if (!isHost && !a.isOwner) return;
         const tw = this.byCid(msg.cid);
         if (!tw) return;
         const t = this.att(tw);
@@ -239,7 +239,7 @@ export class Room extends DurableObject {
         if (this.counts().mics >= LIMITS.ROOM_MAX_MICS) return this.send(ws, { t: 'error', code: 'mics', msg: `Máximo ${LIMITS.ROOM_MAX_MICS} micros a la vez` });
         t.role = 'guest'; t.mode = t.micReq.mode; t.hp = t.micReq.hp; t.micReq = null; t.muted = false;
         this.setAtt(tw, t);
-        this.send(tw, { t: 'granted', mode: t.mode, host: a.cid, rec: this.state.rec });
+        this.send(tw, { t: 'granted', mode: t.mode, host: this.state.studio, rec: this.state.rec });
         this.pushPeople();
         return;
       }
@@ -280,8 +280,9 @@ export class Room extends DurableObject {
         const t = this.att(tw);
         if (t.role === 'host' || t.isOwner) return;
         if (t.isMod && !isHost) return;
-        this.send(tw, { t: 'kicked', ban: !!msg.ban && isHost });
-        if (msg.ban && isHost && t.dev) {
+        const canBan = isHost || a.isOwner;
+        this.send(tw, { t: 'kicked', ban: !!msg.ban && canBan });
+        if (msg.ban && canBan && t.dev) {
           try {
             const hub = this.env.HUB.get(this.env.HUB.idFromName('main'));
             await hub.fetch('https://hub/internal/ban', { method: 'POST', body: JSON.stringify({ porchId: this.state.porchId, deviceId: t.dev }) });
@@ -300,6 +301,24 @@ export class Room extends DurableObject {
         const t = this.att(tw);
         if (!isHost && t.role !== 'host') return; // solo con el estudio
         this.send(tw, { t: 'signal', from: a.cid, data: msg.data });
+        return;
+      }
+      case 'ctl': {
+        // Mando a distancia: otro aparato del anfitrión controla la cabina del estudio
+        if (!a.isOwner || isHost) return;
+        const h = this.host();
+        if (!h) return this.send(ws, { t: 'error', code: 'nostudio', msg: 'El estudio no está conectado' });
+        if (typeof msg.cmd !== 'string' || msg.cmd.length > 20) return;
+        this.send(h, { t: 'ctl', cmd: msg.cmd, args: msg.args && typeof msg.args === 'object' ? msg.args : {} });
+        return;
+      }
+      case 'studioState': case 'studioSounds': {
+        if (!isHost) return;
+        const out = JSON.stringify({ t: msg.t, s: msg.s });
+        for (const w of this.sockets()) {
+          const x = this.att(w);
+          if (x.isOwner && x.role !== 'host') { try { w.send(out); } catch {} }
+        }
         return;
       }
       case 'want': {

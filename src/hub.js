@@ -62,6 +62,7 @@ export class Hub extends DurableObject {
       CREATE TABLE IF NOT EXISTS rl (key TEXT PRIMARY KEY, exp INTEGER NOT NULL, n INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS library (id TEXT PRIMARY KEY, zone TEXT NOT NULL, name TEXT NOT NULL, section TEXT DEFAULT '',
         mime TEXT NOT NULL, bytes INTEGER NOT NULL, duration REAL DEFAULT 0, created INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS link_codes (code TEXT PRIMARY KEY, device TEXT NOT NULL, exp INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, action TEXT NOT NULL, detail TEXT);
     `);
   }
@@ -285,6 +286,21 @@ export class Hub extends DurableObject {
         });
       }
       if (p === '/api/identity' && m === 'POST') return await this.createIdentity(req, ip);
+      if (p === '/api/link/claim' && m === 'POST') {
+        // Vincular otro aparato con un código de 6 cifras (caduca en 10 min, un solo uso)
+        if (!this.limit(`link:ip:${ip}`, HOUR, 10) || !this.limit('link:global', HOUR, 300)) return err(429, 'Demasiados intentos. Prueba dentro de un rato.');
+        const b = await req.json().catch(() => ({}));
+        const code = String(b.code || '').replace(/\D/g, '');
+        if (code.length !== 6) return err(400, 'El código tiene 6 cifras');
+        this.run('DELETE FROM link_codes WHERE exp < ?', now());
+        const row = this.one('SELECT * FROM link_codes WHERE code=?', code);
+        if (!row) return err(404, 'Código incorrecto o caducado');
+        this.run('DELETE FROM link_codes WHERE code=?', code);
+        const ident = this.one('SELECT * FROM identities WHERE device_id=?', row.device);
+        if (!ident || ident.blocked) return err(403, 'Esta identidad no está disponible');
+        const porch = this.one('SELECT id FROM porches WHERE owner=?', ident.device_id);
+        return json({ token: await this.signToken(ident.device_id, ident.tv), deviceId: ident.device_id, name: ident.name, porchId: porch?.id || null });
+      }
 
       // --- lectura pública
       if (p === '/api/porches' && m === 'GET') {
@@ -416,6 +432,19 @@ export class Hub extends DurableObject {
       if (b.terms !== LEGAL.TERMS_VERSION) return err(400, 'Versión no válida');
       this.run('UPDATE identities SET terms=? WHERE device_id=?', LEGAL.TERMS_VERSION, me);
       return json({ ok: true });
+    }
+    if (p === '/api/link/create' && m === 'POST') {
+      if (!this.limit(`linkc:${me}`, HOUR, 20)) return err(429, 'Demasiados códigos. Espera un poco.');
+      this.run('DELETE FROM link_codes WHERE device=? OR exp < ?', me, now());
+      let code = '';
+      for (let i = 0; i < 20; i++) {
+        const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1000000;
+        code = String(n).padStart(6, '0');
+        if (!this.one('SELECT 1 FROM link_codes WHERE code=?', code)) break;
+      }
+      const exp = now() + 10 * 60_000;
+      this.run('INSERT INTO link_codes (code, device, exp) VALUES (?,?,?)', code, me, exp);
+      return json({ code, exp });
     }
     if (p === '/api/me/export' && m === 'GET') return json(this.exportData(ident));
     if (p === '/api/me/delete' && m === 'POST') {

@@ -6,6 +6,7 @@ import { Voice, audioCtx } from './audio/voice.js';
 import { Mixer } from './audio/mixer.js';
 import { StudioPeers, ClientPeer } from './audio/rtc.js';
 import { recorderMime } from './audio/encode.js';
+import { loadAll, decode } from './audio/sounds.js';
 import { db, uid, getSetting } from './db.js';
 import { toast } from './util.js';
 
@@ -35,6 +36,10 @@ export const live = {
   mixer: null, voice: null, studio: null, rec: null, recParts: [], partStart: 0, recPausedMs: 0, series: '', warned: {}, partClosed: false,
   // cliente
   peer: null, audio: null, guestMode: '', guestVoice: null, mutedByHost: false, linkState: '',
+  // mando a distancia (otro aparato del anfitrión)
+  remote: false, remoteState: null, remoteSounds: [], hearHere: true,
+  // sonidos del estudio
+  items: [], fxPlaying: new Map(),
 
   get active() { return !!this.ws; },
   get onAir() { return this.state.live; },
@@ -81,6 +86,8 @@ export const live = {
     this.teardownStudio();
     this.teardownClient();
     try { this.ws?.close(1000); } catch {}
+    clearInterval(this.stateIv);
+    this.remote = false; this.remoteState = null; this.remoteSounds = [];
     this.ws = null; this.porch = null; this.role = null; this.state = { live: false }; this.people = []; this.chat = [];
     keepAwake(false);
     emit('update');
@@ -121,7 +128,7 @@ export const live = {
       case 'youAreStudio': this.studioBusy = false; this.state = m.state; this.inviteKey = m.inviteKey; this.setRole('host'); emit('update'); break;
       case 'studioLost':
         toast('El estudio ha pasado a otro dispositivo. Aquí quedas como oyente (silenciado).');
-        this.teardownStudio(); this.setRole('listener'); if (this.audio) this.audio.muted = true; emit('update');
+        this.teardownStudio(); this.setRole('listener'); this.remote = true; this.hearHere = false; if (this.audio) this.audio.muted = true; emit('update');
         break;
       case 'granted': this.onGranted(m.mode); break;
       case 'denied': toast('Ahora no puede darte paso. Prueba más tarde.'); emit('update'); break;
@@ -140,6 +147,9 @@ export const live = {
         emit('update'); emit('ended');
         break;
       case 'invite': this.inviteKey = m.key; emit('update'); break;
+      case 'ctl': if (this.role === 'host') this.runCtl(m.cmd, m.args || {}); break;
+      case 'studioState': this.remoteState = m.s; emit('remote'); break;
+      case 'studioSounds': this.remoteSounds = Array.isArray(m.s) ? m.s : []; emit('remote'); break;
     }
   },
 
@@ -161,7 +171,7 @@ export const live = {
       this.peer = new ClientPeer((to, data) => this.send({ t: 'signal', to, data }), {
         onStream: (s) => {
           this.audio.srcObject = s;
-          this.audio.muted = this.role === 'guest' && this.guestMode === 'patio' && !this.guestHp;
+          this.audio.muted = (this.role === 'guest' && this.guestMode === 'patio' && !this.guestHp) || (this.remote && !this.hearHere);
           this.audio.play().catch(() => emit('needTap'));
           emit('stream', s);
         },
@@ -225,8 +235,110 @@ export const live = {
     });
     if (this.voice) this.mixer.addVoice('me', { node: this.voice.node, local: true, name: session.name });
     if (this.state.live) { this.mixer.setOnAir(!this.state.paused); keepAwake(true); }
+    this.remote = false;
+    this.loadItems();
+    clearInterval(this.stateIv);
+    this.stateIv = setInterval(() => this.pushStudioState(), 700);
     emit('update');
   },
+
+  // ---------- Sonidos del estudio (los usa la cabina local y el mando a distancia)
+  async loadItems(force = false) {
+    if (!this.items.length || force) this.items = await loadAll();
+    this.soundsSent = false;
+    return this.items;
+  },
+  findItem(key) { return this.items.find((i) => i.origin + ':' + i.id === key); },
+  /** Dispara un efecto o pone/quita una música. Devuelve false si no se pudo. */
+  async fireSound(key, { cue = false, loop } = {}) {
+    if (!this.mixer) return false;
+    let it = this.findItem(key);
+    if (!it) { await this.loadItems(true); it = this.findItem(key); }
+    if (!it) return false;
+    const buf = await decode(it);
+    if (cue) { this.mixer.cue(buf); return true; }
+    if (it.zone === 'fx') {
+      const h = this.mixer.playFx(buf, { onEnd: () => { this.fxPlaying.delete(key); emit('sounds'); } });
+      this.fxPlaying.set(key, h);
+    } else {
+      const m = this.mixer.music;
+      if (m && m.id === key) this.mixer.stopMusic();
+      else this.mixer.playMusic(buf, { loop: loop ?? it.zone === 'bg', id: key, name: it.name, onEnd: () => emit('sounds') });
+    }
+    emit('sounds');
+    return true;
+  },
+  hasRemote() { return this.people.some((p) => p.owner && p.cid !== this.cid); },
+  pushStudioState() {
+    if (this.role !== 'host' || !this.mixer || !this.hasRemote()) return;
+    const m = this.mixer;
+    if (!this.soundsSent && this.items.length) {
+      this.soundsSent = true;
+      const list = this.items.slice(0, 80).map((i) => ({ key: i.origin + ':' + i.id, name: i.name, zone: i.zone, origin: i.origin, duration: i.duration, section: i.section || '', src: i.src || '' }));
+      this.send({ t: 'studioSounds', s: list });
+    }
+    const levels = {}, gains = {}, names = {};
+    for (const [id, v] of m.voices) { levels[id] = Math.round(m.voiceLevel(id) * 100) / 100; gains[id] = Math.round(v.gain.gain.value * 100) / 100; names[id] = v.name || ''; }
+    const fx = {};
+    for (const [k, h] of this.fxPlaying) fx[k] = Math.round(h.progress() * 100) / 100;
+    const mu = m.music;
+    this.send({ t: 'studioState', s: {
+      music: mu ? { key: mu.id, name: mu.name, pos: Math.round(m.musicPosition()), dur: Math.round(mu.duration), loop: mu.loop } : null,
+      fx, levels, gains, names,
+      musicLevel: m.musicLevel ?? 0.28, fxLevel: Math.round(m.fxBus.gain.value * 100) / 100, tab: m.tabSrc ? Math.round(m.tabBus.gain.value * 100) / 100 : null,
+      ducking: m.ducking, solo: m.soloMusic, selfMuted: !!this.voice?.muted, hasVoice: !!this.voice,
+      rec: this.rec ? { part: this.rec.part, elapsed: Math.round(this.partElapsed()) } : null,
+      partClosed: this.partClosed, lastPart: this.recParts.at(-1)?.part || 0,
+    } });
+  },
+  /** Órdenes del mando a distancia, ejecutadas en el estudio. */
+  async runCtl(cmd, a) {
+    const m = this.mixer;
+    if (!m) return;
+    const num = (v, max = 1.5) => Math.max(0, Math.min(max, Number(v) || 0));
+    switch (cmd) {
+      case 'fire': if (typeof a.key === 'string') await this.fireSound(a.key, { loop: typeof a.loop === 'boolean' ? a.loop : undefined }); break;
+      case 'stopMusic': m.stopMusic(); emit('sounds'); break;
+      case 'fader':
+        if (a.id === 'music') m.setMusicLevel(num(a.v, 1), true);
+        else if (a.id === 'fx') m.setFxLevel(num(a.v, 1));
+        else if (a.id === 'tab') m.setTabLevel(num(a.v, 1));
+        else if (typeof a.id === 'string' && a.id.startsWith('v:')) m.setVoiceGain(a.id.slice(2), num(a.v));
+        break;
+      case 'ducking': m.ducking = !!a.on; break;
+      case 'solo': m.setSoloMusic(!!a.on); break;
+      case 'up': m.musicUp(); break;
+      case 'down': m.musicDown(); break;
+      case 'selfmute': this.voice?.setMuted(!!a.on); break;
+      case 'mutevoice': if (typeof a.cid === 'string') { this.send({ t: 'mute', cid: a.cid, on: !!a.on }); m.muteVoice(a.cid, !!a.on); } break;
+      case 'pause': this.pause(!!a.on); break;
+      case 'nextpart': if (!this.rec) this.continueNextPart(); break;
+      case 'golive':
+        if (!this.state.live) {
+          if (!this.voice) { try { await this.startVoice(localStorage.getItem('rp_hp') !== '0'); } catch {} }
+          this.goLive(['ensayo', 'directo', 'rec'].includes(a.mode) ? a.mode : 'directo', String(a.title || '').slice(0, 80));
+          this.introJingle();
+        }
+        break;
+      case 'end': if (this.state.live) { await this.endBroadcast(true); toast('El mando a distancia ha terminado la emisión. La grabación está en Borradores.'); } break;
+    }
+    emit('update');
+    this.pushStudioState();
+  },
+  async introJingle() {
+    try {
+      await this.loadItems();
+      const s = this.items.find((i) => i.id === 'sintonia') || this.items.find((i) => i.zone === 'fx');
+      if (s && this.mixer) this.mixer.playFx(await decode(s));
+    } catch {}
+  },
+  ctl(cmd, args = {}) { this.send({ t: 'ctl', cmd, args }); },
+  becomeRemote() {
+    this.remote = true; this.studioBusy = false;
+    if (this.audio) this.audio.muted = !this.hearHere;
+    emit('update');
+  },
+  setHearHere(on) { this.hearHere = on; if (this.audio) this.audio.muted = !on; emit('update'); },
   async startVoice(headphones = true) {
     if (this.voice && this.voice.headphones === headphones) return this.voice;
     this.voice?.stop();
@@ -247,6 +359,8 @@ export const live = {
     this.studio.connect(cid, role === 'guest' ? 'guest' : 'listener', out);
   },
   teardownStudio() {
+    clearInterval(this.stateIv);
+    this.fxPlaying.clear();
     this.stopRecorder(false);
     this.studio?.closeAll(); this.studio = null;
     this.mixer?.destroy(); this.mixer = null;

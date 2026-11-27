@@ -9,6 +9,7 @@ import { live } from '../live.js';
 import { loadStandard, loadMine, importSound, deleteSound, renameSound, recordMic, saveRecordedSound, decode } from '../audio/sounds.js';
 import { audioCtx } from '../audio/voice.js';
 import { shrinkPhoto, SCENES } from '../cover.js';
+import { recordingThumb, recordingDetailsSheet } from './editor.js';
 
 export async function render(view, _p, { go }) {
   if (!session.token) {
@@ -67,19 +68,22 @@ export async function render(view, _p, { go }) {
       <div class="banner yellow small">${icon('lock')} Lo grabado vive solo en este móvil hasta que lo publiques. Los borradores se borran solos a los ${LIMITS.DRAFT_DAYS} días.</div>
       ${list.length ? list.map((r) => html`
         <div class="item">
-          <img class="thumb" src="/img/scenes/escena-${r.scene || 1}.webp" alt="">
+          <img class="rec-thumb" src="${recordingThumb(r)}" alt="">
           <div class="grow">
             <div class="t ellip">${r.title}${r.part > 1 ? ` · Parte ${r.part}` : ''}</div>
             <div class="m">${r.kind === 'draft' ? `Borrador · se borra en ${left(r)} días` : 'Privado'} · ${fmtDur(r.duration)} · ${fmtDate(r.created)}</div>
             ${r.duration < LIMITS.MIN_PUBLISH_MIN * 60 ? html`<div class="m orange-t">Dura menos de ${LIMITS.MIN_PUBLISH_MIN} min: te sugerimos descartarlo.</div>` : ''}
           </div>
           <div class="col gap-s">
-            <a class="btn sm yellow" href="/editor/${r.id}">Editar</a>
-            <button class="btn sm ghost" data-del="${r.id}">Borrar</button>
+            <a class="btn sm yellow" href="/editor/${r.id}">${icon('scissors')} Editar audio</a>
+            <button class="btn sm ghost" data-det="${r.id}">${icon('edit')} Título y foto</button>
+            <button class="btn sm ghost" data-del="${r.id}">${icon('trash')} Borrar</button>
           </div>
         </div>`) : html`<div class="empty"><img src="/img/scenes/escena-2.webp" alt=""><p>Aún no hay grabaciones. Sal al aire en modo <b>Directo + grabación</b> y aparecerán aquí.</p></div>`}
     </div>`);
     panel.onclick = async (e) => {
+      const d = e.target.closest('[data-det]');
+      if (d) { const r = list.find((x) => x.id === d.dataset.det); if ((await recordingDetailsSheet(r)) === 'ok') recordingsTab(); return; }
       const b = e.target.closest('[data-del]');
       if (!b) return;
       if (!(await confirmSheet('¿Borrar esta grabación?', 'Se borra de este móvil y no se puede recuperar.', { ok: 'Borrar', danger: true }))) return;

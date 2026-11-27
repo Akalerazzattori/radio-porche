@@ -68,7 +68,7 @@ export async function requireIdentity(reason = '') {
     <label class="check"><input type="checkbox" name="terms"> <span>Acepto las ${legalLinks}.</span></label>
     <div class="ts"></div>
     <button class="btn yellow big" data-act="go">Entrar</button>
-    <button class="btn ghost" data-act="recover">Ya tengo porche en otro móvil</button>`, {
+    <button class="btn ghost" data-act="recover">Ya tengo porche en otro aparato</button>`, {
     async onMount(api2) {
       const el = api2.el;
       getToken = await turnstileWidget(el.querySelector('.ts'));
@@ -101,13 +101,33 @@ export function recoveryLink() {
 
 export function recoverSheet() {
   const s = sheet(html`
-    <h2 class="h2">Recuperar mi porche</h2>
-    <p class="muted small">Pega aquí tu <b>enlace de recuperación</b> (lo tienes en Perfil del otro móvil) o abre directamente el enlace en este. Para traer también tus borradores y sonidos, usa <b>Importar copia</b> en Perfil.</p>
-    <input class="input" placeholder="https://…/#recuperar=…">
-    <button class="btn yellow" data-act="go">Recuperar</button>`, {
+    <h2 class="h2">Usar mi porche en este aparato</h2>
+    <p class="muted small">En el aparato donde ya tienes tu porche, ve a <b>Perfil → Vincular otro aparato</b>. Te saldrá un código de 6 cifras: escríbelo aquí.</p>
+    <input class="input link-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" data-el="code">
+    <button class="btn yellow big" data-a="code">Vincular</button>
+    <details class="small muted"><summary>Tengo un enlace de recuperación</summary>
+      <input class="input mt-s" placeholder="https://…/#recuperar=…" data-el="link">
+      <button class="btn ghost mt-s" data-a="link">Usar enlace</button>
+    </details>`, {
     onMount(a) {
-      a.el.querySelector('[data-act=go]').onclick = async () => {
-        const v = a.el.querySelector('input').value.trim();
+      const code = a.el.querySelector('[data-el=code]');
+      setTimeout(() => code.focus(), 80);
+      const go = async () => {
+        const c = code.value.replace(/\D/g, '');
+        if (c.length !== 6) return toast('El código tiene 6 cifras', 'bad');
+        try {
+          const r = await api('/api/link/claim', { method: 'POST', body: { code: c } });
+          session.set({ token: r.token, deviceId: r.deviceId, name: r.name, porchId: r.porchId });
+          setTerms();
+          toast(`Vinculado. Hola, ${r.name}`, 'good');
+          window.dispatchEvent(new CustomEvent('rp:identity'));
+          a.close('ok');
+        } catch (e) { toast(e.message, 'bad'); }
+      };
+      code.addEventListener('input', () => { if (code.value.replace(/\D/g, '').length === 6) go(); });
+      a.el.querySelector('[data-a=code]').onclick = go;
+      a.el.querySelector('[data-a=link]').onclick = async () => {
+        const v = a.el.querySelector('[data-el=link]').value.trim();
         const m = /recuperar=([^&\s]+)/.exec(v);
         if (!m) return toast('Ese enlace no parece de recuperación', 'bad');
         if (await useRecoveryToken(decodeURIComponent(m[1]))) a.close('ok');
@@ -115,6 +135,27 @@ export function recoverSheet() {
     },
   });
   return s.done;
+}
+
+/** Muestra un código de 6 cifras para entrar con esta misma identidad en otro aparato. */
+export async function linkDeviceSheet() {
+  let r;
+  try { r = await api('/api/link/create', { method: 'POST', body: {} }); } catch (e) { toast(e.message, 'bad'); return; }
+  const s = sheet(html`
+    <h2 class="h2">Vincular otro aparato</h2>
+    <p class="muted small">En el ordenador (o el otro móvil) abre <b>${location.host}</b>, ve a <b>Perfil → Ya tengo porche en otro aparato</b> y escribe:</p>
+    <div class="link-code">${r.code}</div>
+    <p class="muted tiny center" data-el="left"></p>
+    <p class="muted tiny">Ese aparato será tú: podrá emitir, ser el estudio o controlar la cabina a distancia. El código sirve una sola vez y caduca en 10 minutos. No se lo des a nadie.</p>
+    <button class="btn ghost" data-close="">Hecho</button>`);
+  const left = s.el.querySelector('[data-el=left]');
+  const iv = setInterval(() => {
+    const ms = r.exp - Date.now();
+    if (ms <= 0) { left.textContent = 'Caducado. Pide otro.'; clearInterval(iv); return; }
+    left.textContent = `Caduca en ${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
+  }, 500);
+  await s.done;
+  clearInterval(iv);
 }
 
 export async function useRecoveryToken(token) {

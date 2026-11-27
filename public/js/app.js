@@ -117,6 +117,9 @@ document.addEventListener('click', (e) => {
   go(url.pathname + url.search + url.hash);
 });
 window.addEventListener('popstate', route);
+// Sin zoom con dos dedos (Safari ignora user-scalable)
+['gesturestart', 'gesturechange'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 window.addEventListener('rp:logout', () => { session.clear(); toast('Tu sesión ya no es válida. Entra de nuevo.', 'bad'); });
 
 // ---------- Avisos: insignia y notificación del navegador (con la app abierta)
