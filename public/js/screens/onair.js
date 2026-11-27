@@ -10,8 +10,11 @@ export async function render(view, _p, { go }) {
   mount(view, html`
     <section class="screen">
       <div class="top">
-        <div><h1 class="h1">En el aire</h1><div class="sub">${weekdayGreeting()}</div></div>
-        <a class="icon-btn" href="/podcasts?buscar=1" aria-label="Buscar">${icon('search')}</a>
+        <div><h1 class="h1">Directo</h1><div class="sub">${weekdayGreeting()}</div></div>
+        <div class="row gap-s">
+          <a class="icon-btn" href="/podcasts?buscar=1" aria-label="Buscar">${icon('search')}</a>
+          <button class="icon-btn bell" data-act="notices" aria-label="Avisos"><img src="/img/ui/nav-avisos.png" alt="" width="24" height="24"><span class="badge" data-el="badge" hidden></span></button>
+        </div>
       </div>
       <div class="stats">
         <div class="card stat"><span class="big-num red-t" data-el="nlive">–</span><div class="lbl">porches en directo</div></div>
@@ -159,6 +162,7 @@ export async function render(view, _p, { go }) {
   view.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-act]');
     if (!b) return;
+    if (b.dataset.act === 'notices') { (await import('./notices.js')).noticesSheet(go); return; }
     if (b.dataset.act === 'listen' && current) go(`/porche/${current.slug}`);
     if (b.dataset.act === 'tune') { const s = stations.find((x) => x.freq === Number(b.dataset.f)); if (s) { freq = s.freq; pos(); select(s); haptic(10); } }
     if (b.dataset.act === 'follow' || b.dataset.act === 'follow2') {
@@ -196,7 +200,10 @@ export async function render(view, _p, { go }) {
       freq = pick.freq; pos(); select(pick);
     } catch (e) { toast(e.message, 'bad'); }
   }
+  const paintBadge = (e) => { const n = e?.detail ?? 0; const el = $el('badge'); if (el) { el.hidden = !n; el.textContent = n; } };
+  window.addEventListener('rp:badge', paintBadge);
+  import('../app.js').then((m) => paintBadge({ detail: m.getBadge() })).catch(() => {});
   load();
   const iv = setInterval(load, 30000);
-  return () => { clearInterval(iv); window.removeEventListener('resize', pos); cancelAnimationFrame(raf); };
+  return () => { window.removeEventListener('rp:badge', paintBadge); clearInterval(iv); window.removeEventListener('resize', pos); cancelAnimationFrame(raf); };
 }

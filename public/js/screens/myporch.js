@@ -40,7 +40,7 @@ export async function render(view, _p, { go }) {
       </div>
       ${onAir
         ? html`<a class="btn red big" href="/porche/${porch.slug}">${icon('radio')} Estás en el aire · volver a la cabina</a>`
-        : html`<a class="btn red big" href="/porche/${porch.slug}">${icon('mic')} Ir al camerino</a>`}
+        : html`<a class="btn red big" href="/porche/${porch.slug}">${icon('mic')} Ir a la cabina</a>`}
       <div class="seg">
         <button data-tab="grabaciones">Grabaciones</button><button data-tab="publicados">Publicados</button><button data-tab="sonidos">Sonidos</button><button data-tab="porche">Porche</button>
       </div>

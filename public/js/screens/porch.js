@@ -403,7 +403,7 @@ function buildGreenRoom(view, porch, ctx) {
         <div class="col gap-s" data-el="guests"></div>
         <div class="col gap-s" data-el="reqs"></div>
       </div>
-      <button class="hold" data-el="hold" aria-label="Mantén pulsado 3 segundos para salir en antena"><i class="fillbar"></i><span class="num" data-el="num">3</span><span>Mantén para salir en antena</span></button>
+      <button class="hold" data-el="hold" aria-label="Mantén pulsado 3 segundos para salir en antena"><span class="num" data-el="num">3</span><span class="txt"><span>Mantén para<br>salir en antena</span><span class="bar"><i></i></span></span></button>
       <div class="muted tiny center">Mantén pulsado 3 segundos. Nada sale al aire con un toque sin querer. Quien entre al micro verá si se graba.</div>
     </section>`);
   const $el = (n) => view.querySelector(`[data-el=${n}]`);
@@ -456,18 +456,18 @@ function buildGreenRoom(view, porch, ctx) {
     if (k >= 1) { done(); return; }
     holdRaf = requestAnimationFrame(tick);
   };
-  const cancel = () => { cancelAnimationFrame(holdRaf); hold.style.setProperty('--k', '0'); $el('num').textContent = '3'; lastN = 4; holdStart = 0; };
+  const cancel = () => { cancelAnimationFrame(holdRaf); hold.classList.remove('pressing'); hold.style.setProperty('--k', '0'); $el('num').textContent = '3'; lastN = 4; holdStart = 0; };
   hold.addEventListener('pointerdown', async (e) => {
     e.preventDefault();
     hold.setPointerCapture(e.pointerId);
     if (!remote && !live.voice && !(await startMic())) return;
     if (remote && live.state.hostOnline === false) return toast('El estudio está desconectado', 'bad');
-    holdStart = performance.now(); lastN = 4; tick();
+    holdStart = performance.now(); lastN = 4; hold.classList.add('pressing'); tick();
   });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => hold.addEventListener(ev, () => { if (holdStart) cancel(); }));
   hold.addEventListener('contextmenu', (e) => e.preventDefault());
   function done() {
-    cancelAnimationFrame(holdRaf); holdStart = 0;
+    cancelAnimationFrame(holdRaf); holdStart = 0; hold.classList.remove('pressing');
     const title = $el('title').value.trim();
     localStorage.setItem('rp_lasttitle', title);
     const jingle = $el('jingle').checked;
@@ -623,7 +623,7 @@ function buildBooth(view, porch, ctx) {
       const padHtml = (it) => {
         const playing = fxKeys.has(it.key) || (music && music.key === it.key);
         return html`<button class="pad c${idx++ % 6} ${playing ? 'playing' : ''}" data-pad="${it.key}">
-          <span class="n">${it.name}</span><span class="d">${fmtShortDur(it.duration)}</span><span class="p"></span><span class="tape"></span>
+          <span class="n">${it.name}</span><span class="d">${fmtShortDur(it.duration)}${it.zone === 'bg' ? ' · bucle' : ''}</span><span class="p"></span><span class="zone-ic" aria-hidden="true">${it.zone === 'fx' ? '⚡' : it.zone === 'bg' ? '♫' : '♪'}</span>
           <span class="cue" data-cue="${it.key}" role="button" aria-label="Pre-escuchar ${it.name} solo en tus cascos">${icon('hp')}</span>
         </button>`;
       };
@@ -735,7 +735,7 @@ function buildBooth(view, porch, ctx) {
     if ((b = t.closest('[data-grant]'))) return live.send({ t: 'grant', cid: b.dataset.grant });
     if ((b = t.closest('[data-deny]'))) return live.send({ t: 'deny', cid: b.dataset.deny });
     if ((b = t.closest('[data-cue]'))) { e.stopPropagation(); return fire(b.dataset.cue, true); }
-    if ((b = t.closest('[data-pad]'))) { if (pressed) { pressed = false; return; } return fire(b.dataset.pad, false); }
+    if ((b = t.closest('[data-pad]'))) { if (pressed) { pressed = false; return; } b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 120); return fire(b.dataset.pad, false); }
     if ((b = t.closest('[data-zone]'))) { zone = b.dataset.zone; return soundsPanel.repaint(); }
     if ((b = t.closest('[data-origin]'))) { origin = b.dataset.origin; return soundsPanel.repaint(); }
     if ((b = t.closest('[data-mute]'))) {

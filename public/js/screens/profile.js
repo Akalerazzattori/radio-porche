@@ -23,9 +23,9 @@ export async function render(view, _p, { go }) {
 
         <div class="h3">Otros aparatos</div>
         <div class="group">
-          ${logged ? html`<button class="li" data-act="link">${icon('link')} <span class="grow">Vincular otro aparato (ordenador)</span><span class="muted tiny">código de 6 cifras</span></button>` : html`<button class="li" data-act="recover">${icon('link')} <span class="grow">Ya tengo porche en otro aparato</span></button>`}
+          ${logged ? html`<button class="li" data-act="link">${icon('link')} <span class="grow">Vincular otro aparato (ordenador)</span></button>` : html`<button class="li" data-act="recover">${icon('link')} <span class="grow">Ya tengo porche en otro aparato</span></button>`}
           ${logged ? html`<button class="li" data-act="recovery">${icon('shield')} <span class="grow">Copiar enlace de recuperación</span></button>` : ''}
-          <button class="li" data-act="export">${icon('dl')} <span class="grow">Exportar copia</span><span class="muted tiny">borradores, sonidos, ajustes</span></button>
+          <button class="li" data-act="export">${icon('dl')} <span class="grow">Exportar copia (borradores, sonidos y ajustes)</span></button>
           <label class="li">${icon('upload')} <span class="grow">Importar copia</span><input type="file" hidden data-act="import" accept=".rpbk,application/octet-stream,*/*"></label>
         </div>
         <p class="muted tiny">La app web <b>no se traspasa sola</b> al cambiar de iPhone o Android, y borrar los datos del navegador la borra. Guarda la copia en iCloud, Drive o pásala por AirDrop, y en el móvil nuevo pulsa «Importar copia».${est ? ` Ocupas ${fmtBytes(est.usage || 0)} en este móvil.` : ''}</p>
@@ -40,7 +40,7 @@ export async function render(view, _p, { go }) {
         <div class="h3">Ayuda</div>
         <div class="group">
           <button class="li" data-act="help">${icon('hp')} <span class="grow">Cómo emitir bien (cascos, wifi…)</span></button>
-          <a class="li" href="/admin">${icon('settings')} <span class="grow">Administración</span><span class="muted tiny">con tu enlace secreto</span></a>
+          <a class="li" href="/admin">${icon('settings')} <span class="grow">Administración</span></a>
         </div>
 
         <div class="h3">Legal</div>

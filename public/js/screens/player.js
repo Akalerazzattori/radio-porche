@@ -77,7 +77,7 @@ export const player = {
     const p = this.p;
     navigator.mediaSession.metadata = new MediaMetadata({
       title: p.title, artist: p.porchName, album: 'Radio Porche',
-      artwork: [{ src: podcastCover(p), sizes: '512x512', type: 'image/jpeg' }],
+      artwork: [{ src: podcastCover(p), sizes: '512x512' }],
     });
     const ms = navigator.mediaSession;
     ms.setActionHandler('play', () => this.audio.play());

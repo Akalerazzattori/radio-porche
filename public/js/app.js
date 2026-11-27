@@ -15,11 +15,11 @@ const app = document.getElementById('app');
 const ROUTES = [
   { re: /^\/$/, mod: () => import('./screens/onair.js'), tab: 'aire' },
   { re: /^\/(?:archivo|podcasts)$/, mod: () => import('./screens/archive.js'), tab: 'archivo' },
-  { re: /^\/avisos$/, mod: () => import('./screens/notices.js'), tab: 'avisos' },
+  { re: /^\/avisos$/, mod: () => import('./screens/notices.js'), tab: 'aire' },
   { re: /^\/perfil$/, mod: () => import('./screens/profile.js'), tab: 'perfil' },
   { re: /^\/mi-porche$/, mod: () => import('./screens/myporch.js'), tab: 'porche' },
   { re: /^\/porche\/([A-Za-z0-9_-]+)$/, mod: () => import('./screens/porch.js'), immersive: true },
-  { re: /^\/estudio$/, mod: () => import('./screens/porch.js'), immersive: true, params: ['__mine'] },
+  { re: /^\/estudio$/, mod: () => import('./screens/porch.js'), immersive: true, params: ['__mine'], tab: 'cabina' },
   { re: /^\/p\/([A-Za-z0-9_-]+)$/, mod: () => import('./screens/player.js'), immersive: true },
   { re: /^\/editor\/([A-Za-z0-9_-]+)$/, mod: () => import('./screens/editor.js'), immersive: true },
   { re: /^\/legal\/([a-z-]+)$/, legal: true, immersive: true },
@@ -69,16 +69,26 @@ async function route() {
 
 // ---------- Barra inferior: En el aire · Archivo · [Mi porche] · Avisos · Perfil
 let badge = 0;
+// Barra inferior: Directo · Podcasts · [CABINA] · Mi porche · Perfil
 function paintTabbar() {
-  const onAir = live.active && live.role === 'host' && live.state.live;
-  const t = (id, href, ic, label) => html`<a href="${href}" class="${currentTab === id ? 'on' : ''}" ${currentTab === id ? html`aria-current="page"` : ''}><span class="dot">${icon(ic)}${id === 'avisos' && badge ? html`<span class="badge">${badge}</span>` : ''}</span>${label}</a>`;
+  const onAir = live.active && (live.role === 'host' || live.remote) && live.state.live;
+  const t = (id, href, img, label) => {
+    const on = currentTab === id;
+    return html`<a href="${href}" class="${on ? 'on' : ''}" ${on ? html`aria-current="page"` : ''}><span class="dot"><img class="nav-ic" src="/img/ui/nav-${img}${on ? '-on' : ''}.png" alt="" width="26" height="26"></span>${label}</a>`;
+  };
+  const cabinaHref = onAir && live.porch ? `/porche/${live.porch.slug}` : session.token ? '/estudio' : '/mi-porche';
   mount(tabbar, html`
-    ${t('aire', '/', 'radio', 'En el aire')}
-    ${t('archivo', '/podcasts', 'folder', 'Podcasts')}
-    <a href="${onAir && live.porch ? `/porche/${live.porch.slug}` : '/mi-porche'}" class="center ${onAir ? 'onair' : ''}" aria-label="${onAir ? 'Volver a la cabina' : 'Mi porche: salir al aire'}">${onAir ? html`${icon('mic')}<small>ON AIR</small>` : icon('home')}</a>
-    ${t('avisos', '/avisos', 'bell', 'Avisos')}
-    ${t('perfil', '/perfil', 'user', 'Perfil')}`);
+    ${t('aire', '/', 'directo', 'Directo')}
+    ${t('archivo', '/podcasts', 'podcasts', 'Podcasts')}
+    <a href="${cabinaHref}" class="center ${onAir ? 'onair' : ''} ${currentTab === 'cabina' ? 'on' : ''}" aria-label="${onAir ? 'Estás en el aire: volver a la cabina' : 'Cabina: preparar y salir al aire'}">
+      <span class="center-btn"><img src="/img/ui/${onAir ? 'nav-onair' : 'nav-cabina'}.png" alt="" width="34" height="34"></span>
+      <small>${onAir ? 'ON AIR' : 'Cabina'}</small>
+    </a>
+    ${t('porche', '/mi-porche', 'porche', 'Mi porche')}
+    ${t('perfil', '/perfil', 'perfil', 'Perfil')}`);
+  window.dispatchEvent(new CustomEvent('rp:badge', { detail: badge }));
 }
+export const getBadge = () => badge;
 
 // ---------- Mini reproductor (directo que escuchas o podcast)
 function paintMini() {
@@ -134,7 +144,7 @@ async function pollNotices() {
       for (const it of liveNow) if (!knownLive.has(it.porch.id)) {
         toast(`${it.porch.name} está en directo`, 'good');
         if ('Notification' in window && Notification.permission === 'granted') {
-          try { const n = new Notification(`${it.porch.name} está en directo`, { body: it.porch.liveTitle || 'Entra a escuchar', icon: '/img/icon-192.png', tag: it.porch.id }); n.onclick = () => { window.focus(); go(`/porche/${it.porch.slug}`); }; } catch {}
+          try { const n = new Notification(`${it.porch.name} está en directo`, { body: it.porch.liveTitle || 'Entra a escuchar', icon: '/img/app-icon-192.png', tag: it.porch.id }); n.onclick = () => { window.focus(); go(`/porche/${it.porch.slug}`); }; } catch {}
         }
       }
     }
