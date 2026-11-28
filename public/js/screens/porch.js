@@ -71,7 +71,7 @@ export async function render(view, [slug], ctx) {
 }
 
 // ============================================================ comunes
-function studioBusySheet() {
+function studioBusySheet(dismissable = false) {
   const other = live.state.studioKind || 'otro aparato';
   const here = live.kind;
   // Si aún no estáis en el aire, lo normal es llevarse todo a este aparato; en directo, entrar como micro.
@@ -82,12 +82,28 @@ function studioBusySheet() {
     <p class="muted small">Solo un aparato puede ser el <b>estudio</b> (el que mezcla y manda el sonido a los oyentes). El estudio usa también su propio micro. ¿Qué hace este ${here}?</p>
     ${opt('take', `Todo en este ${here}: ESTUDIO + MICRO`, `Este ${here} mezcla, emite y hablas por él (con tus cascos). Tu ${other} deja de ser el estudio.`, recStudio)}
     ${opt('patio', `Solo MICRO`, `Hablas por este ${here}, pero mezcla y emite tu ${other}. Aquí no suena nada por el altavoz.`, !recStudio)}
-    ${opt('remote', 'Ser MANDO a distancia', `Manejas la cabina de tu ${other} desde aquí (sonidos, volúmenes, pausa…). El micro sigue siendo el del ${other}.`, false)}
-    ${opt('listen', 'Solo escuchar', 'Oyes la emisión como un oyente más.', false)}`, { dismissable: false }).done.then((v) => {
+    ${opt('remote', `Ser CABINA a distancia`, `Desde aquí manejas todo: botonera, volúmenes, invitados, salir al aire, pausa y fin. Mezcla y emite tu ${other}, con su micro.`, false)}
+    ${opt('listen', 'Solo escuchar', 'Oyes la emisión como un oyente más.', false)}`, { dismissable }).done.then((v) => {
+    if (!v) return;
     if (v === 'remote') live.becomeRemote();
     else if (v === 'take') live.takeStudio();
     else if (v === 'patio') live.ownerAsGuest(false);
     else if (live.audio) live.audio.muted = false;
+  });
+}
+
+/** Cambiar el papel de este aparato tocando el cartel. */
+function roleSheet() {
+  if (live.role !== 'host') return studioBusySheet(true);
+  const others = live.people.filter((p) => p.owner && p.cid !== live.cid);
+  const k = live.kind;
+  sheet(html`
+    <h2 class="h2">Este ${k} es el estudio</h2>
+    <p class="muted small">Mezcla, emite y usa su micro. Tú manejas aquí la botonera, los volúmenes y los invitados.</p>
+    <p class="muted small">Si abres tu cabina en otro aparato tuyo (con el código de «Vincular» en Perfil), podrás usarlo como <b>cabina a distancia</b>, como <b>micro</b> o pasarle el estudio.</p>
+    ${others.map((o) => html`<button class="role-opt" data-close="${o.cid}"><b>Pasar el estudio a tu ${o.kind}</b><span>Tu ${o.kind} pasará a mezclar y emitir. Este ${k} te preguntará qué hacer (micro, cabina a distancia…).</span></button>`)}
+    <button class="btn ghost" data-close="">Cerrar</button>`).done.then((cid) => {
+    if (cid) { live.send({ t: 'handoff', to: cid }); toast('Pasando el estudio…'); }
   });
 }
 
@@ -96,9 +112,9 @@ function roleBadge() {
   const k = live.kind;
   if (live.role === 'host') {
     const mics = live.people.filter((p) => p.role === 'guest' && p.owner);
-    return html`<div class="role-badge studio"><span class="dot"></span><span class="grow"><b>Este ${k} es ESTUDIO + MICRO</b> · mezcla, emite y hablas por él${mics.length ? html` · tu ${mics[0].kind} es otro micro` : ''}</span></div>`;
+    return html`<button class="role-badge studio" data-act="role"><span class="dot"></span><span class="grow"><b>Este ${k} es ESTUDIO + MICRO</b> · mezcla, emite y hablas por él${mics.length ? html` · tu ${mics[0].kind} es otro micro` : ''}</span><span class="chg">Cambiar</span></button>`;
   }
-  if (live.remote) return html`<div class="role-badge remote"><span class="dot"></span><span class="grow"><b>Este ${k} es el MANDO</b> · el estudio es tu ${live.state.studioKind || 'otro aparato'}</span></div>`;
+  if (live.remote) return html`<button class="role-badge remote" data-act="role"><span class="dot"></span><span class="grow"><b>Este ${k} es CABINA a distancia</b> · el estudio es tu ${live.state.studioKind || 'otro aparato'}</span><span class="chg">Cambiar</span></button>`;
   return '';
 }
 
@@ -352,7 +368,7 @@ function buildListener(view, porch, ctx) {
   const offs = [onLive('update', paint), onLive('react', (e) => floatReaction(section, e)), onLive('needTap', () => {
     const el = document.createElement('div');
     el.className = 'full-overlay';
-    el.innerHTML = '<div class="h1">Toca para escuchar</div><button class="btn red big">▶ Escuchar</button>';
+    el.innerHTML = `<div class="h1">${esc(porch.name)}</div><p class="b">${live.state.live ? 'Está en directo ahora mismo.' : 'Aún no ha empezado: te sonará en cuanto salga al aire.'}</p><button class="btn red big">▶ Empezar a escuchar</button>`;
     document.body.appendChild(el);
     el.onclick = () => { live.audio?.play().catch(() => {}); el.remove(); };
   })];
@@ -534,6 +550,7 @@ function buildGreenRoom(view, porch, ctx) {
     const b = e.target.closest('[data-act]');
     if (!b) return;
     if (b.dataset.act === 'startmic') startMic();
+    if (b.dataset.act === 'role') roleSheet();
     if (b.dataset.act === 'intro') {
       const opts = allItems.filter((x) => x.zone === 'jingle' || x.zone === 'fx');
       const v = await sheet(html`<h2 class="h2">Sonido al salir al aire</h2><p class="muted small">Suena justo al entrar en antena. Toca ▶ para oírlo antes.</p>
@@ -846,6 +863,7 @@ function buildBooth(view, porch, ctx) {
     if (!(b = t.closest('[data-act]'))) return;
     switch (b.dataset.act) {
       case 'invite': inviteSheet(porch); break;
+      case 'role': roleSheet(); break;
       case 'takestudio': live.takeStudio(); break;
       case 'activatemic':
         try { audioCtx(); await live.startVoice(localStorage.getItem('rp_hp') !== '0'); reqs(); toast('Micro activo', 'good'); } catch { toast('No se ha podido abrir el micro', 'bad'); }

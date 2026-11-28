@@ -153,6 +153,7 @@ export const live = {
         break;
       case 'invite': this.inviteKey = m.key; emit('update'); break;
       case 'ctl': if (this.role === 'host') this.runCtl(m.cmd, m.args || {}); break;
+      case 'handoff': if (this.role !== 'host' && this.isOwner) { if (this.role === 'guest') this.leaveMic(true); this.takeStudio(); } break;
       case 'studioState': this.remoteState = m.s; emit('remote'); break;
       case 'studioSounds': {
         const s = m.s || {};
@@ -182,8 +183,15 @@ export const live = {
       this.peer = new ClientPeer((to, data) => this.send({ t: 'signal', to, data }), {
         onStream: (s) => {
           this.audio.srcObject = s;
+          this.audioBlocked = false;
           this.audio.muted = (this.role === 'guest' && this.guestMode === 'patio' && !this.guestHp) || (this.remote && !this.hearHere);
-          this.audio.play().catch(() => emit('needTap'));
+          this.audio.play().catch(() => {
+            // El navegador no deja sonar sin un toque: el primer toque en cualquier sitio lo arranca.
+            this.audioBlocked = true;
+            const go = () => { this.audio?.play().then(() => { this.audioBlocked = false; emit('update'); }).catch(() => {}); };
+            document.addEventListener('pointerdown', go, { once: true, capture: true });
+            if (!this.isOwner) emit('needTap');
+          });
           emit('stream', s);
         },
         onState: (st) => { this.rtcState = st; emit('update'); },

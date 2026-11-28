@@ -386,6 +386,14 @@ export class Room extends DurableObject {
         this.pushPeople();
         return;
       }
+      case 'handoff': {
+        // El estudio pide que otro aparato del anfitrión pase a ser el estudio
+        if (!isHost) return;
+        const tw = this.byCid(msg.to);
+        if (!tw || !this.att(tw).isOwner) return;
+        this.send(tw, { t: 'handoff' });
+        return;
+      }
       case 'rotateInvite': {
         if (!isHost) return;
         this.state.inviteKey = randomId(9); await this.save();

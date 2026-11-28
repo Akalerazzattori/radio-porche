@@ -803,3 +803,5 @@ img.av { object-fit: cover; background: var(--panel2); }
 .tape-pp .ic { width: 12px; height: 12px; }
 .tape-card.playing { transform: translateY(-3px); filter: drop-shadow(0 0 8px rgba(255,199,44,.7)); }
 .tape-card.playing .tape-pp { background: var(--yellow); }
+button.role-badge { width: 100%; text-align: left; cursor: pointer; }
+.role-badge .chg { font-weight: 800; font-size: 12px; text-decoration: underline; flex: none; }
