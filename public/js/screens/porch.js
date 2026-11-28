@@ -74,13 +74,14 @@ export async function render(view, [slug], ctx) {
 function studioBusySheet() {
   const other = live.state.studioKind || 'otro aparato';
   const here = live.kind;
-  const recStudio = here === 'ordenador'; // en el ordenador lo normal es hacer de estudio; en el móvil, de micro
+  // Si aún no estáis en el aire, lo normal es llevarse todo a este aparato; en directo, entrar como micro.
+  const recStudio = !live.state.live;
   const opt = (v, title, desc, rec) => html`<button class="role-opt ${rec ? 'rec' : ''}" data-close="${v}"><b>${title}${rec ? html` <span class="chip patio">Recomendado</span>` : ''}</b><span>${desc}</span></button>`;
   sheet(html`
     <h2 class="h2">Tu cabina ya está abierta en tu ${other}</h2>
-    <p class="muted small">Solo un aparato puede ser el <b>estudio</b> (el que mezcla y manda el sonido a los oyentes). ¿Qué hace este ${here}?</p>
-    ${opt('take', `Ser el ESTUDIO aquí, en este ${here}`, `Este ${here} mezcla y emite. Tu ${other} deja de ser estudio y puedes usarlo como micro.`, recStudio)}
-    ${opt('patio', `Ser MICRO`, `Hablas por este ${here}. El estudio (tu ${other}) te mete en la emisión. No suena nada por el altavoz.`, !recStudio)}
+    <p class="muted small">Solo un aparato puede ser el <b>estudio</b> (el que mezcla y manda el sonido a los oyentes). El estudio usa también su propio micro. ¿Qué hace este ${here}?</p>
+    ${opt('take', `Todo en este ${here}: ESTUDIO + MICRO`, `Este ${here} mezcla, emite y hablas por él (con tus cascos). Tu ${other} deja de ser el estudio.`, recStudio)}
+    ${opt('patio', `Solo MICRO`, `Hablas por este ${here}, pero mezcla y emite tu ${other}. Aquí no suena nada por el altavoz.`, !recStudio)}
     ${opt('remote', 'Ser MANDO a distancia', `Manejas la cabina de tu ${other} desde aquí (sonidos, volúmenes, pausa…). El micro sigue siendo el del ${other}.`, false)}
     ${opt('listen', 'Solo escuchar', 'Oyes la emisión como un oyente más.', false)}`, { dismissable: false }).done.then((v) => {
     if (v === 'remote') live.becomeRemote();
@@ -95,7 +96,7 @@ function roleBadge() {
   const k = live.kind;
   if (live.role === 'host') {
     const mics = live.people.filter((p) => p.role === 'guest' && p.owner);
-    return html`<div class="role-badge studio"><span class="dot"></span><span class="grow"><b>Este ${k} es el ESTUDIO</b> · mezcla y emite${mics.length ? html` · tu ${mics[0].kind} es micro` : ''}</span></div>`;
+    return html`<div class="role-badge studio"><span class="dot"></span><span class="grow"><b>Este ${k} es ESTUDIO + MICRO</b> · mezcla, emite y hablas por él${mics.length ? html` · tu ${mics[0].kind} es otro micro` : ''}</span></div>`;
   }
   if (live.remote) return html`<div class="role-badge remote"><span class="dot"></span><span class="grow"><b>Este ${k} es el MANDO</b> · el estudio es tu ${live.state.studioKind || 'otro aparato'}</span></div>`;
   return '';
