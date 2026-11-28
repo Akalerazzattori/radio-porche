@@ -805,3 +805,7 @@ img.av { object-fit: cover; background: var(--panel2); }
 .tape-card.playing .tape-pp { background: var(--yellow); }
 button.role-badge { width: 100%; text-align: left; cursor: pointer; }
 .role-badge .chg { font-weight: 800; font-size: 12px; text-decoration: underline; flex: none; }
+[data-el=role] { display: flex; gap: 8px; align-items: stretch; flex: none; }
+[data-el=role] > .role-badge { flex: 1; min-width: 0; }
+.info-btn { width: 40px; flex: none; border-radius: 12px; border: 2px solid var(--line); background: var(--panel); color: var(--cream); font: 700 18px/1 Georgia, serif; font-style: italic; }
+.info-btn:active { background: var(--panel2); }

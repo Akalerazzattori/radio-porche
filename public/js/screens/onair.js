@@ -128,7 +128,8 @@ export async function render(view, _p, { go }) {
         </div>
         <div>
           <span class="chip freq">${p.freq.toFixed(1)} · ${p.name.toUpperCase()}</span>
-          <div class="ttl">${p.live ? (p.liveTitle || p.name) : p.name}</div>
+          <div class="ttl">${p.live ? (p.liveTitle || p.liveProgram?.name || p.name) : p.name}</div>
+          ${p.live && p.liveProgram ? html`<div class="meta">${p.liveProgram.name}</div>` : ''}
           <div class="row between gap">
             <div class="meta">${p.live ? `${p.listeners} escuchando · ${p.mics} micros` : p.nextShow ? `Vuelve ${p.nextShow}` : `${p.podcasts} podcasts · ${p.followers} le siguen`}</div>
             ${p.live
@@ -146,7 +147,7 @@ export async function render(view, _p, { go }) {
     const other = stations.find((s) => s !== current && s.live) || stations.find((s) => s !== current && !s.live && s.nextShow) || stations.find((s) => s !== current);
     if (!other) {
       next.hidden = false;
-      mount(next, html`<img src="/img/scenes/escena-3.webp" alt=""><div class="grow"><div class="b">Abre tu porche</div><div class="muted small">Emite con tus amigos desde el móvil</div></div><a class="btn outline" href="/mi-porche">Empezar</a>`);
+      mount(next, html`<img src="/img/scenes/escena-3.webp" alt=""><div class="grow"><div class="b">Ir al estudio</div><div class="muted small">Sal al aire con tus amigos desde el móvil</div></div><a class="btn outline" href="/estudio">Estudio</a>`);
       return;
     }
     next.hidden = false;

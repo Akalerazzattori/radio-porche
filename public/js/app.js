@@ -86,9 +86,9 @@ function paintTabbar() {
   mount(tabbar, html`
     ${t('aire', '/', 'directo', 'Directo')}
     ${t('archivo', '/podcasts', 'podcasts', 'Podcasts')}
-    <a href="${cabinaHref}" class="center ${onAir ? 'onair' : ''} ${currentTab === 'cabina' ? 'on' : ''}" aria-label="${onAir ? 'Estás en el aire: volver a la cabina' : 'Cabina: preparar y salir al aire'}">
+    <a href="${cabinaHref}" class="center ${onAir ? 'onair' : ''} ${currentTab === 'cabina' ? 'on' : ''}" aria-label="${onAir ? 'Estás en el aire: volver al estudio' : 'Estudio: preparar y salir al aire'}">
       <span class="center-btn"><img src="/img/ui/${onAir ? 'nav-onair' : 'nav-cabina'}.png" alt="" width="34" height="34"></span>
-      <small>${onAir ? 'ON AIR' : 'Cabina'}</small>
+      <small>${onAir ? 'ON AIR' : 'Estudio'}</small>
     </a>
     ${t('porche', '/mi-porche', 'porche', 'Mi porche')}
     ${t('perfil', '/perfil', 'perfil', 'Perfil')}`);
@@ -104,7 +104,7 @@ function paintMini() {
   if (immersive || (!listeningLive && !hostLive && !player.p)) { mini.hidden = true; return; }
   mini.hidden = false;
   if (hostLive) {
-    mount(mini, html`<img src="${porchCover(live.porch)}" alt=""><div class="grow"><div class="b ellip">Estás en el aire</div><div class="muted tiny">${live.counts.listeners} oyentes · toca para volver a la cabina</div></div><a class="btn sm red" href="/porche/${live.porch.slug}">Cabina</a>`);
+    mount(mini, html`<img src="${porchCover(live.porch)}" alt=""><div class="grow"><div class="b ellip">Estás en el aire</div><div class="muted tiny">${live.counts.listeners} oyentes · toca para volver al estudio</div></div><a class="btn sm red" href="/porche/${live.porch.slug}">Estudio</a>`);
   } else if (listeningLive) {
     mount(mini, html`<img src="${porchCover(live.porch)}" alt=""><a class="grow" href="/porche/${live.porch.slug}"><div class="b ellip">${live.state.live ? live.state.title || live.porch.name : live.porch.name}</div><div class="muted tiny">${live.state.live ? 'En directo' : 'Esperando'} · ${live.porch.freq?.toFixed?.(1) || ''}${live.role === 'guest' ? ' · tienes micro' : ''}</div></a><button class="btn sm ghost" data-mini="stoplive" aria-label="Dejar de escuchar">${icon('close')}</button>`);
   } else if (player.p) {

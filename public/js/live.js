@@ -397,7 +397,7 @@ export const live = {
     this.series = uid();
     this.recParts = [];
     this.warned = {};
-    this.send({ t: 'golive', mode, title });
+    this.send({ t: 'golive', mode, title, programId: this.programId });
     this.mixer?.setOnAir(true);
     audioCtx();
     keepAwake(true);

@@ -76,6 +76,8 @@ export class Hub extends DurableObject {
   /** Migraciones que añaden columnas (una sola vez). */
   migrateColumns() {
     const cols = this.sql.exec('PRAGMA table_info(identities)').toArray().map((c) => c.name);
+    const ph = this.sql.exec('PRAGMA table_info(porches)').toArray().map((c) => c.name);
+    if (!ph.includes('live_program')) this.sql.exec("ALTER TABLE porches ADD COLUMN live_program TEXT NOT NULL DEFAULT ''");
     if (!cols.includes('avatar')) this.sql.exec('ALTER TABLE identities ADD COLUMN avatar INTEGER NOT NULL DEFAULT 0');
     const pc = this.sql.exec('PRAGMA table_info(podcasts)').toArray().map((c) => c.name);
     if (!pc.includes('program_id')) this.sql.exec("ALTER TABLE podcasts ADD COLUMN program_id TEXT NOT NULL DEFAULT ''");
@@ -209,6 +211,10 @@ export class Hub extends DurableObject {
       podcasts: this.one('SELECT COUNT(*) AS n FROM podcasts WHERE porch_id=? AND hidden=0', p.id).n,
       hidden: !!p.hidden,
     };
+    if (pub.live && p.live_program) {
+      const g = this.one('SELECT id, name, has_cover, scene FROM programs WHERE id=?', p.live_program);
+      if (g) pub.liveProgram = { id: g.id, name: g.name, hasCover: !!g.has_cover, scene: g.scene };
+    }
     if (viewer) pub.following = !!this.one('SELECT 1 FROM follows WHERE device=? AND porch_id=?', viewer, p.id);
     return pub;
   }
@@ -508,7 +514,14 @@ export class Hub extends DurableObject {
     let mm;
 
     if (p === '/api/me' && m === 'GET') {
-      const porch = this.one('SELECT * FROM porches WHERE owner=?', me);
+      let porch = this.one('SELECT * FROM porches WHERE owner=?', me);
+      if (porch && porch.name.startsWith('Porche de ')) {
+        const rest = porch.name.slice(10);
+        if (rest !== ident.name && rest.startsWith(ident.name + ' ')) {
+          this.run('UPDATE porches SET name=? WHERE id=?', `Porche de ${ident.name}`.slice(0, LIMITS.PORCH_NAME_MAX), porch.id);
+          porch = this.one('SELECT * FROM porches WHERE owner=?', me);
+        }
+      }
       const following = this.all('SELECT porch_id FROM follows WHERE device=?', me).map((r) => r.porch_id);
       return json({
         deviceId: me, name: ident.name, created: ident.created, terms: ident.terms, isNew: this.isNew(ident), avatar: ident.avatar || 0,
@@ -943,9 +956,9 @@ export class Hub extends DurableObject {
       const b = await req.json();
       const id = String(b.porchId || '');
       this.run(
-        'UPDATE porches SET live=?, live_mode=?, live_title=?, live_since=?, listeners=?, mics=?, waiting=? WHERE id=?',
+        'UPDATE porches SET live=?, live_mode=?, live_title=?, live_since=?, listeners=?, mics=?, waiting=?, live_program=? WHERE id=?',
         b.live ? 1 : 0, String(b.mode || '').slice(0, 10), cleanText(b.title || '', LIMITS.TITLE_MAX), cleanInt(b.since, 0, 9e15, 0),
-        cleanInt(b.listeners, 0, 999, 0), cleanInt(b.mics, 0, 99, 0), cleanInt(b.waiting, 0, 999, 0), id,
+        cleanInt(b.listeners, 0, 999, 0), cleanInt(b.mics, 0, 99, 0), cleanInt(b.waiting, 0, 999, 0), b.live ? cleanId(String(b.programId || '')) || '' : '', id,
       );
       return json({ ok: true });
     }

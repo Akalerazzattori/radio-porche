@@ -52,7 +52,7 @@ export async function render(view, _p, { go }) {
   async function showHome() {
     try { home = home && home.total !== undefined ? home : await api('/api/home'); } catch (e) { body.innerHTML = `<p class="muted center">${e.message}</p>`; return; }
     if (!home.total) {
-      mount(body, html`<div class="empty"><img src="/img/scenes/escena-4.webp" alt=""><p class="b">Aún no hay podcasts publicados.</p><p class="muted small">Sal al aire en modo <b>Directo + grabación</b> desde la Cabina y publica el primero.</p><a class="btn red" href="/estudio">Ir a la cabina</a></div>`);
+      mount(body, html`<div class="empty"><img src="/img/scenes/escena-4.webp" alt=""><p class="b">Aún no hay podcasts publicados.</p><p class="muted small">Sal al aire en modo <b>Directo + grabación</b> desde el Estudio y publica el primero.</p><a class="btn red" href="/estudio">Ir al estudio</a></div>`);
       return;
     }
     const used = cats.filter((c) => c.used);

@@ -99,7 +99,7 @@ export class Room extends DurableObject {
         method: 'POST',
         body: JSON.stringify({
           porchId: this.state.porchId, live: this.state.live, mode: this.state.mode, title: this.state.title,
-          since: this.state.since, listeners: c.listeners, mics: c.mics, waiting: this.state.live ? 0 : c.listeners,
+          since: this.state.since, listeners: c.listeners, mics: c.mics, waiting: this.state.live ? 0 : c.listeners, programId: this.state.live ? this.state.programId || '' : '',
         }),
       });
     } catch (e) { console.error('notifyHub', e); }
@@ -349,6 +349,7 @@ export class Room extends DurableObject {
         const mode = ['ensayo', 'directo', 'rec'].includes(msg.mode) ? msg.mode : 'directo';
         this.state.live = true; this.state.mode = mode; this.state.rec = mode === 'rec';
         this.state.title = cleanText(msg.title || '', LIMITS.TITLE_MAX); this.state.since = Date.now(); this.state.part = 1; this.state.paused = false;
+        this.state.programId = typeof msg.programId === 'string' && /^[A-Za-z0-9_-]{4,40}$/.test(msg.programId) ? msg.programId : '';
         await this.save();
         this.broadcast({ t: 'state', state: this.publicState() });
         this.system('¡Estamos en el aire!');

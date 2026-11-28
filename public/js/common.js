@@ -11,6 +11,8 @@ export function avatar(p, cls = '') {
 
 export function porchCover(p) {
   if (!p) return '/img/scenes/escena-1.webp';
+  // En directo se ve la portada del programa que se está emitiendo
+  if (p.live && p.liveProgram) return p.liveProgram.hasCover ? `/api/program/${p.liveProgram.id}/cover` : `/img/scenes/escena-${p.liveProgram.scene || 1}.webp`;
   return p.hasCover ? `/api/porch/${p.id}/cover` : `/img/scenes/escena-${p.scene || 1}.webp`;
 }
 export function podcastCover(p) {
@@ -153,7 +155,7 @@ export async function linkDeviceSheet() {
     <p class="muted small">En el ordenador (o el otro móvil) abre <b>${location.host}</b>, ve a <b>Perfil → Ya tengo porche en otro aparato</b> y escribe:</p>
     <div class="link-code">${r.code}</div>
     <p class="muted tiny center" data-el="left"></p>
-    <p class="muted tiny">Ese aparato será tú: podrá emitir, ser el estudio o controlar la cabina a distancia. El código sirve una sola vez y caduca en 10 minutos. No se lo des a nadie.</p>
+    <p class="muted tiny">Ese aparato será tú: podrá ser el estudio, un micro o el control a distancia. El código sirve una sola vez y caduca en 10 minutos. No se lo des a nadie.</p>
     <div class="row gap"><button class="btn ghost grow" data-a="new">Código nuevo</button><button class="btn yellow grow" data-close="">Hecho</button></div>`);
   const left = s.el.querySelector('[data-el=left]');
   s.el.querySelector('[data-a=new]').onclick = async () => {
