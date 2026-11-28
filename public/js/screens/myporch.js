@@ -140,11 +140,19 @@ export async function render(view, _p, { go }) {
     /** Compartir en privado con un amigo: enlace para escucharla sin publicarla (30 días). */
     async function shareRecording(r) {
       const link = (k) => `${location.origin}/escucha/${session.deviceId}/${k}`;
+      // Portada con su foto (o ilustración) y su título: es lo que se ve al pegar el enlace en WhatsApp
+      const sendCover = async (key) => {
+        try {
+          const blob = await composeCover({ photo: r.photo, scene: r.scene || 1, title: r.title, date: r.created });
+          await api(`/api/cloud/share/${key}/cover`, { method: 'POST', raw: blob, headers: { 'content-type': blob.type || 'image/jpeg' } });
+          r.shareCover = true; await db.put('recordings', r);
+        } catch {}
+      };
       if (shared(r)) {
         const v = await sheet(html`<h2 class="h2">Compartida en privado</h2><p>Quien tenga el enlace puede escuchar «<b>${r.title}</b>» hasta el ${fmtDate(r.shareExp)}. No está publicada.</p>
           <button class="btn yellow big" data-close="again">${icon('share')} Enviar el enlace otra vez</button>
           <button class="btn ghost" data-close="stop">Dejar de compartir (el enlace deja de funcionar)</button>`).done;
-        if (v === 'again') return shareUrl(link(r.shareKey), r.title);
+        if (v === 'again') { if (!r.shareCover) await sendCover(r.shareKey); return shareUrl(link(r.shareKey), r.title); }
         if (v === 'stop') {
           try { await api(`/api/cloud/share/${r.shareKey}/delete`, { method: 'POST', body: {} }); } catch {}
           delete r.shareKey; delete r.shareExp; await db.put('recordings', r); toast('Ya no se puede escuchar con ese enlace'); recordingsTab();
@@ -165,11 +173,12 @@ export async function render(view, _p, { go }) {
       toast('Preparando el enlace…');
       try {
         const porch = await api('/api/mine').then((x) => x.porch).catch(() => null);
-        const res = await api('/api/cloud/share', { method: 'POST', raw: r.blob, headers: { 'content-type': r.blob.type || 'audio/webm', 'x-title': encodeURIComponent(r.title || 'Grabación'), 'x-porch': encodeURIComponent(porch?.name || ''), 'x-duration': String(Math.round(r.duration || 0)) } });
-        r.shareKey = res.key; r.shareExp = res.exp;
+        const res = await api('/api/cloud/share', { method: 'POST', raw: r.blob, headers: { 'content-type': r.blob.type || 'audio/webm', 'x-title': encodeURIComponent(r.title || 'Grabación'), 'x-porch': encodeURIComponent(porch?.name || ''), 'x-duration': String(Math.round(r.duration || 0)), 'x-scene': String(r.scene || 1) } });
+        r.shareKey = res.key; r.shareExp = res.exp; r.shareCover = false;
         await db.put('recordings', r);
+        await sendCover(res.key);
         recordingsTab();
-        await shareUrl(link(res.key), r.title);
+        await shareUrl(link(res.key), `${r.title} · ${porch?.name || 'Radio Porche'}`);
       } catch (e) { toast(e.message || 'No se ha podido crear el enlace', 'bad'); }
     }
     async function playRec(id) {

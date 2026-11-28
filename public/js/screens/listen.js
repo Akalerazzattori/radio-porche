@@ -16,7 +16,7 @@ export async function render(view, [dev, key], { go }) {
     return;
   }
   document.title = `${meta.title} · Radio Porche`;
-  const cover = SCENES[(key.charCodeAt(0) + key.charCodeAt(1)) % SCENES.length];
+  const cover = meta.hasCover ? `${base}/cover` : SCENES[((meta.scene || 1) - 1) % SCENES.length];
   mount(view, html`
     <section class="screen">
       <div class="top"><div class="h3 center grow">Grabación privada</div></div>

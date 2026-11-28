@@ -80,6 +80,7 @@ async function seoPage(req, env, url, meta) {
     .on('meta[name="twitter:description"]', set(desc))
     .on('meta[name="twitter:image"]', set(image))
     .on('link[rel="canonical"]', { element(el) { el.setAttribute('href', canonical); } })
+    .on('meta[name="robots"]', { element(el) { if (meta.noindex) el.setAttribute('content', 'noindex, nofollow'); } })
     .on('script#ld', {
       element(el) {
         if (meta.ld) el.setInnerContent(JSON.stringify(meta.ld).replace(/</g, '\\u003c'), { html: false });
@@ -131,7 +132,7 @@ export default {
       headers.delete('cookie');
 
       // Grabación compartida en privado: la escucha quien tenga el enlace (sin entrar)
-      const sh = /^\/api\/share\/([A-Za-z0-9_-]{8,40})\/([A-Za-z0-9_-]{8,40})(\/audio)?$/.exec(path);
+      const sh = /^\/api\/share\/([A-Za-z0-9_-]{8,40})\/([A-Za-z0-9_-]{8,40})(\/audio|\/cover)?$/.exec(path);
       if (sh && (req.method === 'GET' || req.method === 'HEAD')) {
         const lk = env.LOCKER.get(env.LOCKER.idFromName(sh[1]));
         const h = new Headers(); if (req.headers.get('range')) h.set('range', req.headers.get('range'));
@@ -176,7 +177,7 @@ export default {
       }));
     }
     if (path === '/robots.txt') {
-      return withHeaders(new Response(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin\nDisallow: /escucha/\n\nSitemap: ${url.origin}/sitemap.xml\n`, {
+      return withHeaders(new Response(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin\n\nSitemap: ${url.origin}/sitemap.xml\n`, {
         headers: { 'content-type': 'text/plain; charset=utf-8' },
       }));
     }
@@ -199,6 +200,22 @@ export default {
           },
         }));
       }
+    }
+    // Grabación compartida en privado: la vista previa enseña su portada, su título y el porche (sin indexar)
+    if ((m = /^\/escucha\/([A-Za-z0-9_-]{8,40})\/([A-Za-z0-9_-]{8,40})$/.exec(path))) {
+      try {
+        const lk = env.LOCKER.get(env.LOCKER.idFromName(m[1]));
+        const r = await lk.fetch(`https://locker/internal/share/${m[2]}`);
+        if (r.ok) {
+          const s = await r.json();
+          const min = Math.max(1, Math.round((s.duration || 0) / 60));
+          return withHeaders(await seoPage(req, env, url, {
+            title: s.title, type: 'music.song', noindex: true,
+            description: `${s.porchName ? s.porchName + ' te ha' : 'Te han'} compartido esta grabación · ${min} min. Escúchala en Radio Porche, la radio de tu barrio.`,
+            image: s.hasCover ? `/api/share/${m[1]}/${m[2]}/cover` : `/img/scenes/escena-${s.scene || 1}.jpg`,
+          }));
+        }
+      } catch {}
     }
     if ((m = /^\/programa\/([A-Za-z0-9_-]{4,40})$/.exec(path))) {
       const d = await (await hub(env).fetch(`https://hub/internal/meta?program=${m[1]}`)).json();

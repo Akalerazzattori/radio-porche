@@ -120,11 +120,17 @@ export class Locker extends DurableObject {
         }
       }
       // Escuchar una grabación compartida en privado (la oye quien tenga el enlace)
-      if ((pm = /^\/internal\/share\/([A-Za-z0-9_-]{8,40})(\/audio)?$/.exec(p)) && (m === 'GET' || m === 'HEAD')) {
+      if ((pm = /^\/internal\/share\/([A-Za-z0-9_-]{8,40})(\/audio|\/cover)?$/.exec(p)) && (m === 'GET' || m === 'HEAD')) {
         this.purgeShares();
         const f = this.one("SELECT * FROM files WHERE id=? AND kind='shr'", 'shr_' + cleanId(pm[1]));
         if (!f) return err(404, 'Este enlace ya no está disponible');
-        if (!pm[2]) { let meta = {}; try { meta = JSON.parse(f.meta); } catch {} return json({ title: meta.title || 'Grabación', porchName: meta.porchName || '', duration: meta.duration || 0, exp: meta.exp || 0, created: f.created }); }
+        if (!pm[2]) { let meta = {}; try { meta = JSON.parse(f.meta); } catch {} return json({ title: meta.title || 'Grabación', porchName: meta.porchName || '', duration: meta.duration || 0, exp: meta.exp || 0, created: f.created, hasCover: !!f.p_bytes, scene: meta.scene || 1 }); }
+        if (pm[2] === '/cover') {
+          if (!f.p_bytes) return err(404, 'Sin portada');
+          const r2 = this.stream(req, f.id, 'p', f.p_bytes, f.p_mime);
+          r2.headers.set('cache-control', 'public, max-age=86400');
+          return r2;
+        }
         const res = this.stream(req, f.id, 'a', f.a_bytes, f.a_mime);
         res.headers.set('cache-control', 'private, max-age=600');
         return res;
@@ -139,11 +145,23 @@ export class Locker extends DurableObject {
         const key = randomKey();
         const dec = (h) => { try { return decodeURIComponent(req.headers.get(h) || ''); } catch { return ''; } };
         const exp = now() + SHARE_DAYS * 86400_000;
-        const meta = JSON.stringify({ title: dec('x-title').slice(0, 120), porchName: dec('x-porch').slice(0, 60), duration: Number(req.headers.get('x-duration')) || 0, exp });
+        const meta = JSON.stringify({ title: dec('x-title').slice(0, 120), porchName: dec('x-porch').slice(0, 60), duration: Number(req.headers.get('x-duration')) || 0, scene: Number(req.headers.get('x-scene')) || 1, exp });
         const id = 'shr_' + key;
         for (let i = 0, seq = 0; i < u8.length; i += CHUNK, seq++) this.run('INSERT INTO chunks (fid, part, seq, data) VALUES (?,?,?,?)', id, 'a', seq, u8.slice(i, i + CHUNK).buffer);
         this.run("INSERT INTO files (id, kind, meta, a_bytes, a_mime, created, updated) VALUES (?, 'shr', ?, ?, ?, ?, ?)", id, meta, u8.length, String(req.headers.get('content-type') || 'audio/webm').slice(0, 80), now(), now());
         return json({ key, exp });
+      }
+      // Portada de la grabación compartida (para que el enlace se vea con su foto y su título)
+      if ((pm = /^\/api\/cloud\/share\/([A-Za-z0-9_-]{8,40})\/cover$/.exec(p)) && m === 'POST') {
+        const id = 'shr_' + cleanId(pm[1]);
+        if (!this.one("SELECT id FROM files WHERE id=? AND kind='shr'", id)) return err(404, 'No existe');
+        const u8 = new Uint8Array(await req.arrayBuffer());
+        const isImg = u8.length > 12 && ((u8[0] === 0xff && u8[1] === 0xd8) || (u8[0] === 0x52 && u8[8] === 0x57));
+        if (!isImg || u8.length > 600 * 1024) return err(400, 'La portada debe ser JPEG o WebP de menos de 600 KB');
+        this.run("DELETE FROM chunks WHERE fid=? AND part='p'", id);
+        for (let i = 0, seq = 0; i < u8.length; i += CHUNK, seq++) this.run("INSERT INTO chunks (fid, part, seq, data) VALUES (?, 'p', ?, ?)", id, seq, u8.slice(i, i + CHUNK).buffer);
+        this.run('UPDATE files SET p_bytes=?, p_mime=?, updated=? WHERE id=?', u8.length, u8[0] === 0xff ? 'image/jpeg' : 'image/webp', now(), id);
+        return json({ ok: true });
       }
       if ((pm = /^\/api\/cloud\/share\/([A-Za-z0-9_-]{8,40})\/delete$/.exec(p)) && m === 'POST') {
         const id = 'shr_' + cleanId(pm[1]);
