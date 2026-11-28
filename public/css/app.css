@@ -357,8 +357,6 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 700;
 .quick button.on { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
 .quick button.danger.on { background: var(--red); color: var(--cream); border-color: var(--red); }
 .quick .ic { width: 18px; height: 18px; }
-.fader { display: grid; grid-template-columns: 92px 1fr 40px; align-items: center; gap: 10px; }
-.fader .l { font-weight: 800; font-size: 14px; } .fader .v { font: 12px var(--mono); color: var(--muted); text-align: right; }
 .bottom-bar { display: grid; grid-template-columns: 1fr 1.3fr; gap: 10px; flex: none; padding-bottom: var(--safe-b); }
 .req { display: flex; align-items: center; gap: 10px; }
 
@@ -809,3 +807,39 @@ button.avatar-edit { padding: 0; background: none; border: 0; }
 .sheet-body { overflow-x: hidden; overscroll-behavior-x: none; touch-action: pan-y; }
 .sheet-body .scene-pick, .sheet-body .chips-row, .sheet-body .fav-strip, .sheet-body .hrow { margin-left: 0; margin-right: 0; padding-left: 2px; padding-right: 2px; touch-action: pan-x pan-y; overscroll-behavior-x: contain; }
 .scene-pick, .chips-row, .fav-strip, .hrow, .prog-pick { overscroll-behavior-x: contain; }
+
+/* Voces de personaje: cuadrícula para elegir de un toque */
+.fx-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.fx-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px; border-radius: 14px; background: var(--panel2); border: 2px solid var(--line); text-align: left; min-height: 58px; }
+.fx-opt b { font-size: 14px; line-height: 1.1; }
+.fx-opt span { font: 11px var(--mono); color: var(--muted); }
+.fx-opt.on { background: var(--yellow); color: var(--ink); border-color: var(--edge); }
+.fx-opt.on span { color: rgba(18,13,12,.7); }
+
+/* ---------- Mesa de mezclas */
+.mesa { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 4px 16px 10px; scrollbar-width: none; touch-action: pan-x; overscroll-behavior-x: contain; }
+.mesa::-webkit-scrollbar { display: none; }
+.strip { flex: 0 0 74px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 6px; background: var(--panel); border: 2px solid var(--edge); border-radius: 16px; box-shadow: 0 4px 0 var(--edge); }
+.strip-name { font-weight: 800; font-size: 12px; max-width: 100%; text-align: center; }
+.strip.k-music .strip-name { color: var(--teal); } .strip.k-fx .strip-name { color: var(--salmon); } .strip.k-tab .strip-name { color: var(--violet); } .strip.k-voz .strip-name { color: var(--yellow); }
+.strip-body { display: flex; gap: 6px; height: 170px; align-items: stretch; }
+@media (max-height: 720px) { .strip-body { height: 132px; } }
+.vu { display: flex; flex-direction: column-reverse; gap: 2px; width: 10px; padding: 2px 0; }
+.vu i { flex: 1; border-radius: 2px; background: #3a302d; transition: background .05s; }
+.vu i.on { background: var(--teal); }
+.vu i:nth-last-child(-n+5).on { background: var(--yellow); }
+.vu i:nth-last-child(-n+2).on { background: var(--red); }
+.vu i.pk { background: var(--cream); opacity: .7; }
+.vfader { position: relative; width: 34px; touch-action: none; cursor: ns-resize; }
+.vf-track { position: absolute; left: 50%; top: 6px; bottom: 6px; width: 8px; transform: translateX(-50%); border-radius: 4px; background: var(--ink); border: 1px solid var(--line); overflow: hidden; }
+.vf-fill { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--v, 0) * 100%); background: var(--yellow); }
+.strip.k-music .vf-fill { background: var(--teal); } .strip.k-fx .vf-fill { background: var(--salmon); } .strip.k-tab .vf-fill { background: var(--violet); }
+.vf-thumb { position: absolute; left: 50%; width: 32px; height: 18px; border-radius: 5px; background: var(--cream); border: 2px solid var(--edge); box-shadow: 0 3px 0 var(--edge); transform: translate(-50%, 50%); bottom: calc(6px + var(--v, 0) * (100% - 12px)); }
+.vf-thumb::after { content: ''; position: absolute; left: 5px; right: 5px; top: 50%; height: 2px; background: var(--ink); transform: translateY(-50%); }
+.vfader.drag .vf-thumb { background: var(--yellow); }
+.strip-val { font-size: 12px; color: var(--muted); }
+.strip-mute { width: 40px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--panel2); border: 2px solid var(--edge); }
+.strip-mute .ic { width: 18px; height: 18px; }
+.strip-mute.on { background: var(--red); color: var(--cream); }
+.strip-mute.ghost { visibility: hidden; }
+

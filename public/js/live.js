@@ -391,7 +391,7 @@ export const live = {
     const mu = m.music;
     this.send({ t: 'studioState', s: {
       music: mu ? { key: mu.id, name: mu.name, pos: Math.round(m.musicPosition()), dur: Math.round(mu.duration), loop: mu.loop } : null,
-      fx, levels, gains, names,
+      fx, levels, gains, names, bus: { music: Math.round(m.busLevel('music') * 100) / 100, fx: Math.round(m.busLevel('fx') * 100) / 100, tab: Math.round(m.busLevel('tab') * 100) / 100 },
       musicLevel: m.musicLevel ?? 0.28, fxLevel: Math.round(m.fxBus.gain.value * 100) / 100, tab: m.tabSrc ? Math.round(m.tabBus.gain.value * 100) / 100 : null,
       ducking: m.ducking, solo: m.soloMusic, selfMuted: !!this.voice?.muted, hasVoice: !!this.voice,
       rec: this.rec ? { part: this.rec.part, elapsed: Math.round(this.partElapsed()) } : null,

@@ -108,12 +108,21 @@ export const SOUND_TABS = [
 
 // --- Voz ---
 export const VOICE_FX = [
+  { id: 'locutor', name: 'Locutor', hint: 'voz de radio' },
   { id: 'pitufo', name: 'Pitufo', hint: 'agudo' },
-  { id: 'robot', name: 'Robot', hint: 'metálico' },
-  { id: 'walkie', name: 'Walkie', hint: 'radio vieja' },
-  { id: 'burbuja', name: 'Burbuja', hint: 'bajo el agua' },
   { id: 'gigante', name: 'Gigante', hint: 'grave' },
+  { id: 'monstruo', name: 'Monstruo', hint: 'muy grave' },
+  { id: 'robot', name: 'Robot', hint: 'metálico' },
+  { id: 'alien', name: 'Extraterrestre', hint: 'de otro planeta' },
+  { id: 'abuelo', name: 'Abuelito', hint: 'tembloroso' },
+  { id: 'fantasma', name: 'Fantasma', hint: 'de ultratumba' },
+  { id: 'telefono', name: 'Teléfono', hint: 'llamada' },
+  { id: 'walkie', name: 'Walkie', hint: 'radio vieja' },
+  { id: 'megafono', name: 'Megáfono', hint: 'de feria' },
+  { id: 'radio', name: 'Radio del 40', hint: 'transistor' },
+  { id: 'burbuja', name: 'Bajo el agua', hint: 'sumergido' },
   { id: 'eco', name: 'Eco', hint: 'cueva' },
+  { id: 'catedral', name: 'Catedral', hint: 'mucha sala' },
 ];
 
 export const BROADCAST_MODES = [

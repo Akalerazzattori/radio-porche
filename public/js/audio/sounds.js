@@ -39,8 +39,35 @@ export async function decode(item) {
   let ab;
   if (item.blob) ab = await item.blob.arrayBuffer();
   else ab = await (await fetch(item.src)).arrayBuffer();
-  const buf = trimSilence(await audioCtx().decodeAudioData(ab));
+  const buf = normalizeLoudness(trimSilence(await audioCtx().decodeAudioData(ab)));
   cache.set(key, buf);
+  return buf;
+}
+
+/**
+ * Iguala el volumen de base de todos los sonidos (de serie y propios): unos se oían mucho más
+ * fuertes que otros. Mide el volumen medio de las partes con sonido (no el silencio) y lo lleva
+ * a un nivel común (≈ −18 dBFS), sin dejar que los picos saturen. Luego los deslizadores de la mesa
+ * suben o bajan desde ahí.
+ */
+export function normalizeLoudness(buf, target = 0.125) {
+  const chs = buf.numberOfChannels, n = buf.length, sr = buf.sampleRate;
+  const data = []; for (let c = 0; c < chs; c++) data.push(buf.getChannelData(c));
+  const block = Math.max(1, Math.round(sr * 0.05));
+  let sum = 0, count = 0, peak = 0;
+  for (let i = 0; i < n; i += block) {
+    let q = 0; const end = Math.min(n, i + block);
+    for (let j = i; j < end; j++) for (let c = 0; c < chs; c++) { const v = data[c][j]; q += v * v; const a = v < 0 ? -v : v; if (a > peak) peak = a; }
+    const rms = Math.sqrt(q / ((end - i) * chs));
+    if (rms > 0.003) { sum += q; count += (end - i) * chs; } // solo los trozos que suenan
+  }
+  if (!count || peak < 1e-4) return buf;
+  const rms = Math.sqrt(sum / count);
+  let g = target / rms;
+  g = Math.min(g, 0.95 / peak, 6);
+  g = Math.max(g, 0.2);
+  if (Math.abs(g - 1) < 0.05) return buf;
+  for (let c = 0; c < chs; c++) { const d = data[c]; for (let j = 0; j < n; j++) d[j] *= g; }
   return buf;
 }
 
@@ -95,7 +122,7 @@ export async function importSound(file, { zone, name, section = '' }, onProgress
     duration: Math.round(buf.duration * 10) / 10, mime: blob.type, blob, created: Date.now(),
   };
   await db.put('sounds', item);
-  cache.set('mias:' + item.id, buf);
+  cache.set('mias:' + item.id, normalizeLoudness(trimSilence(buf)));
   sendSound(item);
   return item;
 }

@@ -219,7 +219,9 @@ function voiceSelector(getVoice) {
         const b = e.target.closest('[data-v]');
         if (!b) return;
         if (b.dataset.v === '') { await setSetting('voiceFx', null); getVoice()?.setEffect(null); paint(null); return; }
-        const choice = await sheet(html`<div class="h3">Efectos</div>${VOICE_FX.map((f) => html`<button class="opt" data-close="${f.id}"><span class="grow b">${f.name}</span><span class="mono small muted">${f.hint}</span></button>`)}`).done;
+        const now = getVoice()?.effect || '';
+        const choice = await sheet(html`<h2 class="h2">Voz de personaje</h2><p class="muted small">Todas suenan al mismo volumen. Cambia cuando quieras, también en el aire.</p>
+          <div class="fx-grid">${VOICE_FX.map((f) => html`<button class="fx-opt ${now === f.id ? 'on' : ''}" data-close="${f.id}"><b>${f.name}</b><span>${f.hint}</span></button>`)}</div>`).done;
         if (!choice) return;
         await setSetting('voiceFx', choice);
         getVoice()?.setEffect(choice);
@@ -615,7 +617,7 @@ function buildBooth(view, porch, ctx) {
       <div class="row between small" data-el="partrow"></div>
       <div class="col gap-s" data-el="reqs"></div>
       <div class="seg">
-        <button data-tab="voces" class="on">Voces</button><button data-tab="sonidos">Sonidos</button><button data-tab="mesa">Volumen</button><button data-tab="chat">Chat <span data-el="nchat"></span></button>
+        <button data-tab="voces" class="on">Voces</button><button data-tab="sonidos">Sonidos</button><button data-tab="mesa">Mesa</button><button data-tab="chat">Chat <span data-el="nchat"></span></button>
       </div>
       <div class="fill scroll" data-el="panel"></div>
       <div class="quick">
@@ -777,16 +779,32 @@ function buildBooth(view, porch, ctx) {
     soundsPanel.repaint = paintPads;
   }
 
+  // ---------- Mesa de mezclas: una tira por línea, con medidor de lo que suena y deslizador vertical
   function mesaPanel() {
     const f = ctl.faders();
-    const fader = (id, label, val, max = 1) => html`<div class="fader"><span class="l ellip">${label}</span><input class="slider" type="range" min="0" max="${max}" step="0.01" value="${val}" data-fader="${id}" aria-label="${label}"><span class="v">${Math.round((val / max) * 100)}</span></div>`;
+    const strips = [
+      ...f.voices.map((v) => ({ id: 'v:' + v.id, vid: v.id, label: v.id === 'me' ? session.name || 'Tú' : v.name || 'Invitado', val: v.gain, max: 1.5, kind: 'voz', mute: v.id })),
+      { id: 'music', label: 'Música', val: f.music, max: 1, kind: 'music' },
+      { id: 'fx', label: 'Efectos', val: f.fx, max: 1, kind: 'fx' },
+      ...(f.tab != null ? [{ id: 'tab', label: 'Pestaña', val: f.tab, max: 1, kind: 'tab' }] : []),
+    ];
+    const muted = (st) => (st.mute === 'me' ? ctl.selfMuted() : !!live.people.find((x) => x.cid === st.mute)?.muted);
+    const SEG = 14;
     mount(panel, html`<div class="col gap">
-      <div class="h3">Volumen de cada cosa en antena</div>
-      ${fader('music', 'Música', f.music)}
-      ${fader('fx', 'Efectos', f.fx)}
-      ${f.tab != null ? fader('tab', 'Pestaña', f.tab) : ''}
-      ${f.voices.map((v) => fader('v:' + v.id, v.id === 'me' ? 'Micro estudio' : v.name || 'Invitado', v.gain, 1.5))}
-      <div class="toggle-row"><div class="grow"><b>La música baja sola cuando alguien habla</b><div class="muted tiny">Y vuelve al callar. Si mueves el deslizador de Música, manda tu mano.</div></div><span class="switch"><input type="checkbox" data-act="ducking" ${ctl.ducking() ? 'checked' : ''}><span></span></span></div>
+      <div class="mesa">${strips.map((st) => html`
+        <div class="strip k-${st.kind}" data-strip="${st.id}">
+          <div class="strip-name ellip">${st.label}</div>
+          <div class="strip-body">
+            <div class="vu" data-vu="${st.id}">${raw('<i></i>'.repeat(SEG))}</div>
+            <div class="vfader" data-vf="${st.id}" data-max="${st.max}" style="--v:${Math.min(1, st.val / st.max)}" role="slider" aria-label="Volumen de ${st.label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round((st.val / st.max) * 100)}" tabindex="0">
+              <div class="vf-track"><div class="vf-fill"></div></div><div class="vf-thumb"></div>
+            </div>
+          </div>
+          <div class="strip-val mono" data-sv="${st.id}">${Math.round((st.val / st.max) * 100)}</div>
+          ${st.mute ? html`<button class="strip-mute ${muted(st) ? 'on' : ''}" data-mute="${st.mute}" aria-label="Silenciar ${st.label}">${icon(muted(st) ? 'micoff' : 'mic')}</button>` : html`<span class="strip-mute ghost"></span>`}
+        </div>`)}</div>
+      <div class="muted tiny">Cada tira es una línea de la emisión: el medidor enseña lo que está sonando y el deslizador sube o baja su volumen. Los sonidos y las músicas ya llegan igualados de base.</div>
+      <div class="toggle-row"><div class="grow"><b>La música baja sola cuando alguien habla</b><div class="muted tiny">Y vuelve al callar. Si mueves la tira de Música, manda tu mano.</div></div><span class="switch"><input type="checkbox" data-act="ducking" ${ctl.ducking() ? 'checked' : ''}><span></span></span></div>
       ${!remote && canShareTab() ? html`<div class="card col gap-s">
         <b>${icon('tab')} Compartir pestaña con audio</b>
         <div class="muted tiny">Mete en la emisión el sonido de una pestaña de Chrome (p. ej. un vídeo que comentáis). Marca «Compartir audio» al elegirla. Solo fragmentos breves para comentar: emitir contenido completo puede vulnerar derechos.</div>
@@ -794,7 +812,45 @@ function buildBooth(view, porch, ctx) {
       </div>` : ''}
       <p class="muted tiny">Hasta unos 15–20 oyentes y 8 micros a la vez. Con wifi va casi siempre; con datos móviles alguna conexión puede fallar.</p>
     </div>`);
-    panel.querySelectorAll('.slider').forEach((s) => s.style.setProperty('--v', (s.value / s.max) * 100 + '%'));
+    // Deslizadores verticales (arrastrar o tocar en cualquier punto de la tira)
+    let lastSend = 0;
+    const setFromY = (el, clientY, final = false) => {
+      const r = el.getBoundingClientRect();
+      const k = Math.min(1, Math.max(0, 1 - (clientY - r.top) / r.height));
+      const max = Number(el.dataset.max);
+      el.style.setProperty('--v', k);
+      el.setAttribute('aria-valuenow', Math.round(k * 100));
+      const sv = panel.querySelector(`[data-sv="${CSS.escape(el.dataset.vf)}"]`); if (sv) sv.textContent = Math.round(k * 100);
+      const now = Date.now();
+      if (final || now - lastSend > (remote ? 120 : 30)) { lastSend = now; ctl.setFader(el.dataset.vf, Math.round(k * max * 100) / 100); }
+    };
+    panel.querySelectorAll('[data-vf]').forEach((el) => {
+      el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); el.classList.add('drag'); setFromY(el, e.clientY); });
+      el.addEventListener('pointermove', (e) => { if (el.hasPointerCapture(e.pointerId)) setFromY(el, e.clientY); });
+      const end = (e) => { if (el.hasPointerCapture?.(e.pointerId)) { el.releasePointerCapture(e.pointerId); setFromY(el, e.clientY, true); } el.classList.remove('drag'); };
+      el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+      el.addEventListener('keydown', (e) => {
+        const cur = Number(getComputedStyle(el).getPropertyValue('--v')) || 0;
+        const d = e.key === 'ArrowUp' ? 0.05 : e.key === 'ArrowDown' ? -0.05 : 0;
+        if (!d) return; e.preventDefault();
+        const r = el.getBoundingClientRect();
+        setFromY(el, r.top + (1 - Math.min(1, Math.max(0, cur + d))) * r.height, true);
+      });
+    });
+    // Medidores en vivo (con caída suave y marca de pico)
+    const vus = [...panel.querySelectorAll('[data-vu]')].map((el) => ({ el, id: el.dataset.vu, segs: [...el.children], v: 0, pk: 0, pkT: 0 }));
+    const loop = () => {
+      const now = performance.now();
+      for (const m of vus) {
+        const raw = m.id.startsWith('v:') ? ctl.voiceLevel(m.id.slice(2)) : ctl.busLevel(m.id);
+        m.v = raw > m.v ? raw : m.v * 0.88;
+        if (m.v >= m.pk || now - m.pkT > 900) { m.pk = m.v; m.pkT = now; }
+        const lit = Math.round(m.v * SEG), pki = Math.min(SEG - 1, Math.round(m.pk * SEG) - 1);
+        m.segs.forEach((sg, i) => { sg.classList.toggle('on', i < lit); sg.classList.toggle('pk', i === pki && i >= lit); });
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    loop();
   }
 
   function chatPanel() {
@@ -866,7 +922,7 @@ function buildBooth(view, porch, ctx) {
       const cid = b.dataset.mute;
       const muted = cid === 'me' ? ctl.selfMuted() : live.people.find((x) => x.cid === cid)?.muted;
       ctl.muteVoice(cid, !muted);
-      setTimeout(() => { header(); voicesPanel.paint?.(); }, remote ? 900 : 60);
+      setTimeout(() => { header(); voicesPanel.paint?.(); if (tab === 'mesa') { const nb = panel.querySelector(`.strip-mute[data-mute="${CSS.escape(cid)}"]`); if (nb) { nb.classList.toggle('on', !muted); mount(nb, icon(!muted ? 'micoff' : 'mic')); } } }, remote ? 900 : 60);
       return;
     }
     if ((b = t.closest('[data-menu]'))) {
@@ -932,14 +988,6 @@ function buildBooth(view, porch, ctx) {
         break;
       }
     }
-  });
-  view.addEventListener('input', (e) => {
-    const s = e.target.closest('[data-fader]');
-    if (!s) return;
-    const v = Number(s.value);
-    s.style.setProperty('--v', (v / s.max) * 100 + '%');
-    s.parentElement.querySelector('.v').textContent = Math.round((v / s.max) * 100);
-    ctl.setFader(s.dataset.fader, v);
   });
   view.addEventListener('change', async (e) => {
     if (e.target.matches('[data-act=hp]')) {

@@ -46,6 +46,11 @@ export class Mixer {
     this.tabBus = c.createGain(); this.tabBus.gain.value = 0.8;
     for (const b of [this.fxBus, this.duck]) { b.connect(this.listenerSum); b.connect(this.patioSum); b.connect(this.monitor); }
     this.tabBus.connect(this.listenerSum); this.tabBus.connect(this.monitor);
+    // Medidores de la mesa: lo que suena en cada línea (después de su deslizador)
+    this.busA = {};
+    for (const [k, node] of [['music', this.duck], ['fx', this.fxBus], ['tab', this.tabBus]]) {
+      const a = c.createAnalyser(); a.fftSize = 512; node.connect(a); this.busA[k] = { a, data: new Float32Array(512) };
+    }
 
     this.ducking = true;
     this.manualUntil = 0;
@@ -97,6 +102,15 @@ export class Mixer {
     if (!v) return;
     v.userMuted = !!on;
     v.mute.gain.setTargetAtTime(on || this.soloMusic ? 0 : 1, this.ctx.currentTime, 0.03);
+  }
+  /** Nivel 0..1 de una línea de la mesa: music, fx o tab. */
+  busLevel(k) {
+    const b = this.busA?.[k];
+    if (!b) return 0;
+    b.a.getFloatTimeDomainData(b.data);
+    let s = 0, pk = 0;
+    for (let i = 0; i < b.data.length; i++) { const v = b.data[i]; s += v * v; const a = v < 0 ? -v : v; if (a > pk) pk = a; }
+    return Math.min(1, Math.max(Math.sqrt(s / b.data.length) * 4, pk * 0.9));
   }
   voiceLevel(id) {
     const v = this.voices.get(id);

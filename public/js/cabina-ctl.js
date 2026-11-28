@@ -86,6 +86,7 @@ export function makeCtl() {
     hasVoice() { return R() ? !!S().hasVoice : !!live.voice; },
     selfMuted() { return R() ? !!S().selfMuted : !!live.voice?.muted; },
     setSelfMute(on) { R() ? live.ctl('selfmute', { on }) : live.voice?.setMuted(on); },
+    busLevel(k) { return R() ? S().bus?.[k] || 0 : live.mixer?.busLevel(k) || 0; },
     voiceLevel(cid) { return R() ? S().levels?.[cid] || 0 : cid === 'me' ? live.voice?.level() || 0 : live.mixer?.voiceLevel(cid) || 0; },
     muteVoice(cid, on) {
       if (cid === 'me') return this.setSelfMute(on);
