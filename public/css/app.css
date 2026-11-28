@@ -897,3 +897,10 @@ button.avatar-edit { padding: 0; background: none; border: 0; }
 .share-card .share-state .ic { width: 18px; height: 18px; }
 .share-card .share-state .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--cream); animation: blink 1s infinite; }
 .share-prev { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; border: 2px solid var(--edge); object-fit: contain; }
+/* Marca del volumen normal (mitad de la tira) */
+.vf-track::after { content: ''; position: absolute; left: -6px; right: -6px; top: 50%; height: 2px; background: var(--cream); opacity: .55; }
+.vfader::before { content: ''; position: absolute; left: 0; right: 0; top: calc(50% - 1px); height: 2px; background: rgba(255,244,224,.25); }
+/* Pausa: que no quede ninguna duda */
+.pause-ban { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 12px; border-radius: 14px; border: 2px solid var(--edge); background: repeating-linear-gradient(-45deg, var(--yellow), var(--yellow) 14px, #f2b62c 14px, #f2b62c 28px); color: var(--ink); box-shadow: 0 4px 0 var(--edge); }
+.pause-ban b { font: 22px var(--display, inherit); letter-spacing: .5px; }
+.pause-ban span { flex: 1 1 180px; font-size: 13px; }

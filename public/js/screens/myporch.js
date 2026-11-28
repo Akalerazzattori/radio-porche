@@ -80,6 +80,7 @@ export async function render(view, _p, { go }) {
             <div class="grow">
               <div class="row gap-s"><div class="t ellip">${r.title}${r.part > 1 ? ` · Parte ${r.part}` : ''}</div><button class="mini-ic" data-det="${r.id}" aria-label="Cambiar título y foto">${icon('edit')}</button></div>
               <div class="m">${fmtDur(r.duration)} · ${fmtDate(r.created)}${r.from ? ` · llegó de tu ${r.from}` : ''}</div>
+              ${r.partial ? html`<div class="m orange-t">${live.rec?.id === r.id ? 'Grabando ahora…' : 'La emisión se cortó: guardada hasta aquí'}</div>` : ''}
               ${shared(r) ? html`<div class="m yellow-t">${icon('share')} Compartida en privado hasta el ${fmtDate(r.shareExp)}</div>` : ''}
             </div>
           </div>

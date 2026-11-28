@@ -419,7 +419,8 @@ export const live = {
         if (a.id === 'music') m.setMusicLevel(num(a.v, 1), true);
         else if (a.id === 'fx') m.setFxLevel(num(a.v, 1));
         else if (a.id === 'tab') m.setTabLevel(num(a.v, 1));
-        else if (typeof a.id === 'string' && a.id.startsWith('v:')) m.setVoiceGain(a.id.slice(2), num(a.v));
+        else if (typeof a.id === 'string' && a.id.startsWith('v:')) m.setVoiceGain(a.id.slice(2), num(a.v, 2));
+        emit('update');
         break;
       case 'ducking': m.ducking = !!a.on; break;
       case 'guestfx': localStorage.setItem('rp_guestfx', a.on ? '1' : '0'); break;
@@ -477,13 +478,14 @@ export const live = {
     else { this.mixer.removeCasa(cid); out = this.mixer.listenerStream; }
     this.studio.connect(cid, role === 'guest' ? 'guest' : 'listener', out);
   },
+  /** Este aparato deja de emitir. Si estaba grabando, la parte SE GUARDA (nunca se tira) antes de apagar nada. */
   teardownStudio() {
     clearInterval(this.stateIv);
     this.fxPlaying.clear();
-    this.stopRecorder(false);
-    this.studio?.closeAll(); this.studio = null;
-    this.mixer?.destroy(); this.mixer = null;
-    this.voice?.stop(); this.voice = null;
+    const studio = this.studio, mixer = this.mixer, voice = this.voice;
+    this.studio = null; this.mixer = null; this.voice = null;
+    const saving = this.rec ? this.stopRecorder(true).then((it) => { if (it) toast(`Parte ${it.part} guardada en Grabaciones de este aparato.`, 'good'); }) : Promise.resolve();
+    return saving.catch(() => {}).finally(() => { studio?.closeAll(); mixer?.destroy(); voice?.stop(); });
   },
 
   goLive(mode, title, programId = '') {
@@ -518,7 +520,10 @@ export const live = {
     const chunks = [];
     mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     mr.start(5000);
-    this.rec = { mr, chunks, part, start: Date.now(), pausedMs: 0, pausedAt: 0, mime: (mime || 'audio/webm').split(';')[0] };
+    this.rec = { id: uid(), created: Date.now(), mr, chunks, part, start: Date.now(), pausedMs: 0, pausedAt: 0, mime: (mime || 'audio/webm').split(';')[0] };
+    // Copia de seguridad cada 30 s: si el aparato se apaga, se cuelga o el navegador lo cierra, lo grabado no se pierde
+    const r0 = this.rec;
+    r0.saveIv = setInterval(() => this.saveProgress(r0), 30_000);
     this.partClosed = false;
     this.warned = {};
     this.send({ t: 'hostState', rec: true, part });
@@ -545,22 +550,31 @@ export const live = {
     const next = (this.recParts.length ? Math.max(...this.recParts.map((p) => p.part)) : 0) + 1;
     this.startRecorder(next);
   },
+  recItem(r, extra = {}) {
+    return {
+      id: r.id, kind: 'draft', created: r.created, title: this.state.title || 'Programa sin título', description: '',
+      part: r.part, series: this.series, duration: (Date.now() - r.start - r.pausedMs - (r.pausedAt ? Date.now() - r.pausedAt : 0)) / 1000,
+      mime: r.mime, blob: new Blob(r.chunks, { type: r.mime }), scene: this.porch?.scene || 1, porchName: this.porch?.name || '', chapters: [],
+      programId: this.programId || '', ...extra,
+    };
+  },
+  async saveProgress(r) {
+    if (this.rec !== r || !r.chunks.length) return;
+    try { await db.put('recordings', this.recItem(r, { partial: true })); } catch {}
+  },
   async stopRecorder(save) {
     clearInterval(this.recIv);
     const r = this.rec;
     if (!r) return null;
     this.rec = null;
+    clearInterval(r.saveIv);
     const duration = (Date.now() - r.start - r.pausedMs - (r.pausedAt ? Date.now() - r.pausedAt : 0)) / 1000;
     const done = new Promise((res) => (r.mr.onstop = res));
     try { r.mr.stop(); } catch {}
     await Promise.race([done, new Promise((res) => setTimeout(res, 3000))]);
-    if (!save || !r.chunks.length) return null;
-    const blob = new Blob(r.chunks, { type: r.mime });
-    const item = {
-      id: uid(), kind: 'draft', created: Date.now(), title: this.state.title || 'Programa sin título', description: '',
-      part: r.part, series: this.series, duration, mime: r.mime, blob, scene: this.porch?.scene || 1, porchName: this.porch?.name || '', chapters: [],
-      programId: this.programId || '',
-    };
+    if (!save) { try { await db.del('recordings', r.id); } catch {} return null; }
+    if (!r.chunks.length) return null;
+    const item = { ...this.recItem(r), duration };
     try { await db.put('recordings', item); this.recParts.push(item); } catch { toast('No se ha podido guardar la grabación en este aparato', 'bad'); }
     // Emitiendo desde el ordenador: la grabación llega sola a tu móvil (tu casa). En el ordenador también se queda.
     if (DEVICE_KIND === 'ordenador' && hasUsed('móvil')) sendRecording(item, 'móvil', { quiet: true }).then((ok) => { if (ok) toast(`Parte ${item.part} enviada a tu móvil.`, 'good'); });
@@ -576,7 +590,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     if (live.speaking) live.wasHidden = Date.now();
     // El móvil que emite se va a dormir o cambias de app: si tienes el ordenador conectado, emite él.
-    if (live.role === 'host' && live.kind === 'móvil') {
+    if (live.role === 'host' && live.kind === 'móvil' && !live.state.paused) {
       const pc = live.myOtherDevices().find((d) => d.kind === 'ordenador');
       if (pc) live.send({ t: 'handoff', to: pc.cid });
     }

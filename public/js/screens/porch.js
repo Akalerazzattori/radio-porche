@@ -296,7 +296,7 @@ function buildListener(view, porch, ctx) {
 
   function paint() {
     const s = live.state;
-    mount($el('livechip'), s.live && s.mode !== 'ensayo' ? html`<span class="live-chip">En directo</span>` : s.live ? html`<span class="live-chip off">Ensayo</span>` : html`<span class="live-chip off">Apagado</span>`);
+    mount($el('livechip'), s.live && s.paused ? html`<span class="live-chip off">En pausa · vuelve enseguida</span>` : s.live && s.mode !== 'ensayo' ? html`<span class="live-chip">En directo</span>` : s.live ? html`<span class="live-chip off">Ensayo</span>` : html`<span class="live-chip off">Apagado</span>`);
     $el('when').textContent = s.live ? `${fmtDate(s.since).toUpperCase()} · ${porch.name.toUpperCase()}` : porch.name.toUpperCase();
     $el('title').textContent = s.live ? s.title || porch.name : s.hostOnline ? 'Empieza en breve' : porch.nextShow ? `Vuelve ${porch.nextShow}` : 'Aún no ha empezado';
     $el('n').textContent = live.counts.listeners;
@@ -620,6 +620,7 @@ function buildBooth(view, porch, ctx) {
       </div>
       <div data-el="role">${roleBadge()}</div>
       <div class="row between small" data-el="partrow"></div>
+      <div class="pause-ban hidden" data-el="pauseban"><b>EN PAUSA</b><span>No se emite ni se graba: los oyentes oyen «volvemos enseguida». El reloj está parado.</span><button class="btn yellow" data-act="pause">Reanudar</button></div>
       <div class="col gap-s" data-el="reqs"></div>
       <div class="seg">
         <button data-tab="voces" class="on">Voces</button><button data-tab="sonidos">Sonidos</button><button data-tab="mesa">Mesa</button><button data-tab="chat">Chat <span data-el="nchat"></span></button>
@@ -643,7 +644,11 @@ function buildBooth(view, porch, ctx) {
   function header() {
     const s = live.state;
     if (!header.t || Date.now() - header.t > 3000) { header.t = Date.now(); mount($el('role'), roleBadge()); }
-    $el('clock').textContent = fmtTime(s.since ? (Date.now() - s.since) / 1000 : 0, true);
+    // Tiempo en el aire: sin contar las pausas
+    const pausedMs = (s.pausedTotal || 0) + (s.paused && s.pausedAt ? Date.now() - s.pausedAt : 0);
+    $el('clock').textContent = fmtTime(s.since ? Math.max(0, Date.now() - s.since - pausedMs) / 1000 : 0, true);
+    const pb = $el('pauseban');
+    if (pb) pb.classList.toggle('hidden', !s.paused);
     const onair = $el('onair');
     onair.textContent = s.paused ? 'En pausa' : 'En el aire';
     view.querySelector('.onair-sign').classList.toggle('paused', !!s.paused);
@@ -655,7 +660,7 @@ function buildBooth(view, porch, ctx) {
     } else if (ctl.partClosed()) {
       pr.innerHTML = `<span class="muted">Parte guardada en Grabaciones.</span><button class="btn sm yellow" data-act="nextpart">Grabar Parte ${ctl.lastPart() + 1}</button>`;
     } else pr.innerHTML = `<span class="muted">${s.mode === 'ensayo' ? 'Ensayo privado · no se graba' : s.mode === 'rec' ? 'No se está grabando' : 'Solo directo · no se graba'}</span><span class="muted">${live.counts.listeners} oyentes</span>`;
-    mount(view.querySelector('[data-act=pause]'), s.paused ? 'Reanudar' : 'Pausa');
+    view.querySelectorAll('[data-act=pause]').forEach((b) => { if (!b.closest('.pause-ban')) mount(b, s.paused ? 'Reanudar' : 'Pausa'); });
     view.querySelector('[data-q=selfmute]').classList.toggle('on', ctl.selfMuted());
     view.querySelector('[data-q=solo]').classList.toggle('on', ctl.solo());
   }
@@ -798,10 +803,11 @@ function buildBooth(view, porch, ctx) {
       return v.name || p?.name || 'Invitado';
     };
     const strips = [
-      ...f.voices.map((v) => ({ id: 'v:' + v.id, vid: v.id, label: voiceLabel(v), val: v.gain, max: 1.5, kind: 'voz', mute: v.id })),
-      { id: 'music', label: 'Música', val: f.music, max: 1, kind: 'music' },
-      { id: 'fx', label: 'Cortinillas y efectos', val: f.fx, max: 1, kind: 'fx' },
-      ...(f.tab != null ? [{ id: 'tab', label: 'Pestaña', val: f.tab, max: 1, kind: 'tab' }] : []),
+      // def = volumen normal (queda en el MEDIO de la tira); abajo del todo = silencio; arriba = máximo
+      ...f.voices.map((v) => ({ id: 'v:' + v.id, vid: v.id, label: voiceLabel(v), val: v.gain, def: 1, max: 2, kind: 'voz', mute: v.id })),
+      { id: 'music', label: 'Música', val: f.music, def: 0.3, max: 1, kind: 'music' },
+      { id: 'fx', label: 'Cortinillas y efectos', val: f.fx, def: 0.9, max: 1.8, kind: 'fx' },
+      ...(f.tab != null ? [{ id: 'tab', label: 'Pestaña', val: f.tab, def: 0.8, max: 1.6, kind: 'tab' }] : []),
     ];
     const muted = (st) => (st.mute === 'me' ? ctl.selfMuted() : !!live.people.find((x) => x.cid === st.mute)?.muted);
     const SEG = 14;
@@ -811,11 +817,11 @@ function buildBooth(view, porch, ctx) {
           <div class="strip-name">${st.label}</div>
           <div class="strip-body">
             <div class="vu" data-vu="${st.id}">${raw('<i></i>'.repeat(SEG))}</div>
-            <div class="vfader" data-vf="${st.id}" data-max="${st.max}" style="--v:${Math.min(1, st.val / st.max)}" role="slider" aria-label="Volumen de ${st.label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round((st.val / st.max) * 100)}" tabindex="0">
+            <div class="vfader" data-vf="${st.id}" data-def="${st.def}" data-max="${st.max}" data-val="${st.val}" role="slider" aria-label="Volumen de ${st.label}" aria-valuemin="0" aria-valuemax="200" tabindex="0">
               <div class="vf-track"><div class="vf-fill"></div></div><div class="vf-thumb"></div>
             </div>
           </div>
-          <div class="strip-val mono" data-sv="${st.id}">${Math.round((st.val / st.max) * 100)}</div>
+          <div class="strip-val mono" data-sv="${st.id}"></div>
           ${st.mute ? html`<button class="strip-mute ${muted(st) ? 'on' : ''}" data-mute="${st.mute}" aria-label="Silenciar ${st.label}">${icon(muted(st) ? 'micoff' : 'mic')}</button>` : html`<span class="strip-mute ghost"></span>`}
         </div>`)}</div>
       <div class="muted tiny">Cada tira es una línea de la emisión: el medidor enseña lo que suena y el deslizador sube o baja su volumen. Lo que oyes en tus cascos de tu propia voz sigue a tu tira.</div>
@@ -824,25 +830,43 @@ function buildBooth(view, porch, ctx) {
       <div data-el="sharecard"></div>
       <p class="muted tiny">Hasta unos 15–20 oyentes y 8 micros a la vez. Con wifi va casi siempre; con datos móviles alguna conexión puede fallar.</p>
     </div>`);
-    // Deslizadores verticales (arrastrar o tocar en cualquier punto de la tira)
+    // Deslizadores verticales. Posición k (0..1): mitad = volumen normal; abajo = silencio; arriba = máximo.
+    // El número es el % respecto al normal (100 = normal, 0 = silencio, 200 = el doble).
+    const toVal = (el, k) => { const d = Number(el.dataset.def), mx = Number(el.dataset.max); return k <= 0.5 ? d * (k / 0.5) : d + (mx - d) * ((k - 0.5) / 0.5); };
+    const toPos = (el, v) => { const d = Number(el.dataset.def), mx = Number(el.dataset.max); return v <= d ? (v / d) * 0.5 : 0.5 + Math.min(1, (v - d) / (mx - d)) * 0.5; };
+    const paintFader = (el, k) => {
+      el.style.setProperty('--v', k); // (el atributo style en el HTML lo bloquea la seguridad de la página; así sí)
+      const v = toVal(el, k);
+      const pct = Math.round((v / Number(el.dataset.def)) * 100);
+      el.setAttribute('aria-valuenow', pct);
+      const sv = panel.querySelector(`[data-sv="${CSS.escape(el.dataset.vf)}"]`); if (sv) sv.textContent = pct === 100 ? 'normal' : pct;
+      return v;
+    };
+    panel.querySelectorAll('[data-vf]').forEach((el) => paintFader(el, toPos(el, Number(el.dataset.val))));
     let lastSend = 0;
     const setFromY = (el, clientY, final = false) => {
       const r = el.getBoundingClientRect();
-      const k = Math.min(1, Math.max(0, 1 - (clientY - r.top) / r.height));
-      const max = Number(el.dataset.max);
-      el.style.setProperty('--v', k);
-      el.setAttribute('aria-valuenow', Math.round(k * 100));
-      const sv = panel.querySelector(`[data-sv="${CSS.escape(el.dataset.vf)}"]`); if (sv) sv.textContent = Math.round(k * 100);
+      let k = Math.min(1, Math.max(0, 1 - (clientY - r.top) / r.height));
+      if (Math.abs(k - 0.5) < 0.03) k = 0.5; // se queda pegado al normal
+      const v = paintFader(el, k);
       const now = Date.now();
-      if (final || now - lastSend > (remote ? 120 : 30)) { lastSend = now; ctl.setFader(el.dataset.vf, Math.round(k * max * 100) / 100); }
+      if (final || now - lastSend > (remote ? 120 : 30)) { lastSend = now; ctl.setFader(el.dataset.vf, Math.round(v * 100) / 100); }
+    };
+    mesaPanel.sync = () => {
+      // Si alguien mueve la mesa desde otro aparato, aquí se ve
+      const f2 = ctl.faders();
+      const vals = { music: f2.music, fx: f2.fx, tab: f2.tab };
+      for (const v of f2.voices) vals['v:' + v.id] = v.gain;
+      panel.querySelectorAll('[data-vf]').forEach((el) => { if (!el.classList.contains('drag') && vals[el.dataset.vf] != null && Date.now() - lastSend > 1500) paintFader(el, toPos(el, vals[el.dataset.vf])); });
     };
     panel.querySelectorAll('[data-vf]').forEach((el) => {
       el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); el.classList.add('drag'); setFromY(el, e.clientY); });
       el.addEventListener('pointermove', (e) => { if (el.hasPointerCapture(e.pointerId)) setFromY(el, e.clientY); });
       const end = (e) => { if (el.hasPointerCapture?.(e.pointerId)) { el.releasePointerCapture(e.pointerId); setFromY(el, e.clientY, true); } el.classList.remove('drag'); };
       el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+      el.addEventListener('dblclick', () => { const r = el.getBoundingClientRect(); setFromY(el, r.top + r.height / 2, true); });
       el.addEventListener('keydown', (e) => {
-        const cur = Number(getComputedStyle(el).getPropertyValue('--v')) || 0;
+        const cur = Number(el.style.getPropertyValue('--v')) || 0;
         const d = e.key === 'ArrowUp' ? 0.05 : e.key === 'ArrowDown' ? -0.05 : 0;
         if (!d) return; e.preventDefault();
         const r = el.getBoundingClientRect();
@@ -1018,10 +1042,11 @@ function buildBooth(view, porch, ctx) {
   const clockIv = setInterval(header, 1000);
   let soundsSig = '';
   const offs = [
-    onLive('update', () => { header(); reqs(); if (tab === 'voces') { const before = panel.querySelectorAll('[data-cid]').length; const now = live.people.filter((p) => p.role === 'guest').length + 1; if (before !== now) showTab('voces'); else voicesPanel.paint?.(); } }),
+    onLive('update', () => { header(); reqs(); if (tab === 'mesa') mesaPanel.sync?.(); if (tab === 'voces') { const before = panel.querySelectorAll('[data-cid]').length; const now = live.people.filter((p) => p.role === 'guest').length + 1; if (before !== now) showTab('voces'); else voicesPanel.paint?.(); } }),
     onLive('remote', () => {
       header();
       if (tab === 'voces') voicesPanel.paint?.();
+      if (tab === 'mesa') mesaPanel.sync?.();
       const sig = live.remoteSounds.length + ':' + (live.remoteSounds[0]?.key || '');
       if (tab === 'sonidos' && sig !== soundsSig) { soundsSig = sig; items = live.remoteSounds; soundsPanel.repaint?.(); }
     }),

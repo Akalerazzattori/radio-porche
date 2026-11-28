@@ -48,7 +48,7 @@ export class Room extends DurableObject {
   publicState() {
     const s = this.state;
     const h = this.host();
-    return { live: s.live, mode: s.mode, title: s.title, since: s.since, pinned: s.pinned, paused: s.paused, rec: s.rec, part: s.part, studio: s.studio, hostOnline: !!h, studioKind: h ? this.att(h).kind || 'móvil' : '' };
+    return { live: s.live, mode: s.mode, title: s.title, since: s.since, pinned: s.pinned, paused: s.paused, pausedAt: s.pausedAt || 0, pausedTotal: s.pausedTotal || 0, rec: s.rec, part: s.part, studio: s.studio, hostOnline: !!h, studioKind: h ? this.att(h).kind || 'móvil' : '' };
   }
   counts() {
     let listeners = 0, mics = 0;
@@ -367,7 +367,7 @@ export class Room extends DurableObject {
         if (!isHost) return;
         const mode = ['ensayo', 'directo', 'rec'].includes(msg.mode) ? msg.mode : 'directo';
         this.state.live = true; this.state.mode = mode; this.state.rec = mode === 'rec';
-        this.state.title = cleanText(msg.title || '', LIMITS.TITLE_MAX); this.state.since = Date.now(); this.state.part = 1; this.state.paused = false;
+        this.state.title = cleanText(msg.title || '', LIMITS.TITLE_MAX); this.state.since = Date.now(); this.state.part = 1; this.state.paused = false; this.state.pausedAt = 0; this.state.pausedTotal = 0;
         this.state.programId = typeof msg.programId === 'string' && /^[A-Za-z0-9_-]{4,40}$/.test(msg.programId) ? msg.programId : '';
         await this.save();
         this.broadcast({ t: 'state', state: this.publicState() });
@@ -377,7 +377,12 @@ export class Room extends DurableObject {
       }
       case 'hostState': {
         if (!isHost) return;
-        if (typeof msg.paused === 'boolean') this.state.paused = msg.paused;
+        if (typeof msg.paused === 'boolean' && msg.paused !== this.state.paused) {
+          // El reloj del directo se para en la pausa y sigue donde estaba al reanudar
+          if (msg.paused) this.state.pausedAt = Date.now();
+          else if (this.state.pausedAt) { this.state.pausedTotal = (this.state.pausedTotal || 0) + (Date.now() - this.state.pausedAt); this.state.pausedAt = 0; }
+          this.state.paused = msg.paused;
+        }
         if (typeof msg.rec === 'boolean') this.state.rec = msg.rec && this.state.mode === 'rec';
         if (Number.isInteger(msg.part) && msg.part > 0 && msg.part < 50) this.state.part = msg.part;
         if (typeof msg.title === 'string') this.state.title = cleanText(msg.title, LIMITS.TITLE_MAX);
@@ -469,7 +474,7 @@ export class Room extends DurableObject {
 
   async endLive(text) {
     this.state.live = false; this.state.mode = ''; this.state.rec = false; this.state.title = ''; this.state.pinned = null;
-    this.state.paused = false; this.state.since = 0; this.state.hostGoneAt = 0; this.state.guests = {};
+    this.state.paused = false; this.state.pausedAt = 0; this.state.pausedTotal = 0; this.state.since = 0; this.state.hostGoneAt = 0; this.state.guests = {};
     await this.save();
     this.backlog = []; // el chat no se guarda tras cerrar
     for (const w of this.sockets()) {
