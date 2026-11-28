@@ -71,13 +71,13 @@ export async function render(view, _p, { go }) {
     const list = (await db.all('recordings')).sort((a, b) => b.created - a.created);
     const left = (r) => Math.max(0, Math.ceil((r.created + LIMITS.DRAFT_DAYS * 86400000 - Date.now()) / 86400000));
     mount(panel, html`<div class="list">
-      <div class="banner yellow small">${icon('lock')} Lo grabado vive solo en este aparato hasta que lo publiques. Las grabaciones se borran solas a los ${LIMITS.DRAFT_DAYS} días.</div>
+      <div class="banner yellow small">${icon('lock')} Lo grabado vive solo en este aparato hasta que lo publiques. ${LIMITS.DRAFT_DAYS ? `Las grabaciones se borran solas a los ${LIMITS.DRAFT_DAYS} días.` : 'No se borran solas.'}</div>
       ${list.length ? list.map((r) => html`
         <div class="item rec-row" data-play="${r.id}">
           <div class="thumb-play"><img class="rec-thumb" src="${recordingThumb(r)}" alt=""><span class="pp" data-pp="${r.id}">${icon('play')}</span></div>
           <div class="grow">
             <div class="row gap-s"><div class="t ellip grow">${r.title}${r.part > 1 ? ` · Parte ${r.part}` : ''}</div><button class="mini-ic" data-det="${r.id}" aria-label="Cambiar título y foto">${icon('edit')}</button></div>
-            <div class="m">${r.kind === 'draft' ? `Borrador · se borra en ${left(r)} días` : 'Privado'} · ${fmtDur(r.duration)} · ${fmtDate(r.created)}</div>
+            <div class="m">${r.kind === 'draft' ? (LIMITS.DRAFT_DAYS ? `Sin publicar · se borra en ${left(r)} días` : 'Sin publicar') : 'Privado'} · ${fmtDur(r.duration)} · ${fmtDate(r.created)}</div>
             ${r.duration < LIMITS.MIN_PUBLISH_MIN * 60 ? html`<div class="m orange-t">Menos de ${LIMITS.MIN_PUBLISH_MIN} min: no se puede publicar.</div>` : ''}
             <div class="prog" data-prog="${r.id}"><i></i></div>
             <div class="rec-actions">

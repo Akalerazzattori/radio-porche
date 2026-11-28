@@ -52,8 +52,9 @@ export async function getSetting(k, def = null) {
 }
 export async function setSetting(k, v) { return db.put('settings', v, k); }
 
-/** Borra los borradores de más de 7 días. */
+/** Borra las grabaciones sin publicar de más de LIMITS.DRAFT_DAYS días (null = nunca). */
 export async function purgeOldDrafts() {
+  if (!LIMITS.DRAFT_DAYS) return;
   try {
     const list = await db.all('recordings');
     const limit = Date.now() - LIMITS.DRAFT_DAYS * 86400_000;

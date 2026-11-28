@@ -54,7 +54,7 @@ export const DOCS = {
 <h3>Tus derechos</h3>
 <p>Puedes acceder, rectificar, suprimir, oponerte, limitar y portar tus datos. Desde <b>Perfil</b> tienes "Descargar mis datos" y "Borrar todos mis datos". Para lo demás, escribe a <b>${MAIL}</b>. Si no te atendemos bien, puedes reclamar ante la <b>Agencia Española de Protección de Datos</b> (aepd.es).</p>
 <h3>Qué se guarda en tu móvil</h3>
-<p>Tus <b>borradores</b> (se borran solos a los ${LIMITS.DRAFT_DAYS} días), tus <b>podcasts privados</b>, los <b>sonidos y música</b> que añadas y tus <b>ajustes</b> se quedan en tu móvil (almacenamiento del navegador) y nunca se suben salvo que publiques. Si borras los datos del navegador, se borran. Al cambiar de móvil, usa "Exportar copia" e "Importar copia".</p>
+<p>Tus <b>grabaciones sin publicar</b>${LIMITS.DRAFT_DAYS ? ` (se borran solas a los ${LIMITS.DRAFT_DAYS} días)` : ''}, tus <b>podcasts privados</b>, los <b>sonidos y música</b> que añadas y tus <b>ajustes</b> se quedan en tu móvil (almacenamiento del navegador) y nunca se suben salvo que publiques. Si borras los datos del navegador, se borran. Al cambiar de móvil, usa "Exportar copia" e "Importar copia".</p>
 <h3>Cookies y almacenamiento</h3>
 <p>No usamos cookies de seguimiento, publicidad ni analítica. Solo guardamos en tu dispositivo lo imprescindible para que funcione (tu identidad, tus ajustes y tus archivos privados). Por eso no te mostramos un banner de cookies.</p>`,
   },

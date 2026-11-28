@@ -33,7 +33,7 @@ export const LIMITS = {
   //   PORCH_MAX_BYTES (espacio publicado por porche), MAX_PUBLICADOS (nº de episodios),
   //   MAX_MIN_PUBLICADOS_MES (minutos publicados al mes, null = sin límite).
   MAX_MIN_PUBLICADOS_MES: null,
-  DRAFT_DAYS: 7, // los borradores se borran solos
+  DRAFT_DAYS: null, // null = las grabaciones no se borran nunca solas (si un día falta espacio, poner días)
   MAX_UPLOAD_BYTES: 26 * 1024 * 1024, // ~40 min de Opus mono
   COVER_MAX_BYTES: 500 * 1024,
   SOUND_MAX_BYTES: 40 * 1024 * 1024, // archivos propios (antes de comprimir)
