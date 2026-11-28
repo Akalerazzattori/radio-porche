@@ -1,5 +1,6 @@
 // Piezas compartidas: entrar con nombre, aceptar condiciones, reportar, bloquear, compartir.
 import { api, session, getConfig, turnstileWidget } from './api.js';
+import { renderGoogleButton } from './google.js';
 import { LEGAL, LIMITS, NAME_PATTERN, REPORT_REASONS, VECINO_COUNT } from './config.js';
 import { html, sheet, toast, icon, esc } from './util.js';
 
@@ -74,8 +75,9 @@ export async function requireIdentity(reason = '') {
   if (cfg.pausePorches) toast('Ahora mismo no se pueden abrir porches nuevos, pero puedes entrar para escuchar y comentar.');
   let getToken = () => '';
   const s = sheet(html`
-    <h2 class="h2">Entra con tu nombre</h2>
-    <p class="muted small">${reason || 'Sin email ni contraseña. Tu identidad se guarda en este dispositivo.'}</p>
+    <h2 class="h2">Entra en Radio Porche</h2>
+    ${reason ? html`<p class="muted small">${reason}</p>` : ''}
+    <div class="g-wrap hidden" data-el="gwrap"><div class="gbtn" data-el="gbtn"></div><p class="muted tiny center">Con Google entras igual en todos tus aparatos, sin códigos.</p><div class="or-sep"><span>o solo con tu nombre</span></div></div>
     <label class="field">Tu nombre
       <input class="input" name="name" autocomplete="nickname" minlength="${LIMITS.NAME_MIN}" maxlength="${LIMITS.NAME_MAX}" pattern="${NAME_PATTERN}" placeholder="Lucía, Paco del bar…" required>
     </label>
@@ -86,6 +88,17 @@ export async function requireIdentity(reason = '') {
     <button class="btn ghost" data-act="recover">Ya tengo porche en otro aparato</button>`, {
     async onMount(api2) {
       const el = api2.el;
+      // Entrar con Google (si está activado)
+      renderGoogleButton(el.querySelector('[data-el=gbtn]'), async (credential) => {
+        try {
+          const r = await api('/api/google/login', { method: 'POST', body: { credential } });
+          if (r.token) { finishLogin(r); api2.close('ok'); return; }
+          if (r.needSignup) {
+            const ok = await googleSignupSheet(credential, r.suggestedName);
+            if (ok) api2.close('ok');
+          }
+        } catch (e) { toast(e.message, 'bad'); }
+      }).then((on) => { if (on) el.querySelector('[data-el=gwrap]').classList.remove('hidden'); });
       getToken = await turnstileWidget(el.querySelector('.ts'));
       setTimeout(() => el.querySelector('input[name=name]').focus(), 80);
       el.querySelector('[data-act=recover]').onclick = () => { api2.close(null); recoverSheet(); };
@@ -110,6 +123,39 @@ export async function requireIdentity(reason = '') {
   return (await s.done) === 'ok';
 }
 
+/** Después de entrar (con nombre, Google, código…): guarda la sesión y avisa. */
+export function finishLogin(r) {
+  session.set({ token: r.token, deviceId: r.deviceId, name: r.name, porchId: r.porch?.id || null, avatar: r.avatar || 0 });
+  setTerms();
+  toast(`¡Hola, ${r.name}!`, 'good');
+  window.dispatchEvent(new CustomEvent('rp:identity'));
+}
+
+/** Primera vez con Google: nombre de barrio, 18+ y condiciones. */
+function googleSignupSheet(credential, suggested = '') {
+  const s = sheet(html`
+    <h2 class="h2">¡Bienvenido al barrio!</h2>
+    <p class="muted small">Es la primera vez que entras con esta cuenta de Google. ¿Cómo quieres que te llamen en Radio Porche? (No guardamos tu correo.)</p>
+    <label class="field">Tu nombre<input class="input" name="name" maxlength="${LIMITS.NAME_MAX}" value="${suggested}" placeholder="Lucía, Paco del bar…"></label>
+    <label class="check"><input type="checkbox" name="adult"> <span>Tengo 18 años o más.</span></label>
+    <label class="check"><input type="checkbox" name="terms"> <span>Acepto las ${legalLinks}.</span></label>
+    <button class="btn yellow big" data-act="go">Entrar</button>`, {
+    onMount(a) {
+      a.el.querySelector('[data-act=go]').onclick = async () => {
+        const name = a.el.querySelector('[name=name]').value.trim();
+        if (name.length < LIMITS.NAME_MIN || !new RegExp(NAME_PATTERN).test(name)) return toast('Escribe un nombre válido (2–30 letras o números)', 'bad');
+        if (!a.el.querySelector('[name=adult]').checked) return toast('Radio Porche es solo para mayores de 18', 'bad');
+        if (!a.el.querySelector('[name=terms]').checked) return toast('Acepta las condiciones para continuar', 'bad');
+        try {
+          const r = await api('/api/google/login', { method: 'POST', body: { credential, create: true, name, adult: true, terms: LEGAL.TERMS_VERSION } });
+          finishLogin(r); a.close('ok');
+        } catch (e) { toast(e.message, 'bad'); }
+      };
+    },
+  });
+  return s.done.then((v) => v === 'ok');
+}
+
 /** Cabecera común de las pantallas principales: logo + título alineados en la misma línea. */
 export function brandHead(title, sub = null, cls = '') {
   return html`<div class="brand-head ${cls}"><div class="brand-row"><img class="brand-wm" src="/img/logo-sm.webp" alt="Radio Porche" width="116" height="40"><h1 class="h1">${title}</h1></div>${sub ? html`<div class="sub">${sub}</div>` : ''}</div>`;
@@ -122,6 +168,7 @@ export function recoveryLink() {
 export function recoverSheet() {
   const s = sheet(html`
     <h2 class="h2">Usar mi porche en este aparato</h2>
+    <div class="g-wrap hidden" data-el="gwrap"><p class="muted small">¿Uniste tu porche a Google? Entra directamente:</p><div class="gbtn" data-el="gbtn"></div><div class="or-sep"><span>o con un código</span></div></div>
     <p class="muted small">En el aparato donde ya tienes tu porche, ve a <b>Perfil → Vincular otro aparato</b>. Te saldrá un código de 6 cifras: escríbelo aquí.</p>
     <input class="input link-code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" data-el="code">
     <button class="btn yellow big" data-a="code">Vincular</button>
@@ -131,6 +178,13 @@ export function recoverSheet() {
       <button class="btn ghost mt-s" data-a="link">Usar enlace</button>
     </details>`, {
     onMount(a) {
+      renderGoogleButton(a.el.querySelector('[data-el=gbtn]'), async (credential) => {
+        try {
+          const r = await api('/api/google/login', { method: 'POST', body: { credential } });
+          if (r.token) { finishLogin(r); a.close('ok'); return; }
+          toast('Esa cuenta de Google aún no está unida a ningún porche. En tu otro aparato ve a Perfil → Unir con Google, o usa un código.', 'bad');
+        } catch (e) { toast(e.message, 'bad'); }
+      }).then((on) => { if (on) a.el.querySelector('[data-el=gwrap]').classList.remove('hidden'); });
       const code = a.el.querySelector('[data-el=code]');
       setTimeout(() => code.focus(), 80);
       const tryLink = async (v) => {

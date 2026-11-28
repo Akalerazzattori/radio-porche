@@ -23,14 +23,14 @@ async function whoami(env, req) {
 const SECURITY_HEADERS = {
   'Content-Security-Policy': [
     "default-src 'self'",
-    "connect-src 'self' wss: " + TURNSTILE,
+    "connect-src 'self' wss: " + TURNSTILE + ' https://accounts.google.com/gsi/',
     "media-src 'self' blob:",
     "img-src 'self' data: blob:",
-    "script-src 'self' " + TURNSTILE,
-    "style-src 'self'",
+    "script-src 'self' " + TURNSTILE + ' https://accounts.google.com/gsi/client',
+    "style-src 'self' https://accounts.google.com/gsi/style",
     "font-src 'self'",
     "worker-src 'self' blob:",
-    'frame-src ' + TURNSTILE,
+    'frame-src ' + TURNSTILE + ' https://accounts.google.com/gsi/',
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
@@ -42,7 +42,7 @@ const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Permissions-Policy': 'microphone=(self), camera=(self), geolocation=(), display-capture=(self)',
   'X-Frame-Options': 'DENY',
-  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Opener-Policy': 'same-origin-allow-popups', // el botón de Google abre una ventanita
 };
 
 function withHeaders(res, extra = {}) {

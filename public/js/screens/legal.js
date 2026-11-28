@@ -51,6 +51,10 @@ export const DOCS = {
 </ul>
 <h3>Con quién</h3>
 <p>Usamos <b>Cloudflare</b> como encargado del tratamiento para alojar la web y los datos. El audio en directo viaja directamente entre móviles (WebRTC) y usa servidores STUN públicos de Google solo para establecer la conexión. No vendemos ni cedemos tus datos.</p>
+<h3>Si entras con Google</h3>
+<p>Es opcional. Si eliges «Entrar con Google», Google nos confirma que la cuenta es tuya y guardamos <b>solo un código cifrado</b> que la identifica, para reconocerte en tus otros aparatos. <b>No guardamos tu correo, ni tu nombre de Google, ni tu foto</b>, ni accedemos a nada más de tu cuenta. Puedes desunirla cuando quieras en Perfil; al borrar tus datos también se borra. El inicio de sesión lo gestiona Google según su propia política de privacidad.</p>
+<h3>Grabaciones compartidas en privado</h3>
+<p>Si compartes una grabación sin publicarla, subimos una copia que solo puede escuchar quien tenga el enlace y que se borra a los 30 días (o antes, si dejas de compartirla).</p>
 <h3>Tus derechos</h3>
 <p>Puedes acceder, rectificar, suprimir, oponerte, limitar y portar tus datos. Desde <b>Perfil</b> tienes "Descargar mis datos" y "Borrar todos mis datos". Para lo demás, escribe a <b>${MAIL}</b>. Si no te atendemos bien, puedes reclamar ante la <b>Agencia Española de Protección de Datos</b> (aepd.es).</p>
 <h3>Qué se guarda en tu aparato</h3>

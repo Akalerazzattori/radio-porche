@@ -865,3 +865,10 @@ button.avatar-edit { padding: 0; background: none; border: 0; }
 .ep-stats span { display: inline-flex; align-items: center; gap: 4px; }
 .ep-stats .ic { width: 14px; height: 14px; }
 .ep-cover { width: 92px; height: 92px; border-radius: 12px; object-fit: cover; border: 2px solid var(--edge); }
+
+/* Entrar con Google */
+.g-wrap { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.gbtn { min-height: 44px; display: flex; justify-content: center; }
+.or-sep { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; margin: 4px 0; }
+.or-sep::before, .or-sep::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.g-ok { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--teal); color: var(--ink); font-weight: 900; }

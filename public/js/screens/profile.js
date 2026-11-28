@@ -4,6 +4,7 @@ import { LEGAL, VECINOS } from '../config.js';
 import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtBytes } from '../util.js';
 import { requireIdentity, recoveryLink, copy, recoverSheet, unblockAll, blockedList, linkDeviceSheet, brandHead } from '../common.js';
 import { exportBackup, importBackup, wipeLocal, storageEstimate, requestPersist } from '../db.js';
+import { googleEnabled, renderGoogleButton } from '../google.js';
 import { avatarBlob } from '../cover.js';
 import { avatar } from '../common.js';
 import { live } from '../live.js';
@@ -24,6 +25,7 @@ export async function render(view, _p, { go }) {
         : html`<div class="card col gap-s"><b>Aún no has entrado</b><p class="muted small">Puedes escuchar sin entrar. Para chatear, pedir micro o abrir tu porche, entra solo con un nombre.</p><button class="btn yellow" data-act="login">Entrar con mi nombre</button><button class="btn ghost" data-act="recover">Ya tengo porche en otro aparato</button></div>`}
 
         <div class="h3">Otros aparatos</div>
+        ${logged ? html`<div class="card col gap-s hidden" data-el="gcard"></div>` : ''}
         <div class="group">
           ${logged ? html`<button class="li" data-act="link">${icon('link')} <span class="grow">Vincular otro aparato (ordenador)</span></button>` : html`<button class="li" data-act="recover">${icon('link')} <span class="grow">Ya tengo porche en otro aparato</span></button>`}
           ${logged ? html`<button class="li" data-act="recovery">${icon('shield')} <span class="grow">Copiar enlace de recuperación</span></button>` : ''}
@@ -56,6 +58,28 @@ export async function render(view, _p, { go }) {
       </div>
     </section>`);
 
+  // Cuenta de Google: unir tu porche para entrar en cualquier aparato sin códigos
+  const gcard = view.querySelector('[data-el=gcard]');
+  if (gcard && (await googleEnabled())) {
+    const paintG = async () => {
+      const me = await api('/api/me').catch(() => null);
+      gcard.classList.remove('hidden');
+      if (me?.google) {
+        mount(gcard, html`<div class="row gap"><span class="g-ok">✓</span><div class="grow"><b>Unido a tu cuenta de Google</b><div class="muted tiny">En cualquier aparato nuevo: «Entrar con Google» y ya eres tú.</div></div><button class="btn sm ghost" data-g="unlink">Desunir</button></div>`);
+      } else {
+        mount(gcard, html`<b>Entra con Google en todos tus aparatos</b><div class="muted tiny">Une tu porche a tu cuenta de Google y en el móvil, el ordenador o la app instalada entrarás con un toque, sin códigos. No guardamos tu correo.</div><div class="gbtn" data-el="gbtn"></div>`);
+        renderGoogleButton(gcard.querySelector('[data-el=gbtn]'), async (credential) => {
+          try { await api('/api/google/link', { method: 'POST', body: { credential } }); toast('¡Unido! Ya puedes entrar con Google en cualquier aparato.', 'good'); paintG(); } catch (err) { toast(err.message, 'bad'); }
+        }, { text: 'signin_with' });
+      }
+    };
+    gcard.addEventListener('click', async (e) => {
+      if (!e.target.closest('[data-g=unlink]')) return;
+      if (!(await confirmSheet('¿Desunir de Google?', 'Seguirás siendo tú en este aparato. Para entrar en otros tendrás que usar un código o el enlace de recuperación.', { ok: 'Desunir' }))) return;
+      try { await api('/api/google/unlink', { method: 'POST', body: {} }); toast('Desunido'); paintG(); } catch (err) { toast(err.message, 'bad'); }
+    });
+    paintG();
+  }
   view.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-act]');
     if (!b) return;

@@ -133,6 +133,12 @@ export async function render(view, _p, { go }) {
           <div class="toggle-row"><b class="grow">Pausar nuevos porches</b><span class="switch"><input type="checkbox" data-p="porches" ${s.pausePorches ? 'checked' : ''}><span></span></span></div>
         </div>
         <div class="card col gap-s">
+          <b>Entrar con Google</b>
+          <p class="muted tiny">Pega aquí el «ID de cliente» de Google Cloud (termina en <span class="mono">.apps.googleusercontent.com</span>). Con él, aparece el botón «Entrar con Google». Déjalo vacío para quitarlo.</p>
+          <input class="input mono" data-el="gid" value="${s.googleClientId || ''}" placeholder="1234567890-abc….apps.googleusercontent.com" autocomplete="off">
+          <button class="btn yellow" data-act="gid">Guardar</button>
+        </div>
+        <div class="card col gap-s">
           <b>Categorías de podcast</b>
           <p class="muted tiny">Una por línea (p. ej. «Rock»). En la app solo se ven las que ya tienen algún episodio.</p>
           <textarea class="input" rows="8" data-el="cats">${data.categories.map((c) => c.name).join('\n')}</textarea>
@@ -254,6 +260,7 @@ export async function render(view, _p, { go }) {
       });
       return act({ action: 'categories', categories: list });
     }
+    if (e.target.closest('[data-act=gid]')) act({ action: 'google', clientId: panel.querySelector('[data-el=gid]').value.trim() });
     if (e.target.closest('[data-act=words]')) act({ action: 'badwords', words: panel.querySelector('[data-el=words]').value.split('\n').map((w) => w.trim()).filter(Boolean) });
     if (e.target.closest('[data-act=rotate]')) {
       if (!(await confirmSheet('¿Regenerar?', 'El enlace anterior dejará de funcionar.'))) return;

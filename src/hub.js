@@ -87,6 +87,7 @@ export class Hub extends DurableObject {
     // Dónde está el audio: '' = aquí (Hub), 'lk' = en el espacio de su dueño (Locker). Así el Hub no se llena.
     if (!pc.includes('store')) this.sql.exec("ALTER TABLE podcasts ADD COLUMN store TEXT NOT NULL DEFAULT ''");
     if (!pc.includes('cover_v')) this.sql.exec('ALTER TABLE podcasts ADD COLUMN cover_v INTEGER NOT NULL DEFAULT 0');
+    this.sql.exec('CREATE TABLE IF NOT EXISTS google_links (gh TEXT PRIMARY KEY, device_id TEXT NOT NULL, created INTEGER NOT NULL)');
   }
 
   one(q, ...a) { const r = this.sql.exec(q, ...a).toArray(); return r[0] || null; }
@@ -106,7 +107,43 @@ export class Hub extends DurableObject {
       pausePublish: this.kvGet('pausePublish') === '1',
       pausePorches: this.kvGet('pausePorches') === '1',
       badwords: JSON.parse(this.kvGet('badwords', JSON.stringify(DEFAULT_BADWORDS))),
+      googleClientId: this.kvGet('googleClientId', ''),
     };
+  }
+
+  // ------------------------------------------------------------ Entrar con Google
+  // Solo guardamos un resumen (hash) del identificador de la cuenta de Google: ni correo ni nombre.
+  async googleKeys() {
+    if (this._gk && this._gk.exp > Date.now()) return this._gk.keys;
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/certs');
+    const j = await r.json();
+    this._gk = { keys: j.keys || [], exp: Date.now() + 3600_000 };
+    return this._gk.keys;
+  }
+  /** Comprueba el aviso firmado de Google (ID token). Devuelve { sub, givenName } o null. */
+  async verifyGoogle(credential) {
+    const clientId = this.settings().googleClientId;
+    if (!clientId || typeof credential !== 'string') return null;
+    const parts = credential.split('.');
+    if (parts.length !== 3) return null;
+    const dec = (s) => JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), (c) => c.charCodeAt(0))));
+    let head, body;
+    try { head = dec(parts[0]); body = dec(parts[1]); } catch { return null; }
+    if (head.alg !== 'RS256') return null;
+    if (!['accounts.google.com', 'https://accounts.google.com'].includes(body.iss)) return null;
+    if (body.aud !== clientId) return null;
+    if (!body.exp || body.exp * 1000 < Date.now() - 60_000) return null;
+    const jwk = (await this.googleKeys()).find((k) => k.kid === head.kid);
+    if (!jwk) return null;
+    const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    const sig = Uint8Array.from(atob(parts[2].replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((parts[2].length + 3) % 4)), (c) => c.charCodeAt(0));
+    const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, sig, new TextEncoder().encode(parts[0] + '.' + parts[1]));
+    if (!ok || !body.sub) return null;
+    return { sub: String(body.sub), givenName: String(body.given_name || '').slice(0, 30) };
+  }
+  async googleHash(sub) {
+    const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('rp-google:' + this.secret() + ':' + sub));
+    return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
   }
 
   async alarm() {
@@ -342,7 +379,7 @@ export class Hub extends DurableObject {
       if (p === '/api/config' && m === 'GET') {
         const s = this.settings();
         return json({
-          turnstileSiteKey: this.env.TURNSTILE_SITEKEY || '', termsVersion: LEGAL.TERMS_VERSION,
+          turnstileSiteKey: this.env.TURNSTILE_SITEKEY || '', termsVersion: LEGAL.TERMS_VERSION, googleClientId: s.googleClientId,
           pausePublish: s.pausePublish, pausePorches: s.pausePorches,
         });
       }
@@ -353,6 +390,36 @@ export class Hub extends DurableObject {
         });
       }
       if (p === '/api/identity' && m === 'POST') return await this.createIdentity(req, ip);
+      // Entrar con Google: si la cuenta ya está unida a un porche, eres tú; si no, se crea (con nombre, 18+ y condiciones)
+      if (p === '/api/google/login' && m === 'POST') {
+        if (!this.limit(`g:ip:${ip}`, HOUR, 60)) return err(429, 'Demasiados intentos. Prueba dentro de un rato.');
+        const b = await req.json().catch(() => ({}));
+        const g = await this.verifyGoogle(b.credential);
+        if (!g) return err(400, 'No hemos podido comprobar tu cuenta de Google. Prueba otra vez.');
+        const gh = await this.googleHash(g.sub);
+        const link = this.one('SELECT device_id FROM google_links WHERE gh=?', gh);
+        if (link) {
+          const ident = this.one('SELECT * FROM identities WHERE device_id=?', link.device_id);
+          if (!ident) { this.run('DELETE FROM google_links WHERE gh=?', gh); }
+          else {
+            if (ident.blocked) return err(403, 'Esta cuenta está bloqueada.');
+            const porch = this.one('SELECT * FROM porches WHERE owner=?', ident.device_id);
+            return json({ token: await this.signToken(ident.device_id, ident.tv), deviceId: ident.device_id, name: ident.name, avatar: ident.avatar || 0, porch: this.porchPublic(porch, ident.device_id) });
+          }
+        }
+        if (!b.create) return json({ needSignup: true, suggestedName: cleanName(g.givenName) || '' });
+        if (!this.limit(`id:ip:${ip}`, HOUR, LIMITS.IDENTITIES_PER_HOUR_IP)) return err(429, 'Demasiados intentos. Prueba dentro de un rato.');
+        const name = cleanName(b.name);
+        if (!name) return err(400, `El nombre debe tener entre ${LIMITS.NAME_MIN} y ${LIMITS.NAME_MAX} caracteres.`);
+        if (b.adult !== true) return err(400, 'Radio Porche es solo para mayores de 18 años.');
+        if (b.terms !== LEGAL.TERMS_VERSION) return err(400, 'Acepta las condiciones para continuar.');
+        const deviceId = randomId(16);
+        this.run('INSERT INTO identities (device_id,name,created,terms) VALUES (?,?,?,?)', deviceId, name, now(), LEGAL.TERMS_VERSION);
+        this.run('INSERT INTO google_links (gh, device_id, created) VALUES (?,?,?)', gh, deviceId, now());
+        const ident = this.one('SELECT * FROM identities WHERE device_id=?', deviceId);
+        const porch = this.settings().pausePorches ? null : this.createPorch(ident);
+        return json({ token: await this.signToken(deviceId, ident.tv), deviceId, name, avatar: 0, porch: this.porchPublic(porch, deviceId) });
+      }
       if (p === '/api/link/claim' && m === 'POST') {
         // Vincular otro aparato con un código de 6 cifras (caduca en 10 min, un solo uso)
         // solo cuentan los intentos fallidos
@@ -537,6 +604,22 @@ export class Hub extends DurableObject {
     const p = url.pathname, m = req.method, me = ident.device_id;
     let mm;
 
+    // Unir / desunir tu porche con tu cuenta de Google
+    if (p === '/api/google/link' && m === 'POST') {
+      const b = await req.json().catch(() => ({}));
+      const g = await this.verifyGoogle(b.credential);
+      if (!g) return err(400, 'No hemos podido comprobar tu cuenta de Google. Prueba otra vez.');
+      const gh = await this.googleHash(g.sub);
+      const ex = this.one('SELECT device_id FROM google_links WHERE gh=?', gh);
+      if (ex && ex.device_id !== me) return err(409, 'Esa cuenta de Google ya está unida a otro porche.');
+      this.run('DELETE FROM google_links WHERE device_id=?', me);
+      this.run('INSERT OR REPLACE INTO google_links (gh, device_id, created) VALUES (?,?,?)', gh, me, now());
+      return json({ ok: true });
+    }
+    if (p === '/api/google/unlink' && m === 'POST') {
+      this.run('DELETE FROM google_links WHERE device_id=?', me);
+      return json({ ok: true });
+    }
     if (p === '/api/me' && m === 'GET') {
       let porch = this.one('SELECT * FROM porches WHERE owner=?', me);
       if (porch && porch.name.startsWith('Porche de ')) {
@@ -550,6 +633,7 @@ export class Hub extends DurableObject {
       return json({
         deviceId: me, name: ident.name, created: ident.created, terms: ident.terms, isNew: this.isNew(ident), avatar: ident.avatar || 0,
         porch: this.porchPublic(porch, me), modKey: porch ? porch.mod_key : null, following,
+        google: !!this.one('SELECT gh FROM google_links WHERE device_id=?', me),
       });
     }
     if (p === '/api/me/name' && m === 'POST') {
@@ -973,6 +1057,7 @@ export class Hub extends DurableObject {
   }
 
   deleteAll(me) {
+    this.run('DELETE FROM google_links WHERE device_id=?', me);
     for (const r of this.all('SELECT id FROM podcasts WHERE owner=?', me)) this.deletePodcast(r.id);
     for (const g of this.all('SELECT id FROM programs WHERE owner=?', me)) this.run("DELETE FROM chunks WHERE pid=? AND kind='g'", g.id);
     this.run('DELETE FROM programs WHERE owner=?', me);
@@ -1146,6 +1231,12 @@ export class Hub extends DurableObject {
           if (typeof b.publish === 'boolean') this.kvSet('pausePublish', b.publish ? '1' : '0');
           if (typeof b.porches === 'boolean') this.kvSet('pausePorches', b.porches ? '1' : '0');
           break;
+        case 'google': {
+          const id = String(b.clientId || '').trim();
+          if (id && !/^[0-9]{6,}-[a-z0-9]{10,}\.apps\.googleusercontent\.com$/.test(id)) return err(400, 'Ese ID no parece de Google (termina en .apps.googleusercontent.com)');
+          this.kvSet('googleClientId', id);
+          break;
+        }
         case 'badwords': {
           const list = Array.isArray(b.words) ? b.words.map((w) => cleanText(String(w), 40).toLowerCase()).filter(Boolean).slice(0, 500) : null;
           if (!list) return err(400, 'Lista no válida');
