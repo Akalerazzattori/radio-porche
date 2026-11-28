@@ -36,7 +36,7 @@ export async function render(view, _p, { go }) {
   mount(view, html`
     <section class="screen">
       <div class="top">
-        <img class="brand-wm" src="/img/wordmark.webp" alt="Radio Porche" width="76" height="44">
+        <img class="brand-wm" src="/img/logo-sm.webp" alt="Radio Porche" width="116" height="40">
         <div class="grow"><h1 class="h1">Mi porche</h1><div class="sub ellip"><span class="chip freq">${porch.freq.toFixed(1)}</span> ${porch.name}</div></div>
         <button class="icon-btn" data-act="share" aria-label="Compartir mi porche">${icon('share')}</button>
       </div>

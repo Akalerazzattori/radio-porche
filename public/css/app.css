@@ -770,3 +770,9 @@ img.av { object-fit: cover; background: var(--panel2); }
 /* Marca arriba a la izquierda: solo el texto RADIO PORCHE */
 .brand-wm { height: 44px; width: auto; flex: none; display: block; }
 @media (max-height: 700px) { .brand-wm { height: 36px; } }
+
+/* Logo pequeño (sol + RADIO PORCHE) en la cabecera; el subtítulo más pequeño para que quepa */
+.brand-wm { height: 38px; }
+.top .brand-wm + div .h1, .top .brand-wm + .h1 { font-size: 28px; }
+.top .brand-wm + div .sub { font-size: 11.5px; white-space: nowrap; }
+@media (max-width: 370px) { .brand-wm { height: 32px; } .top .brand-wm + div .h1 { font-size: 24px; } }

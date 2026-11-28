@@ -38,7 +38,7 @@ const legalLinks = html`<a href="/legal/condiciones" data-close="">Condiciones</
 export function welcomeOnce() {
   if (localStorage.getItem('rp_welcome')) return;
   const s = sheet(html`
-    <img class="welcome-logo" src="/img/logo-v2.webp" alt="Radio Porche" width="300" height="104">
+    <img class="welcome-logo" src="/img/logo-v3.webp" alt="Radio Porche" width="300" height="104">
     <p class="center b">Radios de barrio en directo. Sintoniza, comenta y pide micro.</p>
     <div class="banner yellow">${icon('shield')} Solo para mayores de 18 años</div>
     <p class="muted small">Sin cookies de seguimiento ni analítica: solo guardamos en tu móvil lo necesario para que funcione. Más en ${legalLinks}.</p>
