@@ -22,7 +22,6 @@ export function makeCtl() {
   const S = () => live.remoteState || {};
   return {
     get remote() { return R(); },
-    get ready() { return R() ? !!live.remoteState : !!live.mixer; },
     async sounds() {
       if (R()) return live.remoteSounds;
       return (await live.loadItems()).map((i) => ({ key: keyOf(i), name: i.name, zone: i.zone, origin: i.origin, duration: i.duration, section: i.section || '', src: i.src || '' }));

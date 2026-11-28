@@ -426,7 +426,7 @@ export const live = {
           if (typeof a.intro === 'string' && a.intro) this.introJingle(a.intro);
         }
         break;
-      case 'end': if (this.state.live) { await this.endBroadcast(true); toast('El mando a distancia ha terminado la emisión. La grabación está en Borradores.'); } break;
+      case 'end': if (this.state.live) { await this.endBroadcast(true); toast('Has terminado la emisión desde otro aparato. La grabación está en Mi porche → Grabaciones (en el aparato que emitía).'); } break;
     }
     emit('update');
     this.pushStudioState();
@@ -446,7 +446,6 @@ export const live = {
     if (this.audio) this.audio.muted = !this.hearHere;
     emit('update');
   },
-  setHearHere(on) { this.hearHere = on; if (this.audio) this.audio.muted = !on; emit('update'); },
   async startVoice(headphones = true) {
     if (this.voice && this.voice.headphones === headphones) return this.voice;
     this.voice?.stop();

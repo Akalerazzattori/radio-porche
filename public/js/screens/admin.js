@@ -1,7 +1,7 @@
 // Panel de administración oculto (enlace secreto del dueño de la app).
 // Reportes, ocultar/restaurar/borrar, bloquear dispositivos, pausas, filtro de palabras,
 // biblioteca "de serie" (subir sonidos para todos) y registro de acciones.
-import { html, mount, icon, toast, confirmSheet, fmtBytes, fmtDateLong, esc } from '../util.js';
+import { html, mount, icon, toast, confirmSheet, fmtBytes, fmtDateLong } from '../util.js';
 import { ZONES, REPORT_REASONS } from '../config.js';
 import { copy } from '../common.js';
 import { audioCtx } from '../audio/voice.js';
@@ -109,7 +109,7 @@ export async function render(view, _p, { go }) {
             <b>Suelta aquí todos los archivos o carpetas de golpe</b>
             <span class="muted small">o toca para elegirlos (puedes marcar muchos a la vez)</span>
           </label>
-          <label class="check"><input type="checkbox" data-el="folderSec" checked><span>Usar el nombre de cada carpeta como <b>sección</b> (agrupa los botones en la cabina)</span></label>
+          <label class="check"><input type="checkbox" data-el="folderSec" checked><span>Usar el nombre de cada carpeta como <b>sección</b> (agrupa los botones en el Estudio)</span></label>
           <input class="input" data-el="section" maxlength="40" placeholder="O una sección para todos (opcional)">
           <p class="muted tiny">MP3, M4A, WAV, WebM u Ogg, máx. 8 MB cada uno. El silencio del principio y del final se quita solo al sonar. El nombre del botón sale del nombre del archivo (lo puedes cambiar después). Usa solo audio libre de derechos o tuyo.</p>
           <div class="col gap-s" data-el="queue"></div>

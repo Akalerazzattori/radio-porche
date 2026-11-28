@@ -1,6 +1,6 @@
 // Radio Porche · arranque, rutas y barra inferior.
 import { api, session } from './api.js';
-import { html, mount, icon, toast, setPct, esc } from './util.js';
+import { html, mount, icon, toast, setPct } from './util.js';
 import { welcomeOnce, checkTermsVersion, useRecoveryToken, porchCover, podcastCover } from './common.js';
 import { purgeOldDrafts, requestPersist } from './db.js';
 import { live, onLive } from './live.js';

@@ -1,6 +1,6 @@
 // En el aire (inicio): contadores, emisora sintonizada en grande y dial deslizable.
 import { api, session } from '../api.js';
-import { html, mount, icon, toast, haptic, weekdayGreeting, fmtDateLong } from '../util.js';
+import { html, mount, icon, toast, haptic, weekdayGreeting } from '../util.js';
 import { porchCover, requireIdentity } from '../common.js';
 
 const MIN = 87.5, MAX = 108.5, PX = 44; // píxeles por MHz

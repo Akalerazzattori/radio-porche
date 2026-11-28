@@ -1,7 +1,7 @@
 // Perfil y ajustes: identidad, recuperación, copia para cambiar de móvil, mis datos, textos legales y ayuda.
 import { api, session } from '../api.js';
 import { LEGAL } from '../config.js';
-import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, initial, avatarColor, fmtBytes } from '../util.js';
+import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtBytes } from '../util.js';
 import { requireIdentity, recoveryLink, copy, recoverSheet, unblockAll, blockedList, linkDeviceSheet } from '../common.js';
 import { exportBackup, importBackup, wipeLocal, storageEstimate, requestPersist } from '../db.js';
 import { avatarBlob } from '../cover.js';

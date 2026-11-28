@@ -86,11 +86,6 @@ export class StudioPeers {
     } catch (e) { console.warn('señal', e); }
   }
 
-  replaceOutput(cid, stream) {
-    const p = this.peers.get(cid);
-    if (p) p.tr.sender.replaceTrack(stream.getAudioTracks()[0]);
-  }
-
   close(cid) {
     const p = this.peers.get(cid);
     if (!p) return;

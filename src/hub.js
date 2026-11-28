@@ -242,10 +242,6 @@ export class Hub extends DurableObject {
     try { const c = JSON.parse(this.kvGet('categories', 'null')); if (Array.isArray(c) && c.length) return c; } catch {}
     return DEFAULT_CATEGORIES;
   }
-  cleanCategory(v) {
-    const cats = this.categories();
-    return cats.some((c) => c.id === v) ? v : 'otros';
-  }
   /** Hasta 3 categorías (lista separada por comas). */
   cleanCategories(v) {
     const ids = new Set(this.categories().map((c) => c.id));

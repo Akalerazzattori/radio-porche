@@ -1,12 +1,12 @@
 // Pantalla de un porche: Oyente (con chat y pedir micro), Invitado con micro,
 // Camerino (antes de salir) y Cabina (en directo) para quien presenta.
 import { api, session } from '../api.js';
-import { LIMITS, VOICE_FX, BROADCAST_MODES, QUICK_REACTIONS, ZONES, SOUND_TABS } from '../config.js';
-import { html, mount, icon, raw, toast, sheet, confirmSheet, fmtTime, fmtShortDur, fmtDate, initial, avatarColor, haptic, canShareTab, setPct, esc, on } from '../util.js';
-import { porchCover, requireIdentity, personMenu, shareUrl, isBlocked, nameColor, copy, avatar } from '../common.js';
+import { LIMITS, VOICE_FX, BROADCAST_MODES, QUICK_REACTIONS, SOUND_TABS } from '../config.js';
+import { html, mount, icon, raw, toast, sheet, confirmSheet, fmtTime, fmtShortDur, fmtDate, haptic, canShareTab, setPct, esc, on } from '../util.js';
+import { porchCover, requireIdentity, personMenu, shareUrl, isBlocked, nameColor, avatar } from '../common.js';
 import { live, onLive } from '../live.js';
 import { meterHtml, setMeter, audioCtx } from '../audio/voice.js';
-import { loadAll, decode } from '../audio/sounds.js';
+ '../audio/sounds.js';
 import { getSetting, setSetting } from '../db.js';
 import { makeCtl, onPreview, stopPreview, previewKey } from '../cabina-ctl.js';
 import { myPrograms, programSheet, programPickerHtml } from '../programs.js';
@@ -116,7 +116,7 @@ function roleInfoSheet() {
     <h2 class="h2">Tu estudio en varios aparatos</h2>
     <p>Puedes tener el Estudio abierto en tu <b>móvil</b> y en tu <b>ordenador</b> a la vez. Los mandos (botonera, volúmenes, invitados, salir al aire, pausa y fin) funcionan en los dos.</p>
     <p>En cada aparato eliges: <b>Micro aquí</b> (hablar por él) y <b>Escuchar aquí</b> (oír la emisión).</p>
-    <p><b>Emite</b> uno de ellos: el que junta el sonido y lo manda a los oyentes. Si tienes el ordenador abierto, emite el ordenador (no se duerme). Si el móvil que emite se bloquea o cambias de app, la emisión pasa sola al ordenador.</p>
+    <p><b>Emite</b> uno de ellos: el que junta el sonido y lo manda a los oyentes. Antes de salir al aire emite el que tienes delante; si los dos están a la vista, el ordenador (no se duerme). Ya en el aire, si el móvil que emite se bloquea o cambias de app, la emisión pasa sola al ordenador.</p>
     <p class="muted small">Para usar el ordenador: en el móvil, Perfil → «Vincular otro aparato», y escribe el código en el ordenador. Luego abre allí el Estudio. Consejo: en el aparato que emite, no cierres la tapa ni lo bloquees.</p>
     <button class="btn yellow" data-close="">Entendido</button>`);
 }
@@ -460,8 +460,7 @@ function buildGreenRoom(view, porch, ctx) {
     $el('progs').querySelectorAll('[data-prog]').forEach((x) => x.classList.toggle('on', x === b));
   });
   let allItems = [];
-  const paintTapes = () => view.querySelectorAll('[data-tape]').forEach((el) => { const on = el.dataset.tape === previewKey(); el.classList.toggle('playing', on); mount(el.querySelector('.tape-pp'), icon(on ? 'pause' : 'play')); });
-  const offPv = onPreview(() => { paintTapes(); document.querySelectorAll('[data-prev]').forEach((el) => mount(el, icon(el.dataset.prev === previewKey() ? 'pause' : 'play'))); });
+  const offPv = onPreview(() => { document.querySelectorAll('[data-prev]').forEach((el) => mount(el, icon(el.dataset.prev === previewKey() ? 'pause' : 'play'))); });
   let introKey = localStorage.getItem('rp_intro') || '';
   const paintIntro = () => { const it = allItems.find((x) => x.key === introKey); $el('introlbl').textContent = it ? it.name : 'Nada (sales en silencio)'; };
   let lastSoundsN = -1;
@@ -534,8 +533,6 @@ function buildGreenRoom(view, porch, ctx) {
   view.addEventListener('click', async (e) => {
     const g = e.target.closest('[data-grant]');
     if (g) { live.send({ t: 'grant', cid: g.dataset.grant }); return; }
-    const tp = e.target.closest('[data-tape]');
-    if (tp) { const it = allItems.find((x) => x.key === tp.dataset.tape); if (it) ctl.cue(it); return; }
     const b = e.target.closest('[data-act]');
     if (!b) return;
     if (b.dataset.act === 'startmic') startMic();
@@ -575,9 +572,8 @@ function buildGreenRoom(view, porch, ctx) {
       if (live.voice) await live.startVoice(headphones);
     }
     if (e.target.matches('[data-act=monitor]')) live.voice?.setMonitor(e.target.checked);
-    if (e.target.matches('[data-act=hearhere]')) live.setHearHere(e.target.checked);
     if (e.target.matches('[data-act=michere]')) live.setMicHere(e.target.checked).catch(() => toast('No se ha podido abrir el micro', 'bad'));
-    if (e.target.matches('[data-act=listenhere]')) live.setListenHere(e.target.checked);
+    if (e.target.matches('[data-act=listenhere]')) { live.setListenHere(e.target.checked); view.querySelectorAll('[data-act=monitor]').forEach((x) => (x.checked = !!live.voice?.monitorOn)); }
   });
   const offs = [onLive('update', paint), onLive('remote', () => { paint(); loadSounds(); }), offPv];
   paint();
@@ -670,10 +666,9 @@ function buildBooth(view, porch, ctx) {
         <b>Tu micro y tus cascos</b>
         <div class="row gap wrap">
           <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="hp" ${hp ? 'checked' : ''}><span></span></span> Llevo cascos</label>
-          <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="ret" ${live.mixer?.monitorOn ? 'checked' : ''}><span></span></span> Oír la emisión</label>
           <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="monitor" ${live.voice?.monitorOn ? 'checked' : ''}><span></span></span> Oírme</label>
         </div>
-        <div class="muted tiny">Sin cascos, deja «Oír la emisión» apagado: si suena por el altavoz, el micro lo recoge y se acopla. Con gente alrededor, usa siempre cascos.</div>
+        <div class="muted tiny">Sin cascos, deja «Escuchar aquí» apagado: si suena por el altavoz, el micro lo recoge y se acopla. Con gente alrededor, usa siempre cascos.</div>
         <div data-el="vsel"></div>
       </div>`}
       ${rows.map((g) => html`
@@ -773,7 +768,6 @@ function buildBooth(view, porch, ctx) {
       ${f.tab != null ? fader('tab', 'Pestaña', f.tab) : ''}
       ${f.voices.map((v) => fader('v:' + v.id, v.id === 'me' ? 'Micro estudio' : v.name || 'Invitado', v.gain, 1.5))}
       <div class="toggle-row"><div class="grow"><b>La música baja sola cuando alguien habla</b><div class="muted tiny">Y vuelve al callar. Si mueves el deslizador de Música, manda tu mano.</div></div><span class="switch"><input type="checkbox" data-act="ducking" ${ctl.ducking() ? 'checked' : ''}><span></span></span></div>
-      ${remote ? '' : html`<div class="toggle-row"><div class="grow"><b>Oírme</b><div class="muted tiny">Tu voz en tus cascos. Con cascos de cable suena sin retraso.</div></div><span class="switch"><input type="checkbox" data-act="monitor" ${live.voice?.monitorOn ? 'checked' : ''}><span></span></span></div>`}
       ${!remote && canShareTab() ? html`<div class="card col gap-s">
         <b>${icon('tab')} Compartir pestaña con audio</b>
         <div class="muted tiny">Mete en la emisión el sonido de una pestaña de Chrome (p. ej. un vídeo que comentáis). Marca «Compartir audio» al elegirla. Solo fragmentos breves para comentar: emitir contenido completo puede vulnerar derechos.</div>
@@ -888,7 +882,7 @@ function buildBooth(view, porch, ctx) {
         const min = LIMITS.MIN_PUBLISH_MIN;
         let msg = 'Los oyentes dejarán de oírte.';
         if (rec) {
-          msg = 'Los oyentes dejarán de oírte. La grabación se guardará en Borradores (en el aparato que hace de estudio).';
+          msg = 'Los oyentes dejarán de oírte. La grabación se guarda en Mi porche → Grabaciones, en el aparato que emite.';
           if (rec.elapsed < min * 60) msg += ` Ojo: esta parte dura ${fmtTime(rec.elapsed)}. Con menos de ${min} minutos no podrás publicarla, solo guardarla en privado.`;
         }
         if (!(await confirmSheet('¿Terminar la emisión?', msg, { ok: 'Fin emisión', danger: true }))) return;
@@ -896,7 +890,7 @@ function buildBooth(view, porch, ctx) {
         await live.endBroadcast(true);
         const parts = live.recParts.slice();
         live.disconnect();
-        if (parts.length) { toast('Guardado en Borradores', 'good'); ctx.go(`/editor/${parts[0].id}`); }
+        if (parts.length) { toast('Guardado en Grabaciones', 'good'); ctx.go(`/editor/${parts[0].id}`); }
         else ctx.go('/mi-porche');
         break;
       }
@@ -913,17 +907,16 @@ function buildBooth(view, porch, ctx) {
   view.addEventListener('change', async (e) => {
     if (e.target.matches('[data-act=hp]')) {
       const on = e.target.checked; localStorage.setItem('rp_hp', on ? '1' : '0');
-      live.mixer?.setMonitor(on);
-      const ret = panel.querySelector('[data-act=ret]'); if (ret) ret.checked = on;
       if (live.voice) { try { await live.startVoice(on); } catch {} }
+      live.setListenHere(on);
+      view.querySelectorAll('[data-act=listenhere]').forEach((x) => (x.checked = on));
+      view.querySelectorAll('[data-act=monitor]').forEach((x) => (x.checked = !!live.voice?.monitorOn));
       toast(on ? 'Con cascos: oyes la emisión y la voz suena más limpia.' : 'Sin cascos: tu móvil no suena (evita acoples) y se activa la cancelación de eco.');
     }
-    if (e.target.matches('[data-act=ret]')) live.mixer?.setMonitor(e.target.checked);
     if (e.target.matches('[data-act=michere]')) { live.setMicHere(e.target.checked).catch(() => toast('No se ha podido abrir el micro', 'bad')); setTimeout(() => voicesPanel.paint?.(), 300); }
-    if (e.target.matches('[data-act=listenhere]')) live.setListenHere(e.target.checked);
+    if (e.target.matches('[data-act=listenhere]')) { live.setListenHere(e.target.checked); view.querySelectorAll('[data-act=monitor]').forEach((x) => (x.checked = !!live.voice?.monitorOn)); }
     if (e.target.matches('[data-act=ducking]')) ctl.setDucking(e.target.checked);
     if (e.target.matches('[data-act=monitor]')) live.voice?.setMonitor(e.target.checked);
-    if (e.target.matches('[data-act=hearhere]')) live.setHearHere(e.target.checked);
   });
 
   const clockIv = setInterval(header, 1000);

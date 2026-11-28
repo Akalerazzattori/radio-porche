@@ -18,7 +18,6 @@ export function porchCover(p) {
 export function podcastCover(p) {
   return p.hasCover ? `/api/podcasts/${p.id}/cover` : `/img/scenes/escena-${p.scene || 1}.webp`;
 }
-export const freqTxt = (f) => Number(f).toFixed(1).replace('.', ',') === 'NaN' ? '' : Number(f).toFixed(1);
 
 // ---------- Bloqueos (en el dispositivo) ----------
 export function blockedList() { try { return JSON.parse(localStorage.getItem('rp_blocked') || '[]'); } catch { return []; } }

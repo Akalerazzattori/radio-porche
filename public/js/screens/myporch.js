@@ -1,7 +1,7 @@
 // Mi porche: ir al camerino, grabaciones (borradores y privados), publicados (editar),
 // sonidos propios (efectos, música de fondo, canciones) y datos del porche.
 import { api, session } from '../api.js';
-import { LIMITS, ZONES, SOUND_TABS } from '../config.js';
+import { LIMITS, SOUND_TABS } from '../config.js';
 import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtDur, fmtDate, fmtShortDur, fmtBytes, setPct, esc } from '../util.js';
 import { requireIdentity, porchCover, podcastCover, shareUrl, copy } from '../common.js';
 import { db } from '../db.js';

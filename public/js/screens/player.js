@@ -2,7 +2,7 @@
 // temporizador para dormir, retomar donde se dejó y controles en la pantalla bloqueada.
 import { api, session } from '../api.js';
 import { LIMITS } from '../config.js';
-import { html, mount, icon, fmtTime, fmtDur, fmtDate, toast, sheet, setPct, $, esc } from '../util.js';
+import { html, mount, icon, fmtTime, fmtDur, fmtDate, toast, sheet, setPct, esc } from '../util.js';
 import { podcastCover, requireIdentity, reportSheet, shareUrl, nameColor, isBlocked } from '../common.js';
 
 const RATES = [1, 1.2, 1.5, 2];
