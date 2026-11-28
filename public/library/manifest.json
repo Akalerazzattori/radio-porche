@@ -59,14 +59,6 @@
    "section": "Show"
   },
   {
-   "id": "aplausos",
-   "zone": "fx",
-   "name": "Aplausos",
-   "file": "/library/aplausos-v2.mp3",
-   "duration": 4.8,
-   "section": "Público"
-  },
-  {
    "id": "tachan",
    "zone": "fx",
    "name": "¡Tachán!",
@@ -105,22 +97,6 @@
    "file": "/library/porche-boogie.mp3",
    "duration": 69.8,
    "section": ""
-  },
-  {
-   "id": "aplausos-pocos",
-   "zone": "fx",
-   "name": "Aplausos (pocos)",
-   "file": "/library/aplausos-pocos.mp3",
-   "duration": 3.7,
-   "section": "Público"
-  },
-  {
-   "id": "ovacion",
-   "zone": "fx",
-   "name": "Ovación",
-   "file": "/library/ovacion.mp3",
-   "duration": 6.5,
-   "section": "Público"
   },
   {
    "id": "timbre",

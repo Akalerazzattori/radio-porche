@@ -1,6 +1,6 @@
 // Service worker mínimo: permite instalar la PWA y abrir la app sin conexión.
 // Nunca guarda en caché la API ni el audio en directo.
-const V = 'rp-v24';
+const V = 'rp-v25';
 const SHELL = ['/', '/css/app.css', '/js/app.js', '/img/logo-v3.webp', '/img/icon2-192.png', '/fonts/anton-latin-400-normal.woff2', '/fonts/archivo-latin-400-normal.woff2', '/fonts/archivo-latin-700-normal.woff2'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(SHELL)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {

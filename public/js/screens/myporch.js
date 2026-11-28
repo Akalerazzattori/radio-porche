@@ -78,7 +78,7 @@ export async function render(view, _p, { go }) {
           <div class="rec-top">
             <div class="thumb-play"><img class="rec-thumb" src="${recordingThumb(r)}" alt=""><span class="pp" data-pp="${r.id}">${icon('play')}</span></div>
             <div class="grow">
-              <div class="t ellip">${r.title}${r.part > 1 ? ` · Parte ${r.part}` : ''}</div>
+              <div class="row gap-s"><div class="t ellip">${r.title}${r.part > 1 ? ` · Parte ${r.part}` : ''}</div><button class="mini-ic" data-det="${r.id}" aria-label="Cambiar título y foto">${icon('edit')}</button></div>
               <div class="m">${fmtDur(r.duration)} · ${fmtDate(r.created)}${r.from ? ` · llegó de tu ${r.from}` : ''}</div>
               ${shared(r) ? html`<div class="m yellow-t">${icon('share')} Compartida en privado hasta el ${fmtDate(r.shareExp)}</div>` : ''}
             </div>
@@ -86,10 +86,11 @@ export async function render(view, _p, { go }) {
           <div class="prog seekable" data-prog="${r.id}"><i></i></div>
           <div class="rec-foot"><span class="m mono" data-time="${r.id}">0:00 / ${fmtTime(r.duration)}</span>${r.duration < minPublishSec(r) ? html`<span class="m orange-t">Para publicar: mínimo ${r.clipOf ? '20 s' : LIMITS.MIN_PUBLISH_MIN + ' min'}</span>` : ''}</div>
           <div class="rec-actions">
-            ${r.duration >= minPublishSec(r) ? html`<a class="ra red" href="/editor/${r.id}?publicar=1">${icon('upload')}<span>Publicar</span></a>` : html`<button class="ra" data-whypub>${icon('upload')}<span>Publicar</span></button>`}
-            <button class="ra" data-share="${r.id}">${icon('share')}<span>Compartir</span></button>
+            <button class="ra" data-del="${r.id}">${icon('trash')}<span>Borrar</span></button>
+            <button class="ra" data-send="${r.id}">${icon(OTHER === 'ordenador' ? 'laptop' : 'phone')}<span>${OTHER === 'ordenador' ? 'Ordenador' : 'Móvil'}</span></button>
             <a class="ra" href="/editor/${r.id}">${icon('scissors')}<span>Recortar</span></a>
-            <button class="ra" data-more="${r.id}">${icon('more')}<span>Más</span></button>
+            <button class="ra ${shared(r) ? 'on' : ''}" data-share="${r.id}">${icon('share')}<span>${shared(r) ? 'Compartida' : 'Compartir'}</span></button>
+            ${r.duration >= minPublishSec(r) ? html`<a class="ra pub" href="/editor/${r.id}?publicar=1">${icon('upload')}<span>Publicar</span></a>` : html`<button class="ra pub off" data-whypub>${icon('upload')}<span>Publicar</span></button>`}
           </div>
         </div>`) : html`<div class="empty"><img src="/img/scenes/escena-2.webp" alt=""><p>Aún no hay grabaciones. Sal al aire en modo <b>Directo + grabación</b> y aparecerán aquí.</p></div>`}
     </div>`);
@@ -101,25 +102,18 @@ export async function render(view, _p, { go }) {
       if (e.target.closest('[data-whypub]')) return toast(`Para publicar como podcast hace falta un mínimo de ${LIMITS.MIN_PUBLISH_MIN} minutos. Esta puedes compartirla en privado.`);
       const sh = e.target.closest('[data-share]');
       if (sh) return shareRecording(list.find((x) => x.id === sh.dataset.share));
-      const mo = e.target.closest('[data-more]');
-      if (mo) {
-        const r = list.find((x) => x.id === mo.dataset.more);
-        const act = await sheet(html`<h2 class="h2 ellip">${r.title}</h2>
-          <button class="opt" data-close="send">${icon('send')} <span class="grow">Pasar a tu ${OTHER}</span><span class="muted small">para editarla allí</span></button>
-          <button class="opt" data-close="det">${icon('edit')} <span class="grow">Cambiar título y foto</span></button>
-          ${shared(r) ? html`<button class="opt" data-close="unshare">${icon('close')} <span class="grow">Dejar de compartir</span><span class="muted small">el enlace deja de funcionar</span></button>` : ''}
-          <button class="opt red-t" data-close="del">${icon('trash')} <span class="grow">Borrar</span></button>`).done;
-        if (act === 'det') { if ((await recordingDetailsSheet(r)) === 'ok') recordingsTab(); return; }
-        if (act === 'unshare') {
-          try { await api(`/api/cloud/share/${r.shareKey}/delete`, { method: 'POST', body: {} }); } catch {}
-          delete r.shareKey; delete r.shareExp; await db.put('recordings', r); toast('Ya no se puede escuchar con ese enlace'); recordingsTab(); return;
-        }
-        if (act === 'del') {
-          if (!(await confirmSheet('¿Borrar esta grabación?', 'Se borra de este aparato y no se puede recuperar. Si la habías pasado a tu otro aparato, allí sigue.', { ok: 'Borrar', danger: true }))) return;
-          if (shared(r)) { try { await api(`/api/cloud/share/${r.shareKey}/delete`, { method: 'POST', body: {} }); } catch {} }
-          stopRec(); await db.del('recordings', r.id); recordingsTab(); return;
-        }
-        if (act !== 'send') return;
+      const d = e.target.closest('[data-det]');
+      if (d) { const r = list.find((x) => x.id === d.dataset.det); if ((await recordingDetailsSheet(r)) === 'ok') recordingsTab(); return; }
+      const del = e.target.closest('[data-del]');
+      if (del) {
+        const r = list.find((x) => x.id === del.dataset.del);
+        if (!(await confirmSheet('¿Borrar esta grabación?', 'Se borra de este aparato y no se puede recuperar. Si la habías pasado a tu otro aparato, allí sigue.', { ok: 'Borrar', danger: true }))) return;
+        if (shared(r)) { try { await api(`/api/cloud/share/${r.shareKey}/delete`, { method: 'POST', body: {} }); } catch {} }
+        stopRec(); await db.del('recordings', r.id); recordingsTab(); return;
+      }
+      const snd = e.target.closest('[data-send]');
+      if (snd) {
+        const r = list.find((x) => x.id === snd.dataset.send);
         const go2 = await sheet(html`
           <h2 class="h2">Pasar a tu ${OTHER}</h2>
           <p>Tus grabaciones viven en el aparato donde se grabaron. Si prefieres recortar y publicar «<b>${r.title}</b>» desde tu ${OTHER}, te enviamos una copia.</p>
@@ -146,12 +140,22 @@ export async function render(view, _p, { go }) {
     /** Compartir en privado con un amigo: enlace para escucharla sin publicarla (30 días). */
     async function shareRecording(r) {
       const link = (k) => `${location.origin}/escucha/${session.deviceId}/${k}`;
-      if (shared(r)) return shareUrl(link(r.shareKey), r.title);
+      if (shared(r)) {
+        const v = await sheet(html`<h2 class="h2">Compartida en privado</h2><p>Quien tenga el enlace puede escuchar «<b>${r.title}</b>» hasta el ${fmtDate(r.shareExp)}. No está publicada.</p>
+          <button class="btn yellow big" data-close="again">${icon('share')} Enviar el enlace otra vez</button>
+          <button class="btn ghost" data-close="stop">Dejar de compartir (el enlace deja de funcionar)</button>`).done;
+        if (v === 'again') return shareUrl(link(r.shareKey), r.title);
+        if (v === 'stop') {
+          try { await api(`/api/cloud/share/${r.shareKey}/delete`, { method: 'POST', body: {} }); } catch {}
+          delete r.shareKey; delete r.shareExp; await db.put('recordings', r); toast('Ya no se puede escuchar con ese enlace'); recordingsTab();
+        }
+        return;
+      }
       const ok = await sheet(html`
         <h2 class="h2">Compartir en privado</h2>
         <p>Te damos un enlace para que un amigo escuche «<b>${r.title}</b>» <b>sin publicarla</b>: no sale en Podcasts ni en tu porche, solo la oye quien tenga el enlace.</p>
         <ul class="steps-list small">
-          <li>El enlace funciona <b>30 días</b>. Puedes cortarlo antes desde «Más → Dejar de compartir».</li>
+          <li>El enlace funciona <b>30 días</b>. Puedes cortarlo antes tocando otra vez «Compartida».</li>
           <li>Para eso subimos una copia a nuestro servidor, que se borra al caducar el enlace.</li>
           <li>Si quieres que la escuche todo el mundo, mejor publícala como podcast.</li>
         </ul>

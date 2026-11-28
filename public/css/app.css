@@ -629,11 +629,15 @@ img.av { object-fit: cover; background: var(--panel2); }
 .rec-top .grow { min-width: 0; }
 .rec-foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 /* Cuatro botones iguales: icono arriba y palabra debajo */
-.rec-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 2px; }
+/* Borrar · Ordenador · Recortar · Compartir · PUBLICAR (el más grande, a la derecha) */
+.rec-actions { display: grid; grid-template-columns: repeat(4, 1fr) 1.5fr; gap: 6px; margin-top: 2px; }
 .rec-actions .ra { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 54px; padding: 6px 2px; border-radius: 12px; background: var(--panel2); border: 2px solid var(--edge); box-shadow: 0 3px 0 var(--edge); color: var(--cream); font-size: 12px; font-weight: 800; text-decoration: none; }
 .rec-actions .ra .ic { width: 19px; height: 19px; }
-.rec-actions .ra.red { background: var(--red); }
-.rec-actions .ra[data-whypub] { opacity: .45; }
+.rec-actions .ra { font-size: 11px; }
+.rec-actions .ra.pub { background: var(--red); font-size: 13px; }
+.rec-actions .ra.pub .ic { width: 22px; height: 22px; }
+.rec-actions .ra.pub.off { background: var(--panel2); opacity: .45; }
+.rec-actions .ra.on { color: var(--yellow); }
 .rec-actions .ra:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--edge); }
 [data-sc].on img, [data-scene].on img { border-color: var(--yellow); box-shadow: 0 0 0 2px var(--yellow); }
 
