@@ -396,7 +396,7 @@ export async function render(view, [id], { go }) {
       <p class="muted tiny">Se publicará como el siguiente episodio del programa. Si no eliges ninguno, queda como episodio suelto de tu porche.</p>
       <label class="check"><input type="checkbox" name="ok"><span>Las personas que salen saben que se publica, y la música o vídeos de otros son solo fragmentos breves para comentar.</span></label>
       <div class="ts"></div>
-      <button class="btn red big" data-a="go">Publicar en el archivo</button>`, {
+      <button class="btn red big" data-a="go">Publicar como podcast</button>`, {
       async onMount(a) {
         getTs = await turnstileWidget(a.el.querySelector('.ts'));
         let programs = await myPrograms();
@@ -437,7 +437,7 @@ export async function render(view, [id], { go }) {
             await db.del('recordings', rec.id);
             sendDelete('recordings', rec.id);
             ps.close();
-            toast('¡Publicado en el archivo!', 'good');
+            toast('¡Publicado como podcast!', 'good');
             go(`/p/${res.podcast.id}`);
           } catch (err) {
             ps.close();

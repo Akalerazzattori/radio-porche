@@ -2,7 +2,7 @@
 // sonidos propios (efectos, música de fondo, canciones) y datos del porche.
 import { api, session } from '../api.js';
 import { LIMITS, SOUND_TABS } from '../config.js';
-import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtDur, fmtDate, fmtShortDur, fmtBytes, setPct, esc } from '../util.js';
+import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtDur, fmtDate, fmtShortDur, fmtTime, setPct, esc } from '../util.js';
 import { requireIdentity, porchCover, podcastCover, shareUrl, copy, brandHead } from '../common.js';
 import { db } from '../db.js';
 import { OTHER, sendRecording, pickup, getPref, setPref } from '../inbox.js';
@@ -72,7 +72,7 @@ export async function render(view, _p, { go }) {
     const list = (await db.all('recordings')).sort((a, b) => b.created - a.created);
     const left = (r) => Math.max(0, Math.ceil((r.created + LIMITS.DRAFT_DAYS * 86400000 - Date.now()) / 86400000));
     mount(panel, html`<div class="list">
-      <div class="banner yellow small">${icon('lock')} Tus grabaciones viven en este aparato hasta que las publiques${LIMITS.DRAFT_DAYS ? ` (se borran solas a los ${LIMITS.DRAFT_DAYS} días)` : ''}. Si emites desde el ordenador, llegan solas a tu móvil. Para editar una en el otro aparato, pulsa ${icon('send')}.</div>
+      <div class="banner yellow small">${icon('lock')} Solo las ves tú hasta que las publiques como podcast${LIMITS.DRAFT_DAYS ? ` (se borran solas a los ${LIMITS.DRAFT_DAYS} días)` : ''}.</div>
       ${list.length ? list.map((r) => html`
         <div class="item rec-row" data-play="${r.id}">
           <div class="thumb-play"><img class="rec-thumb" src="${recordingThumb(r)}" alt=""><span class="pp" data-pp="${r.id}">${icon('play')}</span></div>
@@ -81,11 +81,12 @@ export async function render(view, _p, { go }) {
             ${r.from ? html`<div class="m">Llegó de tu ${r.from}</div>` : ''}
             <div class="m">${r.kind === 'draft' ? (LIMITS.DRAFT_DAYS ? `Sin publicar · se borra en ${left(r)} días` : 'Sin publicar') : 'Privado'} · ${fmtDur(r.duration)} · ${fmtDate(r.created)}</div>
             ${r.duration < LIMITS.MIN_PUBLISH_MIN * 60 ? html`<div class="m orange-t">Menos de ${LIMITS.MIN_PUBLISH_MIN} min: no se puede publicar.</div>` : ''}
-            <div class="prog" data-prog="${r.id}"><i></i></div>
+            <div class="prog seekable" data-prog="${r.id}"><i></i></div>
+            <div class="m mono rec-time" data-time="${r.id}">0:00 / ${fmtTime(r.duration)}</div>
             <div class="rec-actions">
               ${r.duration >= LIMITS.MIN_PUBLISH_MIN * 60 ? html`<a class="btn sm red" href="/editor/${r.id}?publicar=1">Publicar</a>` : ''}
-              <a class="btn sm yellow" href="/editor/${r.id}">${icon('scissors')} Recortar</a>
-              <button class="btn sm ghost" data-send="${r.id}" aria-label="Pasar a tu ${OTHER}" title="Pasar a tu ${OTHER}">${icon('send')}</button>
+              <a class="btn sm yellow" href="/editor/${r.id}" aria-label="Recortar" title="Recortar">${icon('scissors')}</a>
+              <button class="btn sm ghost" data-send="${r.id}">${icon('send')} Al ${OTHER}</button>
               <button class="btn sm ghost" data-del="${r.id}" aria-label="Borrar">${icon('trash')}</button>
             </div>
           </div>
@@ -101,7 +102,18 @@ export async function render(view, _p, { go }) {
       const snd = e.target.closest('[data-send]');
       if (snd) {
         const r = list.find((x) => x.id === snd.dataset.send);
-        if (!(await confirmSheet(`¿Pasar a tu ${OTHER}?`, `«${r.title}» aparecerá en Grabaciones de tu ${OTHER} en cuanto lo abras. Aquí también se queda.`, { ok: 'Pasar' }))) return;
+        const go2 = await sheet(html`
+          <h2 class="h2">Pasar a tu ${OTHER}</h2>
+          <p>Tus grabaciones viven en el aparato donde se grabaron. Si prefieres recortar y publicar «<b>${r.title}</b>» desde tu ${OTHER}, te enviamos una copia.</p>
+          <ol class="steps-list small">
+            <li>Pulsa <b>Enviar a mi ${OTHER}</b>.</li>
+            <li>En tu ${OTHER}, abre Radio Porche y ve a <b>Mi porche → Grabaciones</b>: aparecerá ahí.</li>
+            <li>Recórtala y publícala desde allí. Al publicarla en uno, se quita sola del otro.</li>
+          </ol>
+          <p class="muted tiny">Aquí también se queda. La copia espera en nuestro servidor solo hasta que tu ${OTHER} la recoge, y entonces se borra. Tu ${OTHER} tiene que estar vinculado (Perfil → Vincular otro aparato).</p>
+          <button class="btn yellow big" data-close="ok">${icon('send')} Enviar a mi ${OTHER}</button>
+          <button class="btn ghost" data-close="">Cancelar</button>`).done;
+        if (go2 !== 'ok') return;
         snd.disabled = true; toast('Enviando…');
         await sendRecording(r, OTHER);
         snd.disabled = false;
@@ -112,27 +124,51 @@ export async function render(view, _p, { go }) {
         if (!(await confirmSheet('¿Borrar esta grabación?', 'Se borra de este aparato y no se puede recuperar. Si la habías pasado a tu otro aparato, allí sigue.', { ok: 'Borrar', danger: true }))) return;
         stopRec(); await db.del('recordings', del.dataset.del); recordingsTab(); return;
       }
-      const prog = e.target.closest('[data-prog]');
-      if (prog && recAudio && recPlaying === prog.dataset.prog) {
-        const rc = prog.getBoundingClientRect();
-        recAudio.currentTime = ((e.clientX - rc.left) / rc.width) * (recAudio.duration || 0);
-        return;
-      }
+      if (e.target.closest('[data-prog]')) return; // la barra se arrastra (ver más abajo)
       const row = e.target.closest('[data-play]');
       if (!row) return;
       const id = row.dataset.play;
       if (recPlaying === id && recAudio) { recAudio.paused ? recAudio.play() : recAudio.pause(); paintPP(); return; }
+      await playRec(id);
+    };
+    async function playRec(id) {
       stopRec();
       const r = list.find((x) => x.id === id);
       recAudio = new Audio(URL.createObjectURL(r.blob));
       recPlaying = id;
       recAudio.onended = () => paintPP();
-      try { await recAudio.play(); } catch { toast('No se puede reproducir en este navegador', 'bad'); }
+      recAudio.onpause = recAudio.onplay = () => paintPP();
+      try { await recAudio.play(); } catch { toast('No se puede reproducir en este navegador', 'bad'); return false; }
       paintPP();
       const bar = panel.querySelector(`[data-prog="${id}"]`);
-      const loop = () => { if (!recAudio) return; setPct(bar, '--p', recAudio.duration && isFinite(recAudio.duration) ? (recAudio.currentTime / recAudio.duration) * 100 : (recAudio.currentTime / r.duration) * 100); recRaf = requestAnimationFrame(loop); };
+      const tm = panel.querySelector(`[data-time="${id}"]`);
+      const loop = () => {
+        if (!recAudio || recPlaying !== id) return;
+        const d = recAudio.duration && isFinite(recAudio.duration) ? recAudio.duration : r.duration;
+        setPct(bar, '--p', (recAudio.currentTime / d) * 100);
+        if (tm) tm.textContent = `${fmtTime(recAudio.currentTime)} / ${fmtTime(d)}`;
+        recRaf = requestAnimationFrame(loop);
+      };
       loop();
-    };
+      return true;
+    }
+    // Línea de tiempo: tocar o arrastrar para ir a cualquier minuto (si no suena, empieza a sonar ahí)
+    panel.querySelectorAll('[data-prog]').forEach((bar) => {
+      const seek = async (e) => {
+        const id = bar.dataset.prog;
+        const r = list.find((x) => x.id === id);
+        if (recPlaying !== id || !recAudio) { if (!(await playRec(id))) return; }
+        const rc = bar.getBoundingClientRect();
+        const k = Math.max(0, Math.min(1, (e.clientX - rc.left) / rc.width));
+        const d = recAudio.duration && isFinite(recAudio.duration) ? recAudio.duration : r.duration;
+        recAudio.currentTime = k * d;
+        setPct(bar, '--p', k * 100);
+        const tm = panel.querySelector(`[data-time="${id}"]`); if (tm) tm.textContent = `${fmtTime(recAudio.currentTime)} / ${fmtTime(d)}`;
+      };
+      bar.addEventListener('pointerdown', (e) => { e.stopPropagation(); bar.setPointerCapture(e.pointerId); seek(e); bar.onpointermove = (ev) => recAudio && seek(ev); });
+      bar.addEventListener('pointerup', () => { bar.onpointermove = null; });
+      bar.addEventListener('click', (e) => e.stopPropagation());
+    });
   }
 
   // ---------- Programas y episodios publicados (servidor)
@@ -151,7 +187,7 @@ export async function render(view, _p, { go }) {
           <button class="btn sm ghost" data-editprog="${p.id}">${icon('edit')} Editar</button>
         </div>`)}</div>` : html`<p class="muted small">Crea tu primer programa (por ejemplo «La noche del porche»). Cada vez que lo emitas y publiques, será un episodio nuevo.</p>`}
       <div class="h3 mt">Episodios publicados · ${r.podcasts.length}</div>
-      <div class="card tight"><div class="row between small"><span class="muted">Espacio de tu porche</span><span class="mono">${fmtBytes(r.used)} / ${fmtBytes(r.cap)}</span></div><div class="progress mt-s" data-p="${(r.used / r.cap) * 100}"><i></i></div></div>
+      <div class="card tight"><div class="row between small"><span class="muted">Espacio de tu porche</span><span class="mono">${Math.min(100, Math.round((r.used / r.cap) * 100))} % usado</span></div><div class="progress mt-s" data-p="${(r.used / r.cap) * 100}"><i></i></div></div>
       ${r.podcasts.length ? r.podcasts.map((p) => html`
         <div class="item">
           <a href="/p/${p.id}"><img class="rec-thumb" src="${podcastCover(p)}" alt=""></a>
