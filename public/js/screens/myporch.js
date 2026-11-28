@@ -323,7 +323,7 @@ export async function render(view, _p, { go }) {
           <label class="btn sm ghost">${icon('upload')} Subir<input type="file" accept="image/*" hidden data-act="photo"></label>
         </div>
       </div>
-      <div class="row gap-s">${SCENES.map((s, i) => html`<button data-scene="${i + 1}" class="grow"><img src="${s}" alt="Escena ${i + 1}" class="${porch.scene === i + 1 && !porch.hasCover ? '' : ''}"></button>`)}</div>
+      <div class="scene-pick">${SCENES.map((s, i) => html`<button data-scene="${i + 1}"><img src="${s}" alt="Escena ${i + 1}" class="${porch.scene === i + 1 && !porch.hasCover ? '' : ''}"></button>`)}</div>
       <div class="muted tiny">Sin foto usamos una de las escenas. Toca una para elegirla.</div>
       <label class="field">Nombre del porche<input class="input" name="name" maxlength="${LIMITS.PORCH_NAME_MAX}" value="${porch.name}"></label>
       <label class="field">Descripción<textarea class="input" name="desc" maxlength="${LIMITS.DESC_MAX}" rows="3">${porch.description}</textarea></label>

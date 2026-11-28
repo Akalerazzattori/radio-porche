@@ -45,7 +45,7 @@ export async function categoryPicker(current = []) {
 }
 
 export function programCover(p) {
-  return p.hasCover ? `/api/program/${p.id}/cover` : SCENES[((p.scene || 1) - 1) % 4];
+  return p.hasCover ? `/api/program/${p.id}/cover` : SCENES[((p.scene || 1) - 1) % SCENES.length];
 }
 
 let mineCache = null;
@@ -72,7 +72,7 @@ export async function programSheet(existing = null) {
     <div class="h3">Categorías</div>
     <button class="btn ghost cat-btn" data-a="cats"><span class="grow ellip" data-el="catlbl">${catName(cats, existing?.category || '') || 'Elegir categorías (máx. 3)'}</span>${icon('down')}</button>
     <div class="h3">Portada del programa</div>
-    <div class="row gap-s">${SCENES.map((u, i) => html`<button data-sc="${i + 1}" class="grow ${!existing?.hasCover && scene === i + 1 ? 'on' : ''}" aria-label="Escena ${i + 1}"><img src="${u}" alt=""></button>`)}</div>
+    <div class="scene-pick">${SCENES.map((u, i) => html`<button data-sc="${i + 1}" class="${!existing?.hasCover && scene === i + 1 ? 'on' : ''}" aria-label="Escena ${i + 1}"><img src="${u}" alt=""></button>`)}</div>
     <label class="btn sm ghost">${icon('camera')} Usar una foto mía<input type="file" accept="image/*" hidden data-ph></label>
     <button class="btn yellow big" data-a="save">${existing ? 'Guardar' : 'Crear programa'}</button>
     ${existing ? html`<button class="btn ghost red-t" data-a="del">${icon('trash')} Borrar programa (los episodios se quedan sueltos)</button>` : ''}`, {

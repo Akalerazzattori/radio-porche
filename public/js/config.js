@@ -22,6 +22,11 @@ export const LEGAL = {
 };
 
 // --- Duración y publicación ---
+// Ilustraciones de portada (escena-1…N) y vecinos para la foto de perfil (vecino-1…N)
+export const SCENE_COUNT = 20;
+export const VECINO_COUNT = 12;
+export const VECINOS = ['La del quinto', 'El abuelo del banco', 'La DJ de azotea', 'El del bar', 'La presidenta', 'El de los patines', 'La abuela rockera', 'El taxista de noche', 'La estudiante', 'El músico del metro', 'La frutera', 'El vecino nuevo'];
+
 export const LIMITS = {
   MAX_PART_MIN: 40, // máximo por parte
   WARN_1_MIN: 35, // "Te quedan 5 minutos"

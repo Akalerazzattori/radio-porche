@@ -1,12 +1,20 @@
 // Piezas compartidas: entrar con nombre, aceptar condiciones, reportar, bloquear, compartir.
 import { api, session, getConfig, turnstileWidget } from './api.js';
-import { LEGAL, LIMITS, NAME_PATTERN, REPORT_REASONS } from './config.js';
-import { html, sheet, toast, icon, esc, initial, avatarColor } from './util.js';
+import { LEGAL, LIMITS, NAME_PATTERN, REPORT_REASONS, VECINO_COUNT } from './config.js';
+import { html, sheet, toast, icon, esc } from './util.js';
 
 /** Avatar: su foto si la tiene, si no la inicial en un círculo de color. */
+/** Vecino ilustrado de una persona: el que eligió, o uno fijo según su identidad. */
+export function vecinoOf(p) {
+  const av = Number(p?.av) || 0;
+  if (av < 0) return Math.min(VECINO_COUNT, -av);
+  let h = 0;
+  for (const ch of String(p?.dev || p?.name || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return (h % VECINO_COUNT) + 1;
+}
 export function avatar(p, cls = '') {
-  if (p && p.av && p.dev) return html`<img class="av ${cls}" src="/api/avatar/${p.dev}?v=${p.av}" alt="">`;
-  return html`<span class="av ${cls} ${avatarColor(p?.name)}">${initial(p?.name)}</span>`;
+  if (p && p.av > 0 && p.dev) return html`<img class="av ${cls}" src="/api/avatar/${p.dev}?v=${p.av}" alt="">`;
+  return html`<img class="av ${cls}" src="/img/vecinos/vecino-${vecinoOf(p)}.webp" alt="">`;
 }
 
 export function porchCover(p) {

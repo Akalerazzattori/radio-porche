@@ -786,3 +786,20 @@ button.role-badge { width: 100%; text-align: left; cursor: pointer; }
 .pad .star.on { background: var(--ink); color: var(--yellow); border-color: var(--ink); }
 .icon-btn.fav-btn.on { color: var(--yellow); }
 .brand-head.grow { min-width: 0; } .brand-head.grow .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Portadas: tira deslizable con todas las ilustraciones */
+.scene-pick { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 4px 16px 8px; scrollbar-width: none; touch-action: pan-x pan-y; }
+.scene-pick::-webkit-scrollbar { display: none; }
+.scene-pick button { flex: 0 0 68px; height: 68px; border-radius: 12px; overflow: hidden; border: 3px solid transparent; padding: 0; }
+.scene-pick button img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scene-pick button.on, .scene-pick img.on { border-color: var(--yellow); }
+.scene-pick button:has(img.on) { border-color: var(--yellow); }
+
+/* Vecinos para la foto de perfil */
+.vecino-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.vecino { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; }
+.vecino img { width: 100%; aspect-ratio: 1; border-radius: 50%; object-fit: cover; border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--edge); }
+.vecino span { font-size: 10.5px; font-weight: 700; line-height: 1.1; text-align: center; color: var(--muted); }
+.vecino.on img { border-color: var(--yellow); }
+.vecino.on span { color: var(--yellow); }
+button.avatar-edit { padding: 0; background: none; border: 0; }

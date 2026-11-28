@@ -18,7 +18,7 @@ const SR = 24000; // suficiente para voz y música de fondo, y ligero en memoria
 
 /** Miniatura de una grabación (su foto o su escena). */
 export function recordingThumb(r) {
-  return r.photo ? URL.createObjectURL(r.photo) : SCENES[((r.scene || 1) - 1) % 4];
+  return r.photo ? URL.createObjectURL(r.photo) : SCENES[((r.scene || 1) - 1) % SCENES.length];
 }
 
 /** Título, descripción y foto de una grabación guardada en el móvil. */
@@ -33,7 +33,7 @@ export function recordingDetailsSheet(rec) {
         <label class="btn sm ghost">${icon('upload')} Subir foto<input type="file" accept="image/*" hidden data-ph></label>
       </div>
     </div>
-    <div class="row gap-s">${SCENES.map((u, i) => html`<button data-sc="${i + 1}" class="grow" aria-label="Escena ${i + 1}"><img src="${u}" alt=""></button>`)}</div>
+    <div class="scene-pick">${SCENES.map((u, i) => html`<button data-sc="${i + 1}" aria-label="Escena ${i + 1}"><img src="${u}" alt=""></button>`)}</div>
     <p class="muted tiny">Sin foto usamos una escena. Al publicar ponemos encima el título y la fecha con el estilo de Radio Porche.</p>
     <label class="field">Título<input class="input" name="title" maxlength="${LIMITS.TITLE_MAX}" value="${rec.title || ''}"></label>
     <label class="field">Descripción<textarea class="input" name="desc" maxlength="${LIMITS.DESC_MAX}" rows="3" placeholder="De qué va, quién sale…">${rec.description || ''}</textarea></label>

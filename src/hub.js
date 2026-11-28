@@ -2,7 +2,7 @@
 // (troceados en filas ≤ 2 MB), comentarios, me gusta, escuchas, reportes, límites,
 // biblioteca "de serie", panel de administración y registro de acciones.
 import { DurableObject } from 'cloudflare:workers';
-import { LIMITS, LEGAL, REPORT_REASONS, SERIOUS_REASONS, DEFAULT_BADWORDS, ZONES, DEFAULT_CATEGORIES } from '../public/js/config.js';
+import { LIMITS, LEGAL, REPORT_REASONS, SERIOUS_REASONS, DEFAULT_BADWORDS, ZONES, DEFAULT_CATEGORIES, SCENE_COUNT, VECINO_COUNT } from '../public/js/config.js';
 import {
   json, err, b64u, unb64u, randomId, safeEqual, sha256, hmac,
   cleanText, cleanName, cleanInt, cleanNum, cleanId, slugify, filterChat, now,
@@ -195,7 +195,7 @@ export class Hub extends DurableObject {
     if (this.one('SELECT 1 FROM porches WHERE slug=?', slug)) slug = `${slug}-${randomId(3).toLowerCase().replace(/[^a-z0-9]/g, 'x')}`;
     this.run(
       'INSERT INTO porches (id,owner,name,slug,freq,mod_key,scene,created) VALUES (?,?,?,?,?,?,?,?)',
-      id, ident.device_id, name, slug, freq, randomId(16), 1 + Math.floor(Math.random() * 4), now(),
+      id, ident.device_id, name, slug, freq, randomId(16), 1 + Math.floor(Math.random() * SCENE_COUNT), now(),
     );
     return this.one('SELECT * FROM porches WHERE id=?', id);
   }
@@ -561,6 +561,14 @@ export class Hub extends DurableObject {
       this.run('UPDATE identities SET name=? WHERE device_id=?', name, me);
       return json({ ok: true, name });
     }
+    // Vecino ilustrado como foto de perfil: avatar < 0 = vecino nº (−avatar); 0 = automático
+    if (p === '/api/me/vecino' && m === 'POST') {
+      const b = await req.json().catch(() => ({}));
+      const n = cleanInt(b.n, 0, VECINO_COUNT, 0);
+      this.run("DELETE FROM chunks WHERE pid=? AND kind='v'", me);
+      this.run('UPDATE identities SET avatar=? WHERE device_id=?', -n, me);
+      return json({ avatar: -n });
+    }
     if (p === '/api/me/avatar' && m === 'POST') {
       // Foto de perfil: pequeña (≤ 80 KB), reducida en el navegador
       if (!this.limit(`av:${me}`, HOUR, 20)) return err(429, 'Demasiados cambios. Espera un poco.');
@@ -612,7 +620,7 @@ export class Hub extends DurableObject {
       const description = cleanText(b.description ?? pr.description, LIMITS.DESC_MAX, { multiline: true });
       const nextShow = cleanText(b.nextShow ?? pr.next_show, LIMITS.NEXT_SHOW_MAX);
       const nextTs = cleanInt(b.nextTs ?? pr.next_ts, 0, 4102444800000, 0);
-      const scene = cleanInt(b.scene ?? pr.scene, 1, 4, 1);
+      const scene = cleanInt(b.scene ?? pr.scene, 1, SCENE_COUNT, 1);
       let freq = pr.freq;
       if (b.freq !== undefined && b.freq !== null && b.freq !== '') {
         const f = Math.round(Number(b.freq) * 10) / 10;
@@ -661,7 +669,7 @@ export class Hub extends DurableObject {
       if (!name) return err(400, 'Ponle nombre al programa');
       const id = randomId(7);
       this.run('INSERT INTO programs (id,porch_id,owner,name,description,category,scene,created) VALUES (?,?,?,?,?,?,?,?)',
-        id, pr.id, me, name, cleanText(b.description, LIMITS.DESC_MAX, { multiline: true }), this.cleanCategories(b.categories ?? b.category), cleanInt(b.scene, 1, 4, pr.scene || 1), now());
+        id, pr.id, me, name, cleanText(b.description, LIMITS.DESC_MAX, { multiline: true }), this.cleanCategories(b.categories ?? b.category), cleanInt(b.scene, 1, SCENE_COUNT, pr.scene || 1), now());
       return json({ program: this.programPublic(this.one('SELECT * FROM programs WHERE id=?', id), me) });
     }
     if ((mm = /^\/api\/programs\/([A-Za-z0-9_-]+)\/edit$/.exec(p)) && m === 'POST') {
@@ -670,7 +678,7 @@ export class Hub extends DurableObject {
       const b = await req.json().catch(() => ({}));
       const name = cleanText(b.name ?? r.name, 60) || r.name;
       const cat = b.categories !== undefined || b.category !== undefined ? this.cleanCategories(b.categories ?? b.category) : r.category;
-      this.run('UPDATE programs SET name=?, description=?, category=?, scene=? WHERE id=?', name, cleanText(b.description ?? r.description, LIMITS.DESC_MAX, { multiline: true }), cat, cleanInt(b.scene ?? r.scene, 1, 4, 1), r.id);
+      this.run('UPDATE programs SET name=?, description=?, category=?, scene=? WHERE id=?', name, cleanText(b.description ?? r.description, LIMITS.DESC_MAX, { multiline: true }), cat, cleanInt(b.scene ?? r.scene, 1, SCENE_COUNT, 1), r.id);
       this.run('UPDATE podcasts SET category=? WHERE program_id=?', cat.split(',')[0], r.id);
       return json({ program: this.programPublic(this.one('SELECT * FROM programs WHERE id=?', r.id), me) });
     }
@@ -817,7 +825,7 @@ export class Hub extends DurableObject {
     const chapters = JSON.stringify(cleanChapters(meta.chapters, dur));
     const part = cleanInt(meta.part, 1, 50, 1);
     const series = cleanText(meta.series, 40);
-    const scene = cleanInt(meta.scene, 1, 4, porch.scene || 1);
+    const scene = cleanInt(meta.scene, 1, SCENE_COUNT, porch.scene || 1);
     let prev = cleanId(meta.prevId || '');
     if (prev && !this.one('SELECT 1 FROM podcasts WHERE id=? AND owner=?', prev, me)) prev = '';
     if (!prev && series && part > 1) {

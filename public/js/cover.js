@@ -1,8 +1,8 @@
 // Portadas con el estilo de la marca: foto (o escena por defecto) + fecha + título.
-import { LIMITS } from './config.js';
+import { LIMITS, SCENE_COUNT } from './config.js';
 import { fmtDate } from './util.js';
 
-export const SCENES = [1, 2, 3, 4].map((n) => `/img/scenes/escena-${n}.webp`);
+export const SCENES = Array.from({ length: SCENE_COUNT }, (_, i) => `/img/scenes/escena-${i + 1}.webp`);
 
 function loadImg(src) {
   return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
@@ -27,7 +27,7 @@ export async function composeCover({ photo, scene = 1, title = '', date = Date.n
   const c = document.createElement('canvas');
   c.width = c.height = S;
   const x = c.getContext('2d');
-  const src = photo ? URL.createObjectURL(photo) : SCENES[(scene - 1) % 4];
+  const src = photo ? URL.createObjectURL(photo) : SCENES[(scene - 1) % SCENES.length];
   try {
     const img = await loadImg(src);
     const r = Math.max(S / img.width, S / img.height);

@@ -1,6 +1,6 @@
 // Perfil y ajustes: identidad, recuperación, copia para cambiar de móvil, mis datos, textos legales y ayuda.
 import { api, session } from '../api.js';
-import { LEGAL } from '../config.js';
+import { LEGAL, VECINOS } from '../config.js';
 import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtBytes } from '../util.js';
 import { requireIdentity, recoveryLink, copy, recoverSheet, unblockAll, blockedList, linkDeviceSheet, brandHead } from '../common.js';
 import { exportBackup, importBackup, wipeLocal, storageEstimate, requestPersist } from '../db.js';
@@ -17,7 +17,7 @@ export async function render(view, _p, { go }) {
       <div class="fill scroll col gap">
         ${logged ? html`
           <div class="card row gap">
-            <label class="avatar-edit" aria-label="Cambiar foto de perfil">${avatar({ name: session.name, dev: session.deviceId, av: session.get()?.avatar || 0 }, 'xl')}<span class="cam">${icon('camera')}</span><input type="file" accept="image/*" hidden data-act="avatar"></label>
+            <button class="avatar-edit" data-act="avsheet" aria-label="Cambiar foto de perfil">${avatar({ name: session.name, dev: session.deviceId, av: session.get()?.avatar || 0 }, 'xl')}<span class="cam">${icon('camera')}</span></button>
             <div class="grow"><div class="b">${session.name}</div></div>
             <button class="btn sm ghost" data-act="rename" aria-label="Cambiar nombre">${icon('edit')}</button>
           </div>`
@@ -109,20 +109,9 @@ export async function render(view, _p, { go }) {
         break;
       }
       case 'help': helpSheet(); break;
+      case 'avsheet': if (await avatarSheet()) go('/perfil', { replace: true }); break;
     }
   });
-  const avIn = view.querySelector('[data-act=avatar]');
-  if (avIn) avIn.onchange = async (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    try {
-      const blob = await avatarBlob(f);
-      const r = await api('/api/me/avatar', { method: 'POST', raw: blob });
-      session.update({ avatar: r.avatar });
-      toast(`Foto actualizada (${Math.round(blob.size / 1024)} KB)`, 'good');
-      go('/perfil', { replace: true });
-    } catch (err) { toast(err.message || 'No se ha podido subir la foto', 'bad'); }
-  };
   view.querySelector('[data-act=import]').onchange = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
@@ -151,4 +140,40 @@ function helpSheet() {
     <p><b>Capacidad</b>: pensada para unos 15–20 oyentes a la vez por porche.</p>
     <p><b>Programas con vídeo</b>: usa un ordenador con Chrome como estudio y «Compartir pestaña con audio». Tu móvil puede ser tu micro (interruptor «Micro aquí»).</p>
     <button class="btn yellow" data-close="">Entendido</button>`);
+}
+
+/** Tu foto: una tuya o uno de los vecinos del barrio. Devuelve true si ha cambiado. */
+function avatarSheet() {
+  const cur = session.get()?.avatar || 0;
+  const s = sheet(html`
+    <h2 class="h2">Tu foto</h2>
+    <label class="btn yellow">${icon('camera')} Subir una foto mía<input type="file" accept="image/*" hidden data-el="file"></label>
+    <div class="h3">O elige un vecino</div>
+    <div class="vecino-grid">${VECINOS.map((n, i) => html`<button class="vecino ${cur === -(i + 1) ? 'on' : ''}" data-vec="${i + 1}" aria-label="${n}"><img src="/img/vecinos/vecino-${i + 1}.webp" alt=""><span>${n}</span></button>`)}</div>
+    ${cur !== 0 ? html`<button class="btn ghost" data-vec="0">${cur > 0 ? 'Quitar mi foto' : 'Que me toque uno al azar'}</button>` : ''}`, {
+    onMount(a) {
+      a.el.addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-vec]');
+        if (!b) return;
+        try {
+          const r = await api('/api/me/vecino', { method: 'POST', body: { n: Number(b.dataset.vec) } });
+          session.update({ avatar: r.avatar });
+          toast(r.avatar < 0 ? `Ahora eres «${VECINOS[-r.avatar - 1]}»` : 'Listo', 'good');
+          a.close(true);
+        } catch (err) { toast(err.message, 'bad'); }
+      });
+      a.el.querySelector('[data-el=file]').onchange = async (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        try {
+          const blob = await avatarBlob(f);
+          const r = await api('/api/me/avatar', { method: 'POST', raw: blob });
+          session.update({ avatar: r.avatar });
+          toast(`Foto actualizada (${Math.round(blob.size / 1024)} KB)`, 'good');
+          a.close(true);
+        } catch (err) { toast(err.message || 'No se ha podido subir la foto', 'bad'); }
+      };
+    },
+  });
+  return s.done.then((v) => v === true);
 }
