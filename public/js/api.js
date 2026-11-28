@@ -2,7 +2,11 @@
 // La identidad está desacoplada: en el futuro se puede añadir login con Google
 // sustituyendo solo cómo se obtiene el token.
 
+import { setSetting } from './db.js';
+
 const KEY = 'rp_identity';
+// Copia de seguridad de la identidad en IndexedDB: si el sistema borra localStorage, la recuperamos al abrir
+const backup = (v) => { try { setSetting('identity', v).catch(() => {}); } catch {} };
 let ident = null;
 try { ident = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { ident = null; }
 
@@ -12,9 +16,9 @@ export const session = {
   get deviceId() { return ident?.deviceId || ''; },
   get name() { return ident?.name || ''; },
   get porchId() { return ident?.porchId || null; },
-  set(v) { ident = v; try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {} },
+  set(v) { ident = v; try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {} backup(v); },
   update(patch) { this.set({ ...(ident || {}), ...patch }); },
-  clear() { ident = null; try { localStorage.removeItem(KEY); } catch {} },
+  clear() { ident = null; try { localStorage.removeItem(KEY); } catch {} backup(null); },
 };
 
 export class ApiError extends Error {

@@ -2,7 +2,7 @@
 import { api, session } from './api.js';
 import { html, mount, icon, toast, setPct } from './util.js';
 import { welcomeOnce, checkTermsVersion, useRecoveryToken, porchCover, podcastCover } from './common.js';
-import { purgeOldDrafts, requestPersist } from './db.js';
+import { purgeOldDrafts, requestPersist, getSetting } from './db.js';
 import { live, onLive } from './live.js';
 import { player } from './screens/player.js';
 import { renderLegal } from './screens/legal.js';
@@ -138,7 +138,17 @@ window.addEventListener('popstate', route);
 // Sin zoom con dos dedos (Safari ignora user-scalable)
 ['gesturestart', 'gesturechange'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
 document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
-window.addEventListener('rp:logout', () => { session.clear(); toast('Tu sesión ya no es válida. Entra de nuevo.', 'bad'); });
+// Un 401 suelto no basta para cerrar tu sesión: lo comprobamos antes con /api/me
+let checkingLogout = false;
+window.addEventListener('rp:logout', async () => {
+  if (checkingLogout || !session.token) return;
+  checkingLogout = true;
+  try {
+    const r = await fetch('/api/me', { headers: { authorization: `Bearer ${session.token}` } });
+    if (r.status === 401) { session.clear(); toast('Tu sesión ya no es válida. Entra de nuevo.', 'bad'); route(); }
+  } catch {}
+  checkingLogout = false;
+});
 
 // ---------- Avisos: insignia y notificación del navegador (con la app abierta)
 let knownLive = null;
@@ -186,6 +196,16 @@ function watchVersion() {
 (async function start() {
   const m = /#recuperar=([^&]+)/.exec(location.hash);
   if (m) { history.replaceState(null, '', location.pathname + location.search); await useRecoveryToken(decodeURIComponent(m[1])); }
+  // ¿Se borró la identidad de localStorage pero queda la copia? La recuperamos sin pedirte nada.
+  if (!session.token) {
+    try {
+      const b = await getSetting('identity');
+      if (b?.token) {
+        const r = await fetch('/api/me', { headers: { authorization: `Bearer ${b.token}` } });
+        if (r.ok) session.set(b);
+      }
+    } catch {}
+  }
   if (session.get()?.token) api('/api/me').then((me) => { if ((me.avatar || 0) !== (session.get()?.avatar || 0)) { session.update({ avatar: me.avatar || 0 }); if (location.pathname === '/perfil') route(); } }).catch(() => {});
   route();
   welcomeOnce();
