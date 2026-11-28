@@ -1108,7 +1108,7 @@ export class Hub extends DurableObject {
       if (f.size > LIMITS.LIBRARY_MAX_BYTES) return err(413, 'Máximo 8 MB por sonido');
       const u8 = new Uint8Array(await f.arrayBuffer());
       const mime = sniffLibraryAudio(u8);
-      if (!mime) return err(400, 'Formato no admitido (MP3, M4A, WebM u Ogg)');
+      if (!mime) return err(400, 'Formato no admitido (MP3, M4A, WAV, WebM u Ogg)');
       const zone = ZONES[form.get('zone')] ? form.get('zone') : 'fx';
       const name = cleanText(String(form.get('name') || ''), 40) || 'Sonido';
       const section = cleanText(String(form.get('section') || ''), 40);

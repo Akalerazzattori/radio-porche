@@ -38,9 +38,35 @@ export async function decode(item) {
   let ab;
   if (item.blob) ab = await item.blob.arrayBuffer();
   else ab = await (await fetch(item.src)).arrayBuffer();
-  const buf = await audioCtx().decodeAudioData(ab);
+  const buf = trimSilence(await audioCtx().decodeAudioData(ab));
   cache.set(key, buf);
   return buf;
+}
+
+/**
+ * Quita el silencio del principio y del final para que en antena suene al instante.
+ * Umbral ~ -50 dB; deja 10 ms antes y 60 ms después para no cortar ataques ni colas.
+ */
+export function trimSilence(buf, threshold = 0.0032) {
+  const n = buf.length, chs = buf.numberOfChannels, sr = buf.sampleRate;
+  const data = [];
+  for (let c = 0; c < chs; c++) data.push(buf.getChannelData(c));
+  const loud = (i) => { for (let c = 0; c < chs; c++) if (Math.abs(data[c][i]) > threshold) return true; return false; };
+  let a = 0; while (a < n && !loud(a)) a++;
+  let b = n - 1; while (b > a && !loud(b)) b--;
+  if (a >= n) return buf; // todo silencio: lo dejamos tal cual
+  a = Math.max(0, a - Math.round(sr * 0.01));
+  b = Math.min(n - 1, b + Math.round(sr * 0.06));
+  if (a < sr * 0.03 && n - 1 - b < sr * 0.03) return buf; // casi no hay silencio que quitar
+  const len = b - a + 1;
+  const out = audioCtx().createBuffer(chs, len, sr);
+  const fade = Math.min(Math.round(sr * 0.004), len >> 2);
+  for (let c = 0; c < chs; c++) {
+    const seg = data[c].slice(a, b + 1);
+    for (let i = 0; i < fade; i++) { seg[i] *= i / fade; seg[len - 1 - i] *= i / fade; }
+    out.copyToChannel(seg, c);
+  }
+  return out;
 }
 
 const isVideo = (f) => /^video\//.test(f.type) || /\.(mp4|mov|m4v|webm)$/i.test(f.name || '') && !/^audio\//.test(f.type);

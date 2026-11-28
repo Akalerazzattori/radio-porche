@@ -13,6 +13,7 @@ export function sniffLibraryAudio(u8) {
   const t = sniffAudio(u8);
   if (t) return t;
   if (u8[0] === 0x49 && u8[1] === 0x44 && u8[2] === 0x33) return 'audio/mpeg'; // ID3
+  if (u8[0] === 0x52 && u8[1] === 0x49 && u8[2] === 0x46 && u8[3] === 0x46 && u8[8] === 0x57 && u8[9] === 0x41 && u8[10] === 0x56 && u8[11] === 0x45) return 'audio/wav';
   if (u8[0] === 0xff && (u8[1] & 0xe0) === 0xe0) return 'audio/mpeg'; // frame sync
   return null;
 }
