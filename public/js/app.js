@@ -151,7 +151,7 @@ async function pollNotices() {
       for (const it of liveNow) if (!knownLive.has(it.porch.id)) {
         toast(`${it.porch.name} está en directo`, 'good');
         if ('Notification' in window && Notification.permission === 'granted') {
-          try { const n = new Notification(`${it.porch.name} está en directo`, { body: it.porch.liveTitle || 'Entra a escuchar', icon: '/img/app-icon-192.png', tag: it.porch.id }); n.onclick = () => { window.focus(); go(`/porche/${it.porch.slug}`); }; } catch {}
+          try { const n = new Notification(`${it.porch.name} está en directo`, { body: it.porch.liveTitle || 'Entra a escuchar', icon: '/img/icon2-192.png', tag: it.porch.id }); n.onclick = () => { window.focus(); go(`/porche/${it.porch.slug}`); }; } catch {}
         }
       }
     }
