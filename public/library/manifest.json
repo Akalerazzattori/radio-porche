@@ -40,7 +40,7 @@
    "name": "Bocina",
    "file": "/library/bocina.mp3",
    "duration": 1.1,
-   "section": ""
+   "section": "Show"
   },
   {
    "id": "redoble",
@@ -48,7 +48,7 @@
    "name": "Redoble",
    "file": "/library/redoble.mp3",
    "duration": 3.2,
-   "section": ""
+   "section": "Show"
   },
   {
    "id": "campanilla",
@@ -56,7 +56,7 @@
    "name": "Campanilla",
    "file": "/library/campanilla.mp3",
    "duration": 2.5,
-   "section": ""
+   "section": "Show"
   },
   {
    "id": "aplausos",
@@ -64,7 +64,7 @@
    "name": "Aplausos",
    "file": "/library/aplausos-v2.mp3",
    "duration": 4.8,
-   "section": ""
+   "section": "Público"
   },
   {
    "id": "tachan",
@@ -72,7 +72,7 @@
    "name": "¡Tachán!",
    "file": "/library/tachan.mp3",
    "duration": 2.6,
-   "section": ""
+   "section": "Show"
   },
   {
    "id": "rasca",
@@ -80,7 +80,7 @@
    "name": "Rasca de vinilo",
    "file": "/library/rasca.mp3",
    "duration": 0.9,
-   "section": ""
+   "section": "Show"
   },
   {
    "id": "calor-de-agosto",
@@ -105,6 +105,70 @@
    "file": "/library/porche-boogie.mp3",
    "duration": 69.8,
    "section": ""
+  },
+  {
+   "id": "aplausos-pocos",
+   "zone": "fx",
+   "name": "Aplausos (pocos)",
+   "file": "/library/aplausos-pocos.mp3",
+   "duration": 3.7,
+   "section": "Público"
+  },
+  {
+   "id": "ovacion",
+   "zone": "fx",
+   "name": "Ovación",
+   "file": "/library/ovacion.mp3",
+   "duration": 6.5,
+   "section": "Público"
+  },
+  {
+   "id": "timbre",
+   "zone": "fx",
+   "name": "Timbre de casa",
+   "file": "/library/timbre.mp3",
+   "duration": 2.8,
+   "section": "Casa"
+  },
+  {
+   "id": "picar-puerta",
+   "zone": "fx",
+   "name": "Pican a la puerta",
+   "file": "/library/picar-puerta.mp3",
+   "duration": 2.4,
+   "section": "Casa"
+  },
+  {
+   "id": "puerta",
+   "zone": "fx",
+   "name": "Puerta que se abre y se cierra",
+   "file": "/library/puerta.mp3",
+   "duration": 3.4,
+   "section": "Casa"
+  },
+  {
+   "id": "pasos-alejandose",
+   "zone": "fx",
+   "name": "Pasos que se alejan",
+   "file": "/library/pasos-alejandose.mp3",
+   "duration": 5.5,
+   "section": "Casa"
+  },
+  {
+   "id": "telefono-sonando",
+   "zone": "fx",
+   "name": "Teléfono sonando",
+   "file": "/library/telefono-sonando.mp3",
+   "duration": 6.2,
+   "section": "Teléfono"
+  },
+  {
+   "id": "telefono-marcando",
+   "zone": "fx",
+   "name": "Marcar y esperar tono",
+   "file": "/library/telefono-marcando.mp3",
+   "duration": 9.0,
+   "section": "Teléfono"
   }
  ]
 }
