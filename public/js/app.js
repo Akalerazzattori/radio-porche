@@ -35,11 +35,13 @@ let currentTab = '';
 
 export function go(path, { replace = false } = {}) {
   if (path === location.pathname + location.search && !replace) return;
-  history[replace ? 'replaceState' : 'pushState']({}, '', path);
+  // d = cuántas pantallas llevas dentro de la app (para que «Volver» vuelva de verdad atrás)
+  const d = history.state?.d || 0;
+  history[replace ? 'replaceState' : 'pushState']({ d: replace ? d : d + 1 }, '', path);
   route();
 }
 function back() {
-  if (history.length > 1 && document.referrer.startsWith(location.origin)) history.back();
+  if ((history.state?.d || 0) > 0) history.back();
   else go('/');
 }
 const ctx = { go, back };
@@ -75,7 +77,6 @@ async function route() {
   }
 }
 
-// ---------- Barra inferior: En el aire · Archivo · [Mi porche] · Avisos · Perfil
 let badge = 0;
 // Barra inferior: Directo · Podcasts · [CABINA] · Mi porche · Perfil
 function paintTabbar() {

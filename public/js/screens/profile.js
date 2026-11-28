@@ -1,7 +1,7 @@
 // Perfil y ajustes: identidad, recuperación, copia para cambiar de móvil, mis datos, textos legales y ayuda.
 import { api, session } from '../api.js';
 import { LEGAL, VECINOS } from '../config.js';
-import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtBytes } from '../util.js';
+import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtBytes, DEVICE_KIND } from '../util.js';
 import { requireIdentity, recoveryLink, copy, recoverSheet, unblockAll, blockedList, linkDeviceSheet, brandHead } from '../common.js';
 import { exportBackup, importBackup, wipeLocal, storageEstimate, requestPersist } from '../db.js';
 import { googleEnabled, renderGoogleButton } from '../google.js';
@@ -27,12 +27,12 @@ export async function render(view, _p, { go }) {
         <div class="h3">Otros aparatos</div>
         ${logged ? html`<div class="card col gap-s hidden" data-el="gcard"></div>` : ''}
         <div class="group">
-          ${logged ? html`<button class="li" data-act="link">${icon('link')} <span class="grow">Vincular otro aparato (ordenador)</span></button>` : html`<button class="li" data-act="recover">${icon('link')} <span class="grow">Ya tengo porche en otro aparato</span></button>`}
+          ${logged ? html`<button class="li" data-act="link">${icon('link')} <span class="grow">Vincular otro aparato</span></button>` : html`<button class="li" data-act="recover">${icon('link')} <span class="grow">Ya tengo porche en otro aparato</span></button>`}
           ${logged ? html`<button class="li" data-act="recovery">${icon('shield')} <span class="grow">Copiar enlace de recuperación</span></button>` : ''}
           <button class="li" data-act="export">${icon('dl')} <span class="grow">Exportar copia (grabaciones, sonidos y ajustes)</span></button>
           <label class="li">${icon('upload')} <span class="grow">Importar copia</span><input type="file" hidden data-act="import" accept=".rpbk,application/octet-stream,*/*"></label>
         </div>
-        <p class="muted tiny">La app web <b>no se traspasa sola</b> al cambiar de iPhone o Android, y borrar los datos del navegador la borra. Guarda la copia en iCloud, Drive o pásala por AirDrop, y en el móvil nuevo pulsa «Importar copia».${est ? ` Ocupas ${fmtBytes(est.usage || 0)} en este móvil.` : ''}</p>
+        <p class="muted tiny">La app web <b>no se traspasa sola</b> al cambiar de iPhone o Android, y borrar los datos del navegador la borra. Guarda la copia en iCloud, Drive o pásala por AirDrop, y en el móvil nuevo pulsa «Importar copia».${est ? ` Ocupas ${fmtBytes(est.usage || 0)} en este ${DEVICE_KIND}.` : ''}</p>
 
         <div class="h3">Mis datos</div>
         <div class="group">
@@ -44,7 +44,7 @@ export async function render(view, _p, { go }) {
         <div class="h3">Ayuda</div>
         <div class="group">
           <button class="li" data-act="help">${icon('hp')} <span class="grow">Cómo emitir bien (cascos, wifi…)</span></button>
-          <a class="li" href="/admin">${icon('settings')} <span class="grow">Administración</span></a>
+          ${localStorage.getItem('rp_isadmin') ? html`<a class="li" href="/admin">${icon('settings')} <span class="grow">Administración</span></a>` : ''}
         </div>
 
         <div class="h3">Legal</div>
@@ -121,7 +121,7 @@ export async function render(view, _p, { go }) {
       }
       case 'unblock': unblockAll(); toast('Has desbloqueado a todos'); go('/perfil', { replace: true }); break;
       case 'wipe': {
-        if (!(await confirmSheet('¿Borrar todos tus datos?', 'Se borran del servidor tus podcasts publicados, tu porche y tu identidad (los reportes quedan anonimizados), y de este móvil tus borradores, sonidos y ajustes. No se puede deshacer.', { ok: 'Borrar todo', danger: true }))) return;
+        if (!(await confirmSheet('¿Borrar todos tus datos?', `Se borran del servidor tus podcasts publicados, tu porche y tu identidad (los reportes quedan anonimizados), y de este ${DEVICE_KIND} tus grabaciones, sonidos y ajustes. No se puede deshacer.`, { ok: 'Borrar todo', danger: true }))) return;
         try {
           if (session.token) await api('/api/me/delete', { method: 'POST', body: {} });
           live.disconnect();

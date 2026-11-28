@@ -127,7 +127,7 @@ function roleInfoSheet() {
 function resumedOverlay(ms) {
   const el = document.createElement('div');
   el.className = 'full-overlay';
-  el.innerHTML = `<div class="h1">¡Has vuelto!</div><p class="b">${ms > 4000 ? 'Mientras el móvil estaba bloqueado o en otra app, el audio pudo cortarse.' : 'Has cambiado de app un momento.'}</p><p class="muted">Reconectando automáticamente… Para no cortar, deja la app abierta y la pantalla encendida mientras emites.</p><button class="btn yellow big">Entendido</button>`;
+  el.innerHTML = `<div class="h1">¡Has vuelto!</div><p class="b">${ms > 4000 ? 'Mientras la pantalla estaba bloqueada o en otra app, el audio pudo cortarse.' : 'Has cambiado de app un momento.'}</p><p class="muted">Reconectando automáticamente… Para no cortar, deja la app abierta y la pantalla encendida mientras emites.</p><button class="btn yellow big">Entendido</button>`;
   document.body.appendChild(el);
   el.querySelector('button').onclick = () => el.remove();
   setTimeout(() => el.remove(), 6000);
@@ -1030,7 +1030,7 @@ function buildBooth(view, porch, ctx) {
       live.setListenHere(on);
       view.querySelectorAll('[data-act=listenhere]').forEach((x) => (x.checked = on));
       view.querySelectorAll('[data-act=monitor]').forEach((x) => (x.checked = !!live.voice?.monitorOn));
-      toast(on ? 'Con cascos: oyes la emisión y la voz suena más limpia.' : 'Sin cascos: tu móvil no suena (evita acoples) y se activa la cancelación de eco.');
+      toast(on ? 'Con cascos: oyes la emisión y la voz suena más limpia.' : 'Sin cascos: este aparato no suena (evita acoples) y se activa la cancelación de eco.');
     }
     if (e.target.matches('[data-act=michere]')) { live.setMicHere(e.target.checked).catch(() => toast('No se ha podido abrir el micro', 'bad')); setTimeout(() => voicesPanel.paint?.(), 300); }
     if (e.target.matches('[data-act=listenhere]')) { live.setListenHere(e.target.checked); view.querySelectorAll('[data-act=monitor]').forEach((x) => (x.checked = !!live.voice?.monitorOn)); }

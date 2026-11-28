@@ -56,6 +56,7 @@ export async function render(view, _p, { go }) {
   async function load() {
     try { data = await call('/api/admin/overview'); }
     catch (e) { toast(e.message, 'bad'); sessionStorage.removeItem('rp_admin'); key = ''; render(view, _p, { go }); return false; }
+    try { localStorage.setItem('rp_isadmin', '1'); } catch {} // así Perfil enseña «Administración» solo en tus aparatos
     const c = data.counts;
     view.querySelector('[data-el=sum]').textContent = `${c.identities} personas · ${c.porches} porches · ${c.podcasts} podcasts · ${c.live} en directo`;
     return true;
@@ -268,7 +269,7 @@ export async function render(view, _p, { go }) {
       key = r2.key; sessionStorage.setItem('rp_admin', key);
       await copy(`${location.origin}/admin#k=${key}`, 'Nuevo enlace copiado. ¡Guárdalo!');
     }
-    if (e.target.closest('[data-act=logout]')) { sessionStorage.removeItem('rp_admin'); go('/'); }
+    if (e.target.closest('[data-act=logout]')) { sessionStorage.removeItem('rp_admin'); try { localStorage.removeItem('rp_isadmin'); } catch {} go('/'); }
   });
   panel.addEventListener('change', (e) => {
     const p = e.target.closest('[data-p]');

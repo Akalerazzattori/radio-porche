@@ -2,7 +2,7 @@
 // sonidos propios (efectos, música de fondo, canciones) y datos del porche.
 import { api, session } from '../api.js';
 import { LIMITS, SOUND_TABS, minPublishSec } from '../config.js';
-import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtDur, fmtDate, fmtShortDur, fmtTime, setPct, esc } from '../util.js';
+import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtDur, fmtDate, fmtShortDur, fmtTime, setPct, esc, DEVICE_KIND } from '../util.js';
 import { requireIdentity, porchCover, podcastCover, shareUrl, copy, brandHead } from '../common.js';
 import { db } from '../db.js';
 import { OTHER, sendRecording, pickup, getPref, setPref } from '../inbox.js';
@@ -91,7 +91,7 @@ export async function render(view, _p, { go }) {
             <button class="ra" data-send="${r.id}">${icon(OTHER === 'ordenador' ? 'laptop' : 'phone')}<span>${OTHER === 'ordenador' ? 'Ordenador' : 'Móvil'}</span></button>
             <a class="ra" href="/editor/${r.id}">${icon('scissors')}<span>Recortar</span></a>
             <button class="ra ${shared(r) ? 'on' : ''}" data-share="${r.id}">${icon('share')}<span>${shared(r) ? 'Compartida' : 'Compartir'}</span></button>
-            ${r.duration >= minPublishSec(r) ? html`<a class="ra pub" href="/editor/${r.id}?publicar=1">${icon('upload')}<span>Publicar</span></a>` : html`<button class="ra pub off" data-whypub>${icon('upload')}<span>Publicar</span></button>`}
+            ${r.duration >= minPublishSec(r) ? html`<a class="ra pub" href="/editor/${r.id}?publicar=1">${icon('upload')}<span>Publicar</span></a>` : html`<button class="ra pub off" data-whypub="${r.clipOf ? 'clip' : 'rec'}">${icon('upload')}<span>Publicar</span></button>`}
           </div>
         </div>`) : html`<div class="empty"><img src="/img/scenes/escena-2.webp" alt=""><p>Aún no hay grabaciones. Sal al aire en modo <b>Directo + grabación</b> y aparecerán aquí.</p></div>`}
     </div>`);
@@ -100,7 +100,8 @@ export async function render(view, _p, { go }) {
     };
     panel.onclick = async (e) => {
       if (e.target.closest('a')) return;
-      if (e.target.closest('[data-whypub]')) return toast(`Para publicar como podcast hace falta un mínimo de ${LIMITS.MIN_PUBLISH_MIN} minutos. Esta puedes compartirla en privado.`);
+      const wp = e.target.closest('[data-whypub]');
+      if (wp) return toast(wp.dataset.whypub === 'clip' ? 'Un clip necesita al menos 20 segundos para publicarse. Este puedes compartirlo en privado.' : `Para publicar como podcast hace falta un mínimo de ${LIMITS.MIN_PUBLISH_MIN} minutos. Esta puedes compartirla en privado.`);
       const sh = e.target.closest('[data-share]');
       if (sh) return shareRecording(list.find((x) => x.id === sh.dataset.share));
       const d = e.target.closest('[data-det]');
@@ -403,7 +404,7 @@ export async function render(view, _p, { go }) {
         return soundsTab();
       }
       if ((b = e.target.closest('[data-delsnd]'))) {
-        if (!(await confirmSheet('¿Borrar este sonido?', 'Se borra de este móvil.', { ok: 'Borrar', danger: true }))) return;
+        if (!(await confirmSheet('¿Borrar este sonido?', `Se borra de este ${DEVICE_KIND}.`, { ok: 'Borrar', danger: true }))) return;
         await deleteSound(b.dataset.delsnd); return soundsTab();
       }
       if (e.target.closest('[data-act=rec]')) { const z = await askZone(); if (!z) return; return recordSoundSheet(z).then(soundsTab); }

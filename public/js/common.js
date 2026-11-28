@@ -51,7 +51,7 @@ export function welcomeOnce() {
     <img class="welcome-logo" src="/img/logo-v3.webp" alt="Radio Porche" width="300" height="104">
     <p class="center b">Radios de barrio en directo. Sintoniza, comenta y pide micro.</p>
     <div class="banner yellow">${icon('shield')} Solo para mayores de 18 años</div>
-    <p class="muted small">Sin cookies de seguimiento ni analítica: solo guardamos en tu móvil lo necesario para que funcione. Más en ${legalLinks}.</p>
+    <p class="muted small">Sin cookies de seguimiento ni analítica: solo guardamos en tu aparato lo necesario para que funcione. Más en ${legalLinks}.</p>
     <button class="btn yellow big" data-close="ok">Tengo 18 o más · Entrar</button>`, { dismissable: false });
   s.done.then(() => localStorage.setItem('rp_welcome', '1'));
 }
@@ -182,7 +182,7 @@ export function recoverSheet() {
         try {
           const r = await api('/api/google/login', { method: 'POST', body: { credential } });
           if (r.token) { finishLogin(r); a.close('ok'); return; }
-          toast('Esa cuenta de Google aún no está unida a ningún porche. En tu otro aparato ve a Perfil → Unir con Google, o usa un código.', 'bad');
+          toast('Esa cuenta de Google aún no está unida a ningún porche. En tu otro aparato ve a Perfil → «Entra con Google en todos tus aparatos», o usa un código.', 'bad');
         } catch (e) { toast(e.message, 'bad'); }
       }).then((on) => { if (on) a.el.querySelector('[data-el=gwrap]').classList.remove('hidden'); });
       const code = a.el.querySelector('[data-el=code]');

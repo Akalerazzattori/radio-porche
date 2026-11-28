@@ -70,7 +70,7 @@ export function recordingDetailsSheet(rec) {
 export async function render(view, [id], { go }) {
   let rec = await db.get('recordings', id);
   if (!rec) { await pickup(); rec = await db.get('recordings', id); } // ¿estaba llegando de tu otro aparato?
-  if (!rec) { mount(view, html`<section class="screen"><div class="top"><h1 class="h1">Editor</h1><button class="icon-btn" data-x>${icon('close')}</button></div><div class="empty"><p>Esta grabación no está en este aparato. Si está en tu otro aparato, ábrela allí y pulsa «Pasar al ${DEVICE_KIND}».</p></div></section>`); view.querySelector('[data-x]').onclick = () => go('/mi-porche'); return; }
+  if (!rec) { mount(view, html`<section class="screen"><div class="top"><h1 class="h1">Editor</h1><button class="icon-btn" data-x>${icon('close')}</button></div><div class="empty"><p>Esta grabación no está en este aparato. Si está en tu otro aparato, ábrela allí y pulsa el botón «${DEVICE_KIND === 'móvil' ? 'Móvil' : 'Ordenador'}» de esa grabación.</p></div></section>`); view.querySelector('[data-x]').onclick = () => go('/mi-porche'); return; }
 
   mount(view, html`
     <section class="screen">
@@ -349,7 +349,7 @@ export async function render(view, [id], { go }) {
     return { blob, duration: pcm.length / SR };
   }
   function progressSheet(title) {
-    const s = sheet(html`<h2 class="h2">${title}</h2><div class="progress"><i></i></div><p class="muted small" data-el="msg">Preparando el audio en tu móvil…</p>`, { dismissable: false });
+    const s = sheet(html`<h2 class="h2">${title}</h2><div class="progress"><i></i></div><p class="muted small" data-el="msg">Preparando el audio en este ${DEVICE_KIND}…</p>`, { dismissable: false });
     const bar = s.el.querySelector('.progress');
     return { set: (k, msg) => { setPct(bar, '--p', k * 100); if (msg) s.el.querySelector('[data-el=msg]').textContent = msg; }, close: () => s.close() };
   }
@@ -363,7 +363,7 @@ export async function render(view, [id], { go }) {
     if ((await recordingDetailsSheet(rec)) === 'ok') $el('title').textContent = `${rec.title} ✎`;
   };
   view.querySelector('[data-act=delete]').onclick = async () => {
-    if (!(await confirmSheet('¿Borrar la grabación?', 'Se borra de este móvil para siempre.', { ok: 'Borrar', danger: true }))) return;
+    if (!(await confirmSheet('¿Borrar la grabación?', `Se borra de este ${DEVICE_KIND} para siempre.`, { ok: 'Borrar', danger: true }))) return;
     stopPlay(); await db.del('recordings', rec.id); toast('Borrada'); go('/mi-porche?tab=grabaciones');
   };
   view.querySelector('[data-act=private]').onclick = async () => {
@@ -373,7 +373,7 @@ export async function render(view, [id], { go }) {
       const r = isEdited() ? await rendered((k) => ps.set(k)) : { blob: rec.blob, duration: finalLen() };
       const stored = (await db.get('recordings', rec.id)) || rec;
       await db.put('recordings', { ...stored, kind: 'private', blob: r.blob, mime: r.blob.type, duration: r.duration, chapters: finalChapters() });
-      ps.close(); toast('Guardado en privado (solo en este móvil). Puedes volver a editarlo cuando quieras.', 'good'); go('/mi-porche?tab=grabaciones');
+      ps.close(); toast(`Guardado en privado (solo en este ${DEVICE_KIND}). Puedes volver a editarlo cuando quieras.`, 'good'); go('/mi-porche?tab=grabaciones');
     } catch (e) { ps.close(); toast('No se ha podido guardar: ' + e.message, 'bad'); }
   };
   view.querySelector('[data-act=publish]').onclick = async () => {
@@ -434,7 +434,7 @@ export async function render(view, [id], { go }) {
           a.close('go');
           const ps = progressSheet('Publicando');
           try {
-            const r = await rendered((k) => ps.set(k * 0.8, 'Comprimiendo el audio en tu móvil…'));
+            const r = await rendered((k) => ps.set(k * 0.8, `Comprimiendo el audio en este ${DEVICE_KIND}…`));
             if (r.blob.size > LIMITS.MAX_UPLOAD_BYTES) throw new Error('El audio pesa demasiado. Recórtalo un poco.');
             ps.set(0.85, 'Creando la portada…');
             const cover = await coverFor();
