@@ -36,7 +36,7 @@ export async function render(view, _p, { go }) {
   mount(view, html`
     <section class="screen">
       <div class="top">
-        <div class="row gap-s"><img class="brand-ic" src="/img/app-icon-192.png" alt="" width="40" height="40"><div><h1 class="h1">Podcasts</h1></div></div>
+        <div class="row gap-s"><img class="brand-wm" src="/img/wordmark.webp" alt="Radio Porche" width="76" height="44"><div><h1 class="h1">Podcasts</h1></div></div>
         <button class="icon-btn" data-act="search" aria-label="Buscar">${icon('search')}</button>
       </div>
       <input class="input" type="search" placeholder="Buscar programas, episodios o porches…" maxlength="60" data-el="q" aria-label="Buscar" hidden>

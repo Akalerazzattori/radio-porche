@@ -10,13 +10,12 @@ export async function render(view, _p, { go }) {
   mount(view, html`
     <section class="screen">
       <div class="top">
-        <div class="row gap-s"><img class="brand-ic" src="/img/app-icon-192.png" alt="" width="40" height="40"><div><h1 class="h1">Directo</h1><div class="sub">${weekdayGreeting()}</div></div></div>
+        <div class="row gap-s"><img class="brand-wm" src="/img/wordmark.webp" alt="Radio Porche" width="76" height="44"><div><h1 class="h1">Directo</h1><div class="sub">${weekdayGreeting()}</div></div></div>
         <div class="row gap-s">
           <a class="icon-btn" href="/podcasts?buscar=1" aria-label="Buscar">${icon('search')}</a>
           <button class="icon-btn bell" data-act="notices" aria-label="Avisos"><img src="/img/ui/nav-avisos.png" alt="" width="24" height="24"><span class="badge" data-el="badge" hidden></span></button>
         </div>
       </div>
-      <img class="home-logo" src="/img/logo-v2.webp" alt="Radio Porche" width="900" height="311">
       <article class="station" data-el="station"></article>
       <div class="dial-wrap">
         <div class="dial-row">

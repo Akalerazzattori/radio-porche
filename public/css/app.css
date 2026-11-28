@@ -766,3 +766,7 @@ img.av { object-fit: cover; background: var(--panel2); }
 .tapes .tape-card { flex: 0 0 96px; padding: 0; transition: transform .08s; }
 .tapes .tape-card:active { transform: translateY(2px) scale(.97); }
 .tapes .tape-label { font-size: 10px; }
+
+/* Marca arriba a la izquierda: solo el texto RADIO PORCHE */
+.brand-wm { height: 44px; width: auto; flex: none; display: block; }
+@media (max-height: 700px) { .brand-wm { height: 36px; } }
