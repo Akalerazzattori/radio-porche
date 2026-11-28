@@ -819,3 +819,13 @@ button.role-badge { width: 100%; text-align: left; cursor: pointer; }
 .top:has(.brand-head) { align-items: flex-start; margin-top: -4px; }
 .freq-tag { display: inline-block; background: var(--yellow); color: var(--ink); font: 700 12px/1 var(--mono); padding: 3px 5px; border-radius: 4px; vertical-align: 1px; }
 @media (max-width: 370px) { .brand-row .brand-wm { height: 24px; } .brand-row .h1 { font-size: 27px; } }
+.sleep-video { position: fixed; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; left: 0; bottom: 0; }
+
+/* Estudio: barra de este aparato */
+.porch-root { position: absolute; inset: 0; }
+.dev-bar { display: flex; flex-direction: column; gap: 6px; background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 8px 10px; flex: 1; }
+.emit-line { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.emit-line .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 3px rgba(232,50,30,.25); flex: none; }
+.emit-line .dot.off { background: var(--muted); box-shadow: none; }
+.dev-toggles { display: flex; gap: 14px; flex-wrap: wrap; }
+.info-btn.sm { width: 28px; height: 28px; border-radius: 50%; font-size: 15px; padding: 0; }

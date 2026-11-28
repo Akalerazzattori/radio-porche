@@ -18,14 +18,37 @@ export function onLive(ev, fn) {
 }
 function emit(ev, data) { for (const fn of listeners.get(ev) || []) { try { fn(data); } catch (e) { console.error(e); } } }
 
-let wakeLock = null;
+// ---------- Que el aparato no se duerma mientras se emite ----------
+// 1) Wake Lock (pantalla encendida). 2) Si no existe o falla: un vídeo mudo en bucle (truco que funciona en iPhone).
+let wakeLock = null, wantAwake = false, sleepVideo = null;
+function videoFallback(on) {
+  if (on) {
+    if (!sleepVideo) {
+      sleepVideo = document.createElement('video');
+      sleepVideo.src = '/media/nosleep.mp4';
+      sleepVideo.muted = true; sleepVideo.loop = true; sleepVideo.playsInline = true;
+      sleepVideo.setAttribute('playsinline', ''); sleepVideo.setAttribute('muted', '');
+      sleepVideo.className = 'sleep-video';
+      document.body.appendChild(sleepVideo);
+    }
+    sleepVideo.play().catch(() => document.addEventListener('pointerdown', () => sleepVideo?.play().catch(() => {}), { once: true }));
+  } else if (sleepVideo) { sleepVideo.pause(); sleepVideo.remove(); sleepVideo = null; }
+}
 async function keepAwake(on) {
+  wantAwake = on;
   try {
-    if (on && 'wakeLock' in navigator && !wakeLock) {
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', () => { wakeLock = null; });
-    } else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
-  } catch {}
+    if (on) {
+      if ('wakeLock' in navigator) {
+        if (!wakeLock) {
+          wakeLock = await navigator.wakeLock.request('screen');
+          wakeLock.addEventListener('release', () => { wakeLock = null; if (wantAwake && document.visibilityState === 'visible') keepAwake(true); });
+        }
+      } else videoFallback(true);
+    } else {
+      if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+      videoFallback(false);
+    }
+  } catch { if (on) videoFallback(true); }
 }
 
 export const live = {
@@ -129,12 +152,31 @@ export const live = {
         emit('update');
         break;
       case 'hostGone': this.state.hostOnline = false; this.peer?.close(); emit('update'); break;
-      case 'studioBusy': this.studioBusy = true; emit('studioBusy'); break;
-      case 'youAreStudio': this.studioBusy = false; this.state = m.state; this.inviteKey = m.inviteKey; this.setRole('host'); emit('update'); break;
-      case 'studioLost':
-        toast('El estudio ha pasado a otro dispositivo. Aquí quedas como oyente (silenciado).');
-        this.teardownStudio(); this.setRole('listener'); this.remote = true; this.hearHere = false; if (this.audio) this.audio.muted = true; emit('update'); emit('studioLost');
+      case 'studioBusy': this.studioBusy = false; this.becomeRemote(); break;
+      case 'youAreStudio': {
+        // Este aparato pasa a emitir. Si era tu micro, sigue siéndolo (ahora dentro del estudio).
+        const wasMic = !!this.guestVoice || m.wasMic;
+        const hp = this.guestHp !== false && localStorage.getItem('rp_hp') !== '0';
+        this.studioBusy = false; this.state = m.state; this.inviteKey = m.inviteKey; this.remote = false;
+        this.setRole('host');
+        if (wasMic) this.startVoice(hp).catch(() => {});
+        if (this.state.live && this.state.mode === 'rec' && !this.rec) this.startRecorder((this.state.part || 1) + 1);
+        toast(this.kind === 'ordenador' ? 'Ahora emite este ordenador.' : 'Ahora emite este móvil.', 'good');
+        emit('update');
         break;
+      }
+      case 'studioLost': {
+        // Otro aparato tuyo pasa a emitir. Si aquí estabas hablando, sigues siendo micro sin hacer nada.
+        const hadMic = !!this.voice && !this.voice.muted;
+        this.guestHp = this.headphones !== false;
+        this.hearHere = hadMic ? this.guestHp : false;
+        this.teardownStudio(); this.setRole('listener'); this.remote = true;
+        if (this.audio) this.audio.muted = !this.hearHere;
+        if (hadMic) this.ownerAsGuest(this.guestHp);
+        toast(`Ahora emite tu ${this.state.studioKind || 'otro aparato'}. ${hadMic ? 'Aquí sigues siendo micro.' : ''}`);
+        emit('update');
+        break;
+      }
       case 'granted': this.onGranted(m.mode); break;
       case 'denied': toast('Ahora no puede darte paso. Prueba más tarde.'); emit('update'); break;
       case 'muted':
@@ -184,7 +226,7 @@ export const live = {
         onStream: (s) => {
           this.audio.srcObject = s;
           this.audioBlocked = false;
-          this.audio.muted = (this.role === 'guest' && this.guestMode === 'patio' && !this.guestHp) || (this.remote && !this.hearHere);
+          this.audio.muted = (this.role === 'guest' && this.guestMode === 'patio' && !this.guestHp) || ((this.remote || this.isOwner) && this.role !== 'host' && !this.hearHere);
           this.audio.play().catch(() => {
             // El navegador no deja sonar sin un toque: el primer toque en cualquier sitio lo arranca.
             this.audioBlocked = true;
@@ -220,7 +262,8 @@ export const live = {
       this.peer.setMic(v.track);
       this.want();
       keepAwake(true);
-      toast(mode === 'patio' ? '¡Tienes micro! Modo Patio: tu móvil es solo micro.' : '¡Tienes micro! Modo Casa: usa cascos.', 'good');
+      if (this.isOwner) toast('Micro activo en este aparato', 'good');
+      else toast(mode === 'patio' ? '¡Tienes micro! Modo Patio: tu móvil es solo micro.' : '¡Tienes micro! Modo Casa: usa cascos.', 'good');
     } catch (e) {
       toast('No se ha podido abrir el micro. Revisa los permisos.', 'bad');
       this.send({ t: 'leaveMic' });
@@ -236,7 +279,33 @@ export const live = {
     if (!silent) this.want();
     emit('update');
   },
-  ownerAsGuest(hp) { this.guestHp = hp; this.remote = false; this.send({ t: 'ownerGuest', hp }); },
+  /** Tu micro en un aparato que no emite: modo Casa (recibes todo menos tu voz; suena si "Escuchar" está activo). */
+  ownerAsGuest(hp) { this.guestHp = hp; this.remote = true; this.send({ t: 'ownerGuest', hp, mode: 'casa' }); },
+  /** Interruptor "Micro aquí" de este aparato. */
+  async setMicHere(on) {
+    const hp = localStorage.getItem('rp_hp') !== '0';
+    if (this.role === 'host') {
+      if (on) { if (!this.voice) await this.startVoice(hp); this.voice.setMuted(false); }
+      else this.voice?.setMuted(true);
+    } else if (on) this.ownerAsGuest(hp);
+    else { this.leaveMic(); this.remote = true; }
+    localStorage.setItem(`rp_mic_${this.kind}`, on ? '1' : '0');
+    emit('update');
+  },
+  micHere() { return this.role === 'host' ? !!this.voice && !this.voice.muted : this.role === 'guest'; },
+  /** Interruptor "Escuchar aquí". */
+  setListenHere(on) {
+    if (this.role === 'host') this.mixer?.setMonitor(on);
+    else { this.hearHere = on; if (this.audio) this.audio.muted = !on; }
+    emit('update');
+  },
+  listenHere() { return this.role === 'host' ? !!this.mixer?.monitorOn : !!this.hearHere; },
+  /** Otros aparatos tuyos conectados (uno por tipo). */
+  myOtherDevices() {
+    const seen = new Map();
+    for (const p of this.people) if (p.owner && p.cid !== this.cid) seen.set(p.kind, p);
+    return [...seen.values()];
+  },
   takeStudio() { this.send({ t: 'takeStudio' }); },
 
   // ================= ESTUDIO
@@ -255,7 +324,8 @@ export const live = {
     });
     if (this.voice) this.mixer.addVoice('me', { node: this.voice.node, local: true, name: session.name });
     this.mixer.setMonitor(localStorage.getItem('rp_hp') !== '0');
-    if (this.state.live) { this.mixer.setOnAir(!this.state.paused); keepAwake(true); }
+    if (this.state.live) this.mixer.setOnAir(!this.state.paused);
+    keepAwake(true);
     this.remote = false;
     this.loadItems();
     clearInterval(this.stateIv);
@@ -478,6 +548,11 @@ document.addEventListener('visibilitychange', () => {
   if (!live.active) return;
   if (document.visibilityState === 'hidden') {
     if (live.speaking) live.wasHidden = Date.now();
+    // El móvil que emite se va a dormir o cambias de app: si tienes el ordenador conectado, emite él.
+    if (live.role === 'host' && live.kind === 'móvil') {
+      const pc = live.myOtherDevices().find((d) => d.kind === 'ordenador');
+      if (pc) live.send({ t: 'handoff', to: pc.cid });
+    }
   } else {
     if (live.speaking) keepAwake(true);
     if (live.wasHidden) { emit('resumed', Date.now() - live.wasHidden); live.wasHidden = 0; }

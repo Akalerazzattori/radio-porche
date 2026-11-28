@@ -38,11 +38,17 @@ export async function render(view, [slug], ctx) {
   function decide() {
     if (live.fatal) return 'fatal';
     if (!live.role) return 'loading';
-    if (live.role === 'host' || (live.isOwner && live.remote && live.role === 'listener')) return live.state.live ? 'cabina' : 'camerino';
+    // El anfitrión, en cualquier aparato, siempre ve el Estudio (emita desde aquí o no)
+    if (live.role === 'host' || live.isOwner) return live.state.live ? 'cabina' : 'camerino';
     return 'oyente';
   }
+  const outer = view;
   function build() {
     cleanup.forEach((f) => f()); cleanup = [];
+    outer.innerHTML = '';
+    view = document.createElement('div');
+    view.className = 'porch-root';
+    outer.appendChild(view);
     mode = decide();
     if (mode === 'loading') mount(view, html`<section class="screen"><div class="top"><div><h1 class="h1">${porch.name}</h1><div class="sub mono">${porch.freq.toFixed(1)} FM</div></div><button class="icon-btn" data-act="x">${icon('close')}</button></div><div class="empty"><div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>Sintonizando…</p></div></section>`);
     else if (mode === 'fatal') mount(view, html`<section class="screen"><div class="top"><h1 class="h1">${porch.name}</h1><button class="icon-btn" data-act="x">${icon('close')}</button></div><div class="empty"><img src="/img/scenes/escena-4.webp" alt=""><p>${live.fatal.msg}</p><button class="btn ghost" data-act="x">Volver</button></div></section>`);
@@ -58,8 +64,7 @@ export async function render(view, [slug], ctx) {
     live.disconnect(); ctx.go('/mi-porche');
   }
   sub('update', () => { if (decide() !== mode) build(); });
-  sub('studioBusy', () => studioBusySheet());
-  sub('studioLost', () => { toast('El estudio ha pasado a tu otro aparato.'); studioBusySheet(); });
+
   sub('resumed', (ms) => resumedOverlay(ms));
   build();
 
@@ -71,62 +76,48 @@ export async function render(view, [slug], ctx) {
 }
 
 // ============================================================ comunes
-function studioBusySheet(dismissable = false) {
-  const other = live.state.studioKind || 'otro aparato';
-  const here = live.kind;
-  // Si aún no estáis en el aire, lo normal es llevarse todo a este aparato; en directo, entrar como micro.
-  const recStudio = !live.state.live;
-  const opt = (v, title, desc, rec) => html`<button class="role-opt ${rec ? 'rec' : ''}" data-close="${v}"><b>${title}${rec ? html` <span class="chip patio">Recomendado</span>` : ''}</b><span>${desc}</span></button>`;
-  sheet(html`
-    <h2 class="h2">Tu estudio ya está abierto en tu ${other}</h2>
-    <p class="muted small">Solo un aparato puede ser el <b>estudio</b> (el que mezcla y manda el sonido a los oyentes). El estudio usa también su propio micro. ¿Qué hace este ${here}?</p>
-    ${opt('take', `Todo en este ${here}: ESTUDIO + MICRO`, `Este ${here} mezcla, emite y hablas por él (con tus cascos). Tu ${other} deja de ser el estudio.`, recStudio)}
-    ${opt('patio', `Solo MICRO`, `Hablas por este ${here}, pero mezcla y emite tu ${other}. Aquí no suena nada por el altavoz.`, !recStudio)}
-    ${opt('remote', `Ser CONTROL A DISTANCIA`, `Desde aquí manejas todo el estudio: botonera, volúmenes, invitados, salir al aire, pausa y fin. Mezcla y emite tu ${other}, con su micro.`, false)}
-    ${opt('listen', 'Solo escuchar', 'Oyes la emisión como un oyente más.', false)}`, { dismissable }).done.then((v) => {
-    if (!v) return;
-    if (v === 'remote') live.becomeRemote();
-    else if (v === 'take') live.takeStudio();
-    else if (v === 'patio') live.ownerAsGuest(false);
-    else if (live.audio) live.audio.muted = false;
-  });
-}
-
-const infoBtn = () => html`<button class="info-btn" data-act="roleinfo" aria-label="Qué es estudio, micro y control a distancia">i</button>`;
-function roleInfoSheet() {
-  sheet(html`
-    <h2 class="h2">Estudio, micro y control</h2>
-    <p><b>ESTUDIO</b> · el aparato que mezcla y manda el sonido a los oyentes. Usa su propio micro. Solo hay uno. Lo normal: tu móvil, con tus cascos, y desde él lo manejas todo.</p>
-    <p><b>MICRO</b> · otro aparato que solo manda tu voz al estudio. No suena nada por su altavoz.</p>
-    <p><b>CONTROL A DISTANCIA</b> · otro aparato tuyo (por ejemplo el ordenador) desde el que manejas el estudio: botonera, volúmenes, invitados, salir al aire… Útil si alguien hace de técnico.</p>
-    <p class="muted small">Para usar el ordenador: en el móvil ve a Perfil → «Vincular otro aparato» y escribe el código en el ordenador. Al abrir allí el Estudio, elige qué quieres que sea. Puedes cambiarlo cuando quieras tocando «Cambiar» en el cartel.</p>
-    <button class="btn yellow" data-close="">Entendido</button>`);
-}
-
-/** Cambiar el papel de este aparato tocando el cartel. */
+/** Cambiar desde qué aparato se emite. */
 function roleSheet() {
-  if (live.role !== 'host') return studioBusySheet(true);
-  const others = live.people.filter((p) => p.owner && p.cid !== live.cid);
+  const others = live.myOtherDevices();
   const k = live.kind;
+  if (!others.length) {
+    sheet(html`<h2 class="h2">Emite este ${k}</h2><p class="muted">No tienes otro aparato tuyo conectado. Si abres el Estudio en tu ordenador (vincúlalo con el código de Perfil), podrás emitir desde él y manejarlo todo desde los dos.</p><button class="btn yellow" data-close="">Entendido</button>`);
+    return;
+  }
   sheet(html`
-    <h2 class="h2">Este ${k} es el estudio</h2>
-    <p class="muted small">Mezcla, emite y usa su micro. Tú manejas aquí la botonera, los volúmenes y los invitados.</p>
-    <p class="muted small">Si abres tu estudio en otro aparato tuyo (vincúlalo con el código de Perfil), podrás usarlo como <b>control a distancia</b>, como <b>otro micro</b> o pasarle el estudio.</p>
-    ${others.map((o) => html`<button class="role-opt" data-close="${o.cid}"><b>Pasar el estudio a tu ${o.kind}</b><span>Tu ${o.kind} pasará a mezclar y emitir. Este ${k} te preguntará qué hacer (micro, control a distancia…).</span></button>`)}
-    <button class="btn ghost" data-close="">Cerrar</button>`).done.then((cid) => {
-    if (cid) { live.send({ t: 'handoff', to: cid }); toast('Pasando el estudio…'); }
+    <h2 class="h2">¿Desde dónde se emite?</h2>
+    <p class="muted small">Ahora emite este ${k}. Los mandos del estudio siguen funcionando en todos tus aparatos.</p>
+    ${others.map((o) => html`<button class="role-opt ${o.kind === 'ordenador' ? 'rec' : ''}" data-close="${o.cid}"><b>Emitir desde tu ${o.kind}${o.kind === 'ordenador' ? html` <span class="chip patio">Más estable</span>` : ''}</b><span>Si aquí estás hablando, este ${k} sigue siendo tu micro.</span></button>`)}
+    <button class="btn ghost" data-close="">Seguir emitiendo desde aquí</button>`).done.then((cid) => {
+    if (cid) { live.send({ t: 'handoff', to: cid }); toast('Pasando la emisión…'); }
   });
 }
 
-/** Cartel fijo que dice qué papel tiene ESTE aparato. */
+/** Barra del aparato: desde dónde se emite + interruptores Micro / Escuchar de ESTE aparato. */
 function roleBadge() {
   const k = live.kind;
-  if (live.role === 'host') {
-    const mics = live.people.filter((p) => p.role === 'guest' && p.owner);
-    return html`<button class="role-badge studio" data-act="role"><span class="dot"></span><span class="grow"><b>Este ${k} es ESTUDIO + MICRO</b> · mezcla, emite y hablas por él${mics.length ? html` · tu ${mics[0].kind} es otro micro` : ''}</span><span class="chg">Cambiar</span></button>${infoBtn()}`;
-  }
-  if (live.remote) return html`<button class="role-badge remote" data-act="role"><span class="dot"></span><span class="grow"><b>Este ${k} es CONTROL A DISTANCIA</b> · el estudio es tu ${live.state.studioKind || 'otro aparato'}</span><span class="chg">Cambiar</span></button>${infoBtn()}`;
-  return '';
+  const host = live.role === 'host';
+  const where = host ? `este ${k}` : `tu ${live.state.studioKind || 'otro aparato'}`;
+  const offline = !host && live.state.hostOnline === false;
+  return html`<div class="dev-bar">
+    <div class="emit-line"><span class="dot ${offline ? 'off' : ''}"></span><span class="grow">Emite desde <b>${where}</b>${offline ? ' · desconectado' : ''}</span>
+      ${host ? html`<button class="link-btn" data-act="role">Cambiar</button>` : html`<button class="link-btn" data-act="takestudio">Emitir desde aquí</button>`}
+      <button class="info-btn sm" data-act="roleinfo" aria-label="Cómo funciona">i</button></div>
+    <div class="dev-toggles">
+      <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="michere" ${live.micHere() ? 'checked' : ''}><span></span></span> Micro aquí</label>
+      <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="listenhere" ${live.listenHere() ? 'checked' : ''}><span></span></span> Escuchar aquí</label>
+    </div>
+  </div>`;
+}
+
+function roleInfoSheet() {
+  sheet(html`
+    <h2 class="h2">Tu estudio en varios aparatos</h2>
+    <p>Puedes tener el Estudio abierto en tu <b>móvil</b> y en tu <b>ordenador</b> a la vez. Los mandos (botonera, volúmenes, invitados, salir al aire, pausa y fin) funcionan en los dos.</p>
+    <p>En cada aparato eliges: <b>Micro aquí</b> (hablar por él) y <b>Escuchar aquí</b> (oír la emisión).</p>
+    <p><b>Emite</b> uno de ellos: el que junta el sonido y lo manda a los oyentes. Si tienes el ordenador abierto, emite el ordenador (no se duerme). Si el móvil que emite se bloquea o cambias de app, la emisión pasa sola al ordenador.</p>
+    <p class="muted small">Para usar el ordenador: en el móvil, Perfil → «Vincular otro aparato», y escribe el código en el ordenador. Luego abre allí el Estudio. Consejo: en el aparato que emite, no cierres la tapa ni lo bloquees.</p>
+    <button class="btn yellow" data-close="">Entendido</button>`);
 }
 
 function resumedOverlay(ms) {
@@ -388,16 +379,6 @@ function buildListener(view, porch, ctx) {
 }
 
 // ============================================================ CAMERINO (estudio o mando a distancia)
-function remoteBanner() {
-  return html`<div class="banner yellow col remote-banner">
-    <div class="row gap wrap">
-      <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="hearhere" ${live.hearHere ? 'checked' : ''}><span></span></span> Oír la emisión aquí</label>
-      <button class="btn sm ghost" data-act="takestudio">Pasar el estudio a este</button>
-    </div>
-    ${live.state.hostOnline === false ? html`<div class="red-t small b">El estudio está desconectado.</div>` : ''}
-  </div>`;
-}
-
 function goLiveOverlay() {
   const el = document.createElement('div');
   el.className = 'full-overlay onair-flash';
@@ -418,7 +399,6 @@ function buildGreenRoom(view, porch, ctx) {
         <div class="grow right"><h1 class="h1">Estudio</h1><div class="sub ellip">Preparación · aún no estás en el aire</div></div>
       </div>
       <div data-el="role">${roleBadge()}</div>
-      ${remote ? remoteBanner() : ''}
       <div class="banner teal" data-el="status">${icon('lock')} <span>Aún no estás en el aire</span></div>
       <div class="fill scroll col gap">
         ${remote ? html`<div class="card row gap"><span class="grow"><b>Micro del estudio</b><div class="muted small" data-el="studiomic">…</div></span></div>` : html`
@@ -584,6 +564,8 @@ function buildGreenRoom(view, porch, ctx) {
     }
     if (e.target.matches('[data-act=monitor]')) live.voice?.setMonitor(e.target.checked);
     if (e.target.matches('[data-act=hearhere]')) live.setHearHere(e.target.checked);
+    if (e.target.matches('[data-act=michere]')) live.setMicHere(e.target.checked).catch(() => toast('No se ha podido abrir el micro', 'bad'));
+    if (e.target.matches('[data-act=listenhere]')) live.setListenHere(e.target.checked);
   });
   const offs = [onLive('update', paint), onLive('remote', paint), offPv];
   paint();
@@ -622,7 +604,6 @@ function buildBooth(view, porch, ctx) {
       </div>
       <div data-el="role">${roleBadge()}</div>
       <div class="row between small" data-el="partrow"></div>
-      ${remote ? remoteBanner() : ''}
       <div class="col gap-s" data-el="reqs"></div>
       <div class="seg">
         <button data-tab="voces" class="on">Voces</button><button data-tab="sonidos">Sonidos</button><button data-tab="mesa">Volumen</button><button data-tab="chat">Chat <span data-el="nchat"></span></button>
@@ -926,6 +907,8 @@ function buildBooth(view, porch, ctx) {
       toast(on ? 'Con cascos: oyes la emisión y la voz suena más limpia.' : 'Sin cascos: tu móvil no suena (evita acoples) y se activa la cancelación de eco.');
     }
     if (e.target.matches('[data-act=ret]')) live.mixer?.setMonitor(e.target.checked);
+    if (e.target.matches('[data-act=michere]')) { live.setMicHere(e.target.checked).catch(() => toast('No se ha podido abrir el micro', 'bad')); setTimeout(() => voicesPanel.paint?.(), 300); }
+    if (e.target.matches('[data-act=listenhere]')) live.setListenHere(e.target.checked);
     if (e.target.matches('[data-act=ducking]')) ctl.setDucking(e.target.checked);
     if (e.target.matches('[data-act=monitor]')) live.voice?.setMonitor(e.target.checked);
     if (e.target.matches('[data-act=hearhere]')) live.setHearHere(e.target.checked);
