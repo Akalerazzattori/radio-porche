@@ -18,7 +18,7 @@ export async function render(view, _p, { go }) {
         ${logged ? html`
           <div class="card row gap">
             <label class="avatar-edit" aria-label="Cambiar foto de perfil">${avatar({ name: session.name, dev: session.deviceId, av: session.get()?.avatar || 0 }, 'xl')}<span class="cam">${icon('camera')}</span><input type="file" accept="image/*" hidden data-act="avatar"></label>
-            <div class="grow"><div class="b">${session.name}</div><div class="muted tiny">Toca la foto para cambiarla. Se guarda muy reducida.</div></div>
+            <div class="grow"><div class="b">${session.name}</div></div>
             <button class="btn sm ghost" data-act="rename" aria-label="Cambiar nombre">${icon('edit')}</button>
           </div>`
         : html`<div class="card col gap-s"><b>Aún no has entrado</b><p class="muted small">Puedes escuchar sin entrar. Para chatear, pedir micro o abrir tu porche, entra solo con un nombre.</p><button class="btn yellow" data-act="login">Entrar con mi nombre</button><button class="btn ghost" data-act="recover">Ya tengo porche en otro aparato</button></div>`}

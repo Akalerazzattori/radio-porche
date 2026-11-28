@@ -168,6 +168,7 @@ window.addEventListener('rp:identity', () => { pollNotices(); paintTabbar(); });
 (async function start() {
   const m = /#recuperar=([^&]+)/.exec(location.hash);
   if (m) { history.replaceState(null, '', location.pathname + location.search); await useRecoveryToken(decodeURIComponent(m[1])); }
+  if (session.get()?.token) api('/api/me').then((me) => { if ((me.avatar || 0) !== (session.get()?.avatar || 0)) { session.update({ avatar: me.avatar || 0 }); if (location.pathname === '/perfil') route(); } }).catch(() => {});
   route();
   welcomeOnce();
   checkTermsVersion();

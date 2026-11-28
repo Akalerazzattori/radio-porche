@@ -133,6 +133,7 @@ export function recoverSheet() {
         try {
           const r = await api('/api/link/claim', { method: 'POST', body: { code: c } });
           session.set({ token: r.token, deviceId: r.deviceId, name: r.name, porchId: r.porchId });
+          try { const me = await api('/api/me'); session.update({ avatar: me.avatar || 0 }); } catch {}
           setTerms();
           toast(`Vinculado. Hola, ${r.name}`, 'good');
           window.dispatchEvent(new CustomEvent('rp:identity'));
@@ -182,9 +183,8 @@ export async function linkDeviceSheet() {
 /** Saca el token de un enlace de recuperación (o del token suelto). */
 export function recoveryTokenFrom(v) {
   v = String(v || '').trim();
-  let m = /recuperar=([^&\s]+)/.exec(v);
-  if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
-  m = /^([A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,})$/.exec(v);
+  try { v = decodeURIComponent(v); } catch {}
+  const m = /([A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,})/.exec(v);
   return m ? m[1] : null;
 }
 
@@ -193,7 +193,7 @@ export async function useRecoveryToken(token) {
   session.set({ token });
   try {
     const me = await api('/api/me');
-    session.set({ token, deviceId: me.deviceId, name: me.name, porchId: me.porch?.id || null });
+    session.set({ token, deviceId: me.deviceId, name: me.name, porchId: me.porch?.id || null, avatar: me.avatar || 0 });
     setTerms();
     toast(`Hola de nuevo, ${me.name}`, 'good');
     window.dispatchEvent(new CustomEvent('rp:identity'));
