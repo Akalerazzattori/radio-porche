@@ -34,6 +34,11 @@ export const player = {
       if (pos > 5 && pos < p.duration - 10) a.currentTime = pos;
       this.loadComments();
       this.media();
+      try {
+        const rec = JSON.parse(localStorage.getItem('rp_recent') || '[]').filter((x) => x.id !== p.id);
+        rec.unshift({ id: p.id, title: p.title, duration: p.duration, created: p.created, porchName: p.porchName, programName: p.programName || '', episode: p.episode || 0, hasCover: p.hasCover, scene: p.scene });
+        localStorage.setItem('rp_recent', JSON.stringify(rec.slice(0, 15)));
+      } catch {}
     }
     if (autoplay) { try { await a.play(); } catch { toast('Toca play para escuchar'); } }
     this.emit();
@@ -115,6 +120,7 @@ export async function render(view, [id], { back, go }) {
       <div class="row between gap">
         <div class="grow">
           <div class="b ellip" data-el="title">${p.title}</div>
+          ${p.programId ? html`<a class="small yellow-t b" href="/programa/${p.programId}">${p.programName}${p.episode ? ` · Episodio ${p.episode}` : ''}</a><br>` : ''}
           <a class="muted small" href="/porche/${p.porchSlug}">${p.porchName}</a><span class="muted small"> · ${fmtDur(p.duration)} · ${fmtDate(p.created)}</span>
         </div>
         <button class="col center" data-act="like" aria-label="Me gusta">

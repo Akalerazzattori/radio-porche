@@ -129,6 +129,23 @@ export const DEFAULT_BADWORDS = [
   'mongolo', 'retrasado', 'sudaca', 'panchito', 'moro de mierda', 'negrata', 'malparido',
 ];
 
+// Categorías de podcast (se pueden añadir más desde el panel de administración).
+// En la app solo se muestran las que ya tienen algún programa.
+export const DEFAULT_CATEGORIES = [
+  { id: 'humor', name: 'Humor', emoji: '😂' },
+  { id: 'charla', name: 'Charla', emoji: '💬' },
+  { id: 'musica', name: 'Música', emoji: '🎵' },
+  { id: 'deportes', name: 'Deportes', emoji: '⚽' },
+  { id: 'actualidad', name: 'Actualidad', emoji: '📰' },
+  { id: 'cultura', name: 'Cultura', emoji: '📚' },
+  { id: 'historias', name: 'Historias', emoji: '🕯️' },
+  { id: 'barrio', name: 'Barrio', emoji: '🏘️' },
+  { id: 'cine', name: 'Cine y series', emoji: '🎬' },
+  { id: 'tecnologia', name: 'Tecnología', emoji: '💡' },
+  { id: 'gastronomia', name: 'Gastronomía', emoji: '🍳' },
+  { id: 'otros', name: 'Otros', emoji: '📻' },
+];
+
 export const QUICK_REACTIONS = ['🔥', '😂', '👏', '❤️', '📻'];
 
 export const ICE_SERVERS = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];

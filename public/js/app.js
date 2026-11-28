@@ -21,6 +21,7 @@ const ROUTES = [
   { re: /^\/porche\/([A-Za-z0-9_-]+)$/, mod: () => import('./screens/porch.js'), immersive: true },
   { re: /^\/estudio$/, mod: () => import('./screens/porch.js'), immersive: true, params: ['__mine'], tab: 'cabina' },
   { re: /^\/p\/([A-Za-z0-9_-]+)$/, mod: () => import('./screens/player.js'), immersive: true },
+  { re: /^\/programa\/([A-Za-z0-9_-]+)$/, mod: () => import('./screens/program.js'), tab: 'archivo' },
   { re: /^\/editor\/([A-Za-z0-9_-]+)$/, mod: () => import('./screens/editor.js'), immersive: true },
   { re: /^\/legal\/([a-z-]+)$/, legal: true, immersive: true },
   { re: /^\/admin$/, mod: () => import('./screens/admin.js'), immersive: true },

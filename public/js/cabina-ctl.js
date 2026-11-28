@@ -74,9 +74,9 @@ export function makeCtl() {
     },
     pause(on) { R() ? live.ctl('pause', { on }) : live.pause(on); },
     nextPart() { R() ? live.ctl('nextpart') : live.continueNextPart(); },
-    golive(mode, title, jingle = false) {
-      if (R()) return live.ctl('golive', { mode, title, jingle });
-      live.goLive(mode, title);
+    golive(mode, title, jingle = false, programId = '') {
+      if (R()) return live.ctl('golive', { mode, title, jingle, programId });
+      live.goLive(mode, title, programId);
       if (jingle) live.introJingle();
     },
     rec() {

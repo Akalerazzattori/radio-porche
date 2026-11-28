@@ -9,6 +9,7 @@ import { meterHtml, setMeter, audioCtx } from '../audio/voice.js';
 import { loadAll, decode } from '../audio/sounds.js';
 import { getSetting, setSetting } from '../db.js';
 import { makeCtl } from '../cabina-ctl.js';
+import { myPrograms, programSheet, programPickerHtml } from '../programs.js';
 
 export async function render(view, [slug], ctx) {
   const params = new URLSearchParams(location.search);
@@ -388,8 +389,9 @@ function buildGreenRoom(view, porch, ctx) {
           </div>
           <div class="muted tiny">«Oírme» viene apagado: con Bluetooth hay unas décimas de retraso. Con cascos de cable suena sin retraso.</div>
         </div>`}
-        <div class="h3">2 · Título del programa</div>
-        <input class="input" data-el="title" maxlength="${LIMITS.TITLE_MAX}" placeholder="p. ej. La tarde del porche #42" value="${localStorage.getItem('rp_lasttitle') || ''}">
+        <div class="h3">2 · ¿Qué programa emites?</div>
+        <div data-el="progs"><p class="muted small">Cargando tus programas…</p></div>
+        <input class="input" data-el="title" maxlength="${LIMITS.TITLE_MAX}" placeholder="Título de este episodio (p. ej. Marta y el bar)" value="${localStorage.getItem('rp_lasttitle') || ''}">
         <div class="h3">3 · ¿Cómo sales?</div>
         <div class="modes">${BROADCAST_MODES.map((m) => html`
           <label class="radio-opt"><input type="radio" name="mode" value="${m.id}" ${m.id === 'rec' ? 'checked' : ''}><div class="grow"><div class="t">${m.name}</div><div class="d">${m.hint}</div></div>${m.id === 'rec' ? html`<span class="rec-chip">REC</span>` : ''}</label>`)}</div>
@@ -414,6 +416,25 @@ function buildGreenRoom(view, porch, ctx) {
     const loop = () => { const l = live.voice?.level() || 0; setMeter(meter, l); if (live.voice) $el('probe').textContent = l > 0.1 ? '¡Te oigo!' : 'Habla para probar'; raf = requestAnimationFrame(loop); };
     loop();
   }
+  let programId = localStorage.getItem('rp_lastprog') || '';
+  let programs = [];
+  async function paintProgs(force = false) {
+    programs = await myPrograms(force);
+    if (!programs.some((p) => p.id === programId)) programId = programs[0]?.id || '';
+    mount($el('progs'), programPickerHtml(programs, programId));
+  }
+  paintProgs();
+  $el('progs').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-prog]');
+    if (!b) return;
+    if (b.dataset.prog === '__new') {
+      const p = await programSheet();
+      if (p && typeof p === 'object') { programId = p.id; localStorage.setItem('rp_lastprog', programId); await paintProgs(true); }
+      return;
+    }
+    programId = b.dataset.prog; localStorage.setItem('rp_lastprog', programId);
+    $el('progs').querySelectorAll('[data-prog]').forEach((x) => x.classList.toggle('on', x === b));
+  });
   ctl.sounds().then((items) => {
     const n = (zs) => items.filter((i) => zs.includes(i.zone)).length;
     $el('ncortes').textContent = SOUND_TABS.map((t) => `${n(t.zones)} ${t.label.toLowerCase()}`).join(' · ');
@@ -472,7 +493,8 @@ function buildGreenRoom(view, porch, ctx) {
     localStorage.setItem('rp_lasttitle', title);
     const jingle = $el('jingle').checked;
     localStorage.setItem('rp_jingle', jingle ? '1' : '0');
-    ctl.golive(view.querySelector('input[name=mode]:checked').value, title, jingle);
+    const prog = programs.find((p) => p.id === programId);
+    ctl.golive(view.querySelector('input[name=mode]:checked').value, title || prog?.name || '', jingle, programId);
     beep(1200, 0.3);
     goLiveOverlay();
   }

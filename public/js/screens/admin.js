@@ -126,6 +126,12 @@ export async function render(view, _p, { go }) {
           <div class="toggle-row"><b class="grow">Pausar nuevos porches</b><span class="switch"><input type="checkbox" data-p="porches" ${s.pausePorches ? 'checked' : ''}><span></span></span></div>
         </div>
         <div class="card col gap-s">
+          <b>Categorías de podcast</b>
+          <p class="muted tiny">Una por línea: emoji y nombre (p. ej. «🎸 Rock»). En la app solo se ven las que ya tienen algún programa.</p>
+          <textarea class="input" rows="8" data-el="cats">${data.categories.map((c) => `${c.emoji} ${c.name}`).join('\n')}</textarea>
+          <button class="btn yellow" data-act="cats">Guardar categorías</button>
+        </div>
+        <div class="card col gap-s">
           <b>Filtro de insultos y spam</b>
           <p class="muted tiny">Una palabra o expresión por línea. Se sustituyen por asteriscos en chat y comentarios.</p>
           <textarea class="input" rows="8" data-el="words">${s.badwords.join('\n')}</textarea>
@@ -165,6 +171,17 @@ export async function render(view, _p, { go }) {
       fd.append('name', panel.querySelector('[data-el=name]').value || f.name.replace(/\.[^.]+$/, ''));
       fd.append('section', panel.querySelector('[data-el=section]').value); fd.append('duration', String(duration));
       try { await call('/api/admin/library', { method: 'POST', body: fd }); toast('Añadido para todos', 'good'); await load(); show('biblioteca'); } catch (err) { toast(err.message, 'bad'); }
+    }
+    if (e.target.closest('[data-act=cats]')) {
+      const prev = data.categories;
+      const list = panel.querySelector('[data-el=cats]').value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+        const m = /^(\S+)\s+(.+)$/.exec(l);
+        const hasEmoji = m && /\p{Extended_Pictographic}/u.test(m[1]);
+        const name = hasEmoji ? m[2] : l;
+        const old = prev.find((c) => c.name.toLowerCase() === name.toLowerCase());
+        return { id: old ? old.id : name, name, emoji: hasEmoji ? m[1] : '📻' };
+      });
+      return act({ action: 'categories', categories: list });
     }
     if (e.target.closest('[data-act=words]')) act({ action: 'badwords', words: panel.querySelector('[data-el=words]').value.split('\n').map((w) => w.trim()).filter(Boolean) });
     if (e.target.closest('[data-act=rotate]')) {

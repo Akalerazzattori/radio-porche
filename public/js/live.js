@@ -320,7 +320,7 @@ export const live = {
       case 'golive':
         if (!this.state.live) {
           if (!this.voice) { try { await this.startVoice(localStorage.getItem('rp_hp') !== '0'); } catch {} }
-          this.goLive(['ensayo', 'directo', 'rec'].includes(a.mode) ? a.mode : 'directo', String(a.title || '').slice(0, 80));
+          this.goLive(['ensayo', 'directo', 'rec'].includes(a.mode) ? a.mode : 'directo', String(a.title || '').slice(0, 80), typeof a.programId === 'string' ? a.programId.slice(0, 40) : '');
           if (a.jingle === true) this.introJingle();
         }
         break;
@@ -372,7 +372,8 @@ export const live = {
     this.voice?.stop(); this.voice = null;
   },
 
-  goLive(mode, title) {
+  goLive(mode, title, programId = '') {
+    this.programId = programId || '';
     this.series = uid();
     this.recParts = [];
     this.warned = {};
@@ -444,6 +445,7 @@ export const live = {
     const item = {
       id: uid(), kind: 'draft', created: Date.now(), title: this.state.title || 'Programa sin título', description: '',
       part: r.part, series: this.series, duration, mime: r.mime, blob, scene: this.porch?.scene || 1, porchName: this.porch?.name || '', chapters: [],
+      programId: this.programId || '',
     };
     try { await db.put('recordings', item); this.recParts.push(item); } catch { toast('No se ha podido guardar la grabación en el móvil', 'bad'); }
     emit('update');

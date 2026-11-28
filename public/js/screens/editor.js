@@ -11,6 +11,7 @@ import { db } from '../db.js';
 import { audioCtx } from '../audio/voice.js';
 import { renderSegments, mixToMono, encodeBest, canEncodeOpus } from '../audio/encode.js';
 import { composeCover, SCENES, shrinkPhoto } from '../cover.js';
+import { myPrograms, programSheet, programPickerHtml } from '../programs.js';
 
 const SR = 24000; // suficiente para voz y música de fondo, y ligero en memoria
 
@@ -388,11 +389,26 @@ export async function render(view, [id], { go }) {
         <img data-el="prev" class="cover-prev" alt="Portada" width="96" height="96">
         <div class="grow col gap-s"><b class="ellip">${rec.title}</b><span class="muted small">${fmtTime(finalLen())} · ${finalChapters().length} capítulos</span><button class="btn sm ghost" data-a="details">${icon('edit')} Cambiar título o foto</button></div>
       </div>
+      <div class="h3">Programa</div>
+      <div data-el="progs"></div>
+      <p class="muted tiny">Se publicará como el siguiente episodio del programa. Si no eliges ninguno, queda como episodio suelto de tu porche.</p>
       <label class="check"><input type="checkbox" name="ok"><span>Las personas que salen saben que se publica, y la música o vídeos de otros son solo fragmentos breves para comentar.</span></label>
       <div class="ts"></div>
       <button class="btn red big" data-a="go">Publicar en el archivo</button>`, {
       async onMount(a) {
         getTs = await turnstileWidget(a.el.querySelector('.ts'));
+        let programs = await myPrograms();
+        let programId = rec.programId && programs.some((p) => p.id === rec.programId) ? rec.programId : programs[0]?.id || '';
+        const progsEl = a.el.querySelector('[data-el=progs]');
+        const paintProgs = () => mount(progsEl, programPickerHtml(programs, programId));
+        paintProgs();
+        progsEl.addEventListener('click', async (e) => {
+          const b = e.target.closest('[data-prog]');
+          if (!b) return;
+          if (b.dataset.prog === '__new') { const p = await programSheet(); if (p && typeof p === 'object') { programs = await myPrograms(true); programId = p.id; paintProgs(); } return; }
+          programId = b.dataset.prog; paintProgs();
+        });
+        a.publishProgram = () => programId;
         const prev = a.el.querySelector('[data-el=prev]');
         const refresh = async () => { prev.src = URL.createObjectURL(await composeCover({ photo: rec.photo, scene: rec.scene || 1, title: rec.title, date: rec.created })); };
         refresh();
@@ -410,7 +426,7 @@ export async function render(view, [id], { go }) {
             const cover = await composeCover({ photo: rec.photo, scene: rec.scene || 1, title: rec.title, date: rec.created });
             ps.set(0.9, 'Subiendo…');
             const fd = new FormData();
-            fd.append('meta', JSON.stringify({ title: rec.title, description: rec.description || '', chapters: finalChapters(), part: rec.part || 1, series: rec.series || '', scene: rec.scene || 1 }));
+            fd.append('meta', JSON.stringify({ title: rec.title, description: rec.description || '', chapters: finalChapters(), part: rec.part || 1, series: rec.series || '', scene: rec.scene || 1, programId: a.publishProgram?.() || '' }));
             fd.append('audio', r.blob, 'audio.' + (r.blob.type.includes('mp4') ? 'm4a' : 'webm'));
             fd.append('cover', cover, 'cover.' + (cover.type === 'image/webp' ? 'webp' : 'jpg'));
             fd.append('turnstile', ts);

@@ -10,6 +10,7 @@ import { loadStandard, loadMine, importSound, deleteSound, renameSound, recordMi
 import { audioCtx } from '../audio/voice.js';
 import { shrinkPhoto, SCENES } from '../cover.js';
 import { recordingThumb, recordingDetailsSheet } from './editor.js';
+import { myPrograms, programSheet, programPickerHtml, programCover, getCategories, catName } from '../programs.js';
 
 export async function render(view, _p, { go }) {
   if (!session.token) {
@@ -43,7 +44,7 @@ export async function render(view, _p, { go }) {
         ? html`<a class="btn red big" href="/porche/${porch.slug}">${icon('radio')} Estás en el aire · volver a la cabina</a>`
         : html`<a class="btn red big" href="/porche/${porch.slug}">${icon('mic')} Ir a la cabina</a>`}
       <div class="seg">
-        <button data-tab="grabaciones">Grabaciones</button><button data-tab="publicados">Publicados</button><button data-tab="sonidos">Botonera</button><button data-tab="porche">Porche</button>
+        <button data-tab="grabaciones">Grabaciones</button><button data-tab="publicados">Programas</button><button data-tab="sonidos">Botonera</button><button data-tab="porche">Porche</button>
       </div>
       <div class="fill scroll" data-el="panel"></div>
     </section>`);
@@ -123,40 +124,53 @@ export async function render(view, _p, { go }) {
     };
   }
 
-  // ---------- Publicados (servidor)
+  // ---------- Programas y episodios publicados (servidor)
   async function publishedTab() {
     panel.innerHTML = '<p class="muted center small">Cargando…</p>';
-    let r;
-    try { r = await api('/api/mine'); } catch (e) { panel.innerHTML = `<p class="muted">${esc(e.message)}</p>`; return; }
+    let r, programs, cats;
+    try { [r, programs, cats] = await Promise.all([api('/api/mine'), myPrograms(true), getCategories()]); } catch (e) { panel.innerHTML = `<p class="muted">${esc(e.message)}</p>`; return; }
+    const epLabel = (p) => (p.episode ? `Ep. ${p.episode}` : 'Suelto') + (p.part > 1 ? ` · Parte ${p.part}` : '');
     mount(panel, html`<div class="list">
+      <div class="row between"><div class="h3">Tus programas · ${programs.length}</div><button class="btn sm yellow" data-act="newprog">${icon('plus')} Nuevo programa</button></div>
+      ${programs.length ? html`<div class="prog-grid">${programs.map((p) => html`
+        <div class="prog-card">
+          <a href="/programa/${p.id}"><img src="${programCover(p)}" alt=""></a>
+          <div class="b ellip">${p.name}</div>
+          <div class="muted tiny ellip">${catName(cats, p.category)} · ${p.episodes} ep.</div>
+          <button class="btn sm ghost" data-editprog="${p.id}">${icon('edit')} Editar</button>
+        </div>`)}</div>` : html`<p class="muted small">Crea tu primer programa (por ejemplo «La noche del porche»). Cada vez que lo emitas y publiques, será un episodio nuevo.</p>`}
+      <div class="h3 mt">Episodios publicados · ${r.podcasts.length}</div>
       <div class="card tight"><div class="row between small"><span class="muted">Espacio de tu porche</span><span class="mono">${fmtBytes(r.used)} / ${fmtBytes(r.cap)}</span></div><div class="progress mt-s" data-p="${(r.used / r.cap) * 100}"><i></i></div></div>
       ${r.podcasts.length ? r.podcasts.map((p) => html`
         <div class="item">
-          <img class="thumb" src="${podcastCover(p)}" alt="">
+          <a href="/p/${p.id}"><img class="rec-thumb" src="${podcastCover(p)}" alt=""></a>
           <div class="grow">
-            <div class="t ellip">${p.title}${p.part > 1 ? ` · Parte ${p.part}` : ''}</div>
-            <div class="m">${fmtDate(p.created)} · ${fmtDur(p.duration)}</div>
+            <div class="row gap-s"><div class="t ellip grow">${p.title}</div><button class="mini-ic" data-edit="${p.id}" aria-label="Editar">${icon('edit')}</button></div>
+            <div class="m ellip">${p.programName || 'Sin programa'} · ${epLabel(p)} · ${fmtDate(p.created)} · ${fmtDur(p.duration)}</div>
             <div class="m">${p.listens} escuchas · ♥ ${p.likes} · ${p.comments} comentarios</div>
-            ${p.hidden ? html`<div class="m red-t">Oculto por reportes (solo lo ves tú). Si crees que es un error, escríbenos.</div>` : ''}
+            ${p.hidden ? html`<div class="m red-t">Oculto por reportes (solo lo ves tú).</div>` : ''}
           </div>
-          <div class="col gap-s">
-            <button class="btn sm yellow" data-edit="${p.id}">Editar</button>
-            <a class="btn sm ghost" href="/p/${p.id}">Ver</a>
-          </div>
-        </div>`) : html`<div class="empty"><p>Aún no has publicado nada. Edita una grabación y pulsa <b>Publicar</b>.</p></div>`}
+        </div>`) : html`<div class="empty"><p>Aún no has publicado nada. En <b>Grabaciones</b>, pulsa <b>Publicar</b>.</p></div>`}
     </div>`);
     panel.querySelectorAll('.progress').forEach((el) => setPct(el, '--p', Number(el.dataset.p)));
-    panel.onclick = (e) => {
+    panel.onclick = async (e) => {
+      if (e.target.closest('[data-act=newprog]')) { if (await programSheet()) publishedTab(); return; }
+      const ep = e.target.closest('[data-editprog]');
+      if (ep) { if (await programSheet(programs.find((x) => x.id === ep.dataset.editprog))) publishedTab(); return; }
       const b = e.target.closest('[data-edit]');
-      if (b) editPublished(r.podcasts.find((x) => x.id === b.dataset.edit));
+      if (b) editPublished(r.podcasts.find((x) => x.id === b.dataset.edit), programs);
     };
   }
 
-  function editPublished(p) {
+  function editPublished(p, programs = []) {
+    let programId = p.programId || '';
     const s = sheet(html`
-      <h2 class="h2">Editar podcast</h2>
+      <h2 class="h2">Editar episodio</h2>
       <label class="field">Título<input class="input" name="title" maxlength="${LIMITS.TITLE_MAX}" value="${p.title}"></label>
-      <label class="field">Descripción<textarea class="input" name="desc" maxlength="${LIMITS.DESC_MAX}" rows="4">${p.description}</textarea></label>
+      <label class="field">Descripción<textarea class="input" name="desc" maxlength="${LIMITS.DESC_MAX}" rows="3">${p.description}</textarea></label>
+      <div class="h3">Programa</div>
+      <div data-el="progs">${programPickerHtml(programs, programId)}</div>
+      <label class="field">Nº de episodio<input class="input mono" name="ep" inputmode="numeric" maxlength="4" value="${p.episode || ''}" placeholder="auto"></label>
       <div class="h3">Capítulos</div>
       <div class="col gap-s" data-el="chaps">${(p.chapters || []).map((c) => html`<div class="row gap-s"><input class="input mono" data-ct value="${fmtShortDur(c.t)}" maxlength="8"><input class="input" data-cn value="${c.title}" maxlength="60"></div>`)}</div>
       <button class="btn sm ghost" data-a="addchap">${icon('plus')} Añadir capítulo</button>
@@ -164,23 +178,27 @@ export async function render(view, _p, { go }) {
       <button class="btn ghost red-t" data-a="del">${icon('trash')} Borrar del servidor</button>`, {
       onMount(a) {
         a.el.addEventListener('click', async (e) => {
+          const pg = e.target.closest('[data-prog]');
+          if (pg) {
+            if (pg.dataset.prog === '__new') { const np = await programSheet(); if (np && typeof np === 'object') { programs = await myPrograms(true); programId = np.id; mount(a.el.querySelector('[data-el=progs]'), programPickerHtml(programs, programId)); } return; }
+            programId = pg.dataset.prog; mount(a.el.querySelector('[data-el=progs]'), programPickerHtml(programs, programId)); return;
+          }
           const b = e.target.closest('[data-a]');
           if (!b) return;
-          if (b.dataset.a === 'addchap') {
-            a.el.querySelector('[data-el=chaps]').insertAdjacentHTML('beforeend', '<div class="row gap-s"><input class="input mono" data-ct placeholder="12:30" maxlength="8"><input class="input" data-cn placeholder="Título del capítulo" maxlength="60"></div>');
-          }
+          if (b.dataset.a === 'addchap') a.el.querySelector('[data-el=chaps]').insertAdjacentHTML('beforeend', '<div class="row gap-s"><input class="input mono" data-ct placeholder="12:30" maxlength="8"><input class="input" data-cn placeholder="Título del capítulo" maxlength="60"></div>');
           if (b.dataset.a === 'save') {
             const chapters = [...a.el.querySelectorAll('[data-el=chaps] > div')].map((row) => {
               const [m, s2] = row.querySelector('[data-ct]').value.split(':').map(Number);
               return { t: (m || 0) * 60 + (s2 || 0), title: row.querySelector('[data-cn]').value.trim() };
             }).filter((c) => c.title);
+            const epv = a.el.querySelector('[name=ep]').value.trim();
             try {
-              await api(`/api/podcasts/${p.id}/edit`, { method: 'POST', body: { title: a.el.querySelector('[name=title]').value, description: a.el.querySelector('[name=desc]').value, chapters } });
+              await api(`/api/podcasts/${p.id}/edit`, { method: 'POST', body: { title: a.el.querySelector('[name=title]').value, description: a.el.querySelector('[name=desc]').value, chapters, programId, ...(epv ? { episode: Number(epv) } : {}) } });
               toast('Guardado', 'good'); a.close(); publishedTab();
             } catch (err) { toast(err.message, 'bad'); }
           }
           if (b.dataset.a === 'del') {
-            if (!(await confirmSheet('¿Borrar este podcast?', 'Se borra del servidor con sus comentarios y me gusta.', { ok: 'Borrar', danger: true }))) return;
+            if (!(await confirmSheet('¿Borrar este episodio?', 'Se borra del servidor con sus comentarios y me gusta.', { ok: 'Borrar', danger: true }))) return;
             try { await api(`/api/podcasts/${p.id}/delete`, { method: 'POST', body: {} }); toast('Borrado'); a.close(); publishedTab(); } catch (err) { toast(err.message, 'bad'); }
           }
         });

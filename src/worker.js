@@ -124,6 +124,7 @@ export default {
         `<url><loc>${o}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>`,
         `<url><loc>${o}/podcasts</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`,
         ...['aviso-legal', 'privacidad', 'condiciones', 'normas'].map((s) => `<url><loc>${o}/legal/${s}</loc><priority>0.2</priority></url>`),
+        ...(d.programs || []).map((p) => `<url><loc>${o}/programa/${escAttr(p.id)}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>`),
         ...d.porches.map((p) => `<url><loc>${o}/porche/${escAttr(p.slug)}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`),
         ...d.podcasts.map((p) => `<url><loc>${o}/p/${escAttr(p.id)}</loc><lastmod>${new Date(p.created).toISOString().slice(0, 10)}</lastmod><priority>0.6</priority></url>`),
       ];
@@ -153,6 +154,17 @@ export default {
             associatedMedia: { '@type': 'MediaObject', contentUrl: `${url.origin}/api/podcasts/${p.id}/audio` },
             partOfSeries: { '@type': 'PodcastSeries', name: p.porchName, url: `${url.origin}/porche/${p.porchSlug}` },
           },
+        }));
+      }
+    }
+    if ((m = /^\/programa\/([A-Za-z0-9_-]{4,40})$/.exec(path))) {
+      const d = await (await hub(env).fetch(`https://hub/internal/meta?program=${m[1]}`)).json();
+      const p = d.program;
+      if (p) {
+        return withHeaders(await seoPage(req, env, url, {
+          title: `${p.name} · ${p.porchName}`, description: p.description || `Podcast de ${p.porchName} en Radio Porche. ${p.episodes} episodios.`,
+          image: p.hasCover ? `/api/program/${p.id}/cover` : `/img/scenes/escena-${p.scene || 1}.jpg`,
+          ld: { '@context': 'https://schema.org', '@type': 'PodcastSeries', name: p.name, description: p.description || p.name, url: `${url.origin}/programa/${p.id}` },
         }));
       }
     }
