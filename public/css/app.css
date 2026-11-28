@@ -803,3 +803,9 @@ button.role-badge { width: 100%; text-align: left; cursor: pointer; }
 .vecino.on img { border-color: var(--yellow); }
 .vecino.on span { color: var(--yellow); }
 button.avatar-edit { padding: 0; background: none; border: 0; }
+
+/* Las hojas solo se desplazan en vertical (sin amago de scroll lateral); las tiras de dentro, dentro de sus márgenes */
+.sheet { overflow: hidden; }
+.sheet-body { overflow-x: hidden; overscroll-behavior-x: none; touch-action: pan-y; }
+.sheet-body .scene-pick, .sheet-body .chips-row, .sheet-body .fav-strip, .sheet-body .hrow { margin-left: 0; margin-right: 0; padding-left: 2px; padding-right: 2px; touch-action: pan-x pan-y; overscroll-behavior-x: contain; }
+.scene-pick, .chips-row, .fav-strip, .hrow, .prog-pick { overscroll-behavior-x: contain; }
