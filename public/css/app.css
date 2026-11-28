@@ -541,7 +541,7 @@ body { -webkit-user-select: none; user-select: none; }
 .pad .p { top: auto; height: 7px; bottom: 0; background: rgba(18,13,12,.55); width: var(--p, 0%); }
 .pad.playing { border-color: var(--cream); box-shadow: 0 6px 0 var(--edge), 0 0 0 3px rgba(251,238,224,.25); animation: padglow 1s ease-in-out infinite; }
 @keyframes padglow { 50% { box-shadow: 0 6px 0 var(--edge), 0 0 0 6px rgba(251,238,224,.18); } }
-.pad .cue { right: 5px; top: auto; bottom: 9px; width: 30px; height: 30px; border-radius: 50%; background: rgba(18,13,12,.2); border: 2px solid rgba(18,13,12,.35); }
+.pad .cue { right: 6px; top: auto; bottom: 8px; width: 30px; height: 30px; border-radius: 50%; background: rgba(18,13,12,.2); border: 2px solid rgba(18,13,12,.35); }
 .pad .cue:active { background: rgba(18,13,12,.45); }
 .pad .zone-ic { display: none; }
 .pad { min-height: 88px; gap: 6px; }
@@ -755,3 +755,32 @@ button.role-badge { width: 100%; text-align: left; cursor: pointer; }
 .emit-line .dot.off { background: var(--muted); box-shadow: none; }
 .dev-toggles { display: flex; gap: 14px; flex-wrap: wrap; }
 .info-btn.sm { width: 28px; height: 28px; border-radius: 50%; font-size: 15px; padding: 0; }
+
+/* ---------- Botonera del Estudio: favoritos, pestañas, carpetas y lupa */
+.hidden { display: none !important; }
+.sb { gap: 10px; }
+.fav-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fav-head .h3 { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--yellow); }
+.fav-head .h3 .ic { width: 16px; height: 16px; }
+.fav-strip { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 2px 16px 8px; scrollbar-width: none; touch-action: pan-x pan-y; }
+.fav-strip::-webkit-scrollbar { display: none; }
+.fav-strip .pad { flex: 0 0 116px; min-height: 80px; }
+.fav-empty { flex: 1; border: 2px dashed var(--line); border-radius: 14px; padding: 12px 14px; color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fav-empty .ic { width: 15px; height: 15px; color: var(--yellow); }
+.icon-btn.sq { width: 46px; height: 46px; border-radius: 14px; }
+.icon-btn.sq.on { background: var(--cream); color: var(--ink); border-color: var(--edge); }
+.search-row .input { width: 100%; }
+.sb .chips-row { margin: 0 -16px; }
+.pads { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+/* Un color por tipo de sonido: se reconoce de un vistazo, también en Favoritos */
+.pad.z-jingle { background: var(--yellow); }
+.pad.z-fx { background: var(--salmon); }
+.pad.z-bg { background: var(--teal); }
+.pad.z-song { background: var(--violet); }
+.pad { padding-bottom: 46px; min-height: 112px; justify-content: flex-start; }
+.pad .d { padding-right: 0; }
+.fav-strip .pad { min-height: 104px; }
+.pad .star { position: absolute; left: 6px; bottom: 8px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: rgba(18,13,12,.12); border: 2px solid rgba(18,13,12,.25); z-index: 2; color: var(--ink); }
+.pad .star .ic { width: 15px; height: 15px; }
+.pad .star.on { background: var(--ink); color: var(--yellow); border-color: var(--ink); }
+.icon-btn.fav-btn.on { color: var(--yellow); }

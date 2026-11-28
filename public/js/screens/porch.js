@@ -9,6 +9,7 @@ import { meterHtml, setMeter, audioCtx } from '../audio/voice.js';
  '../audio/sounds.js';
 import { getSetting, setSetting } from '../db.js';
 import { makeCtl, onPreview, stopPreview, previewKey } from '../cabina-ctl.js';
+import { getPref, setPref } from '../inbox.js';
 import { myPrograms, programSheet, programPickerHtml } from '../programs.js';
 
 export async function render(view, [slug], ctx) {
@@ -235,8 +236,8 @@ function micRequestSheet() {
     <h2 class="h2">Pedir micro</h2>
     ${rec ? html`<div class="banner red">${icon('rec')} Este programa se está grabando y puede publicarse.</div>` : ''}
     <div class="h3">¿Dónde estás?</div>
-    <label class="radio-opt"><input type="radio" name="m" value="patio"><div><div class="t">Patio</div><div class="d">Estoy junto al presentador. Mi móvil es solo micro (no suena la emisión).</div></div></label>
-    <label class="radio-opt"><input type="radio" name="m" value="casa" checked><div><div class="t">Casa</div><div class="d">Lo escucho desde mi casa. Oigo la emisión por cascos.</div></div></label>
+    <label class="radio-opt"><input type="radio" name="m" value="patio"><div><div class="t">Estoy a su lado</div><div class="d">En el mismo sitio que quien presenta. Mi móvil es solo micro: no suena el programa (así no se acopla).</div></div></label>
+    <label class="radio-opt"><input type="radio" name="m" value="casa" checked><div><div class="t">Estoy en otro sitio</div><div class="d">En mi casa o en otro lugar. Oigo el programa por cascos.</div></div></label>
     <label class="check"><input type="checkbox" name="hp" checked><span>${icon('hp')} Llevo <b>cascos</b> (de cable o Bluetooth). Como en una radio de verdad: todo el que habla lleva cascos.</span></label>
     ${rec ? html`<label class="check"><input type="checkbox" name="ok"><span>Sé que se está grabando y acepto que mi voz se grabe y pueda publicarse.</span></label>` : ''}
     <p class="muted tiny">Con wifi va casi siempre. Con datos móviles, alguna conexión directa puede fallar.</p>
@@ -318,13 +319,13 @@ function buildListener(view, porch, ctx) {
       const inp = b.querySelector('input');
       inp.addEventListener('keydown', (e) => e.key === 'Enter' && sendChat(inp));
     } else if (want === 'waiting') {
-      mount(b, html`<div class="banner dash"><span class="grow">${icon('mic')} Has pedido micro${me.micReq.mode === 'patio' ? ' · patio' : ' · desde casa'}. Esperando paso…</span><button class="btn sm ghost" data-act="cancelmic">Cancelar</button></div>`);
+      mount(b, html`<div class="banner dash"><span class="grow">${icon('mic')} Has pedido micro${me.micReq.mode === 'patio' ? ' · a su lado' : ' · desde otro sitio'}. Esperando paso…</span><button class="btn sm ghost" data-act="cancelmic">Cancelar</button></div>`);
     } else {
       const vs = voiceSelector(() => live.guestVoice);
       mount(b, html`<div class="mic-panel">
         ${live.isOwner ? html`<div class="role-badge mic"><span class="dot"></span><span class="grow"><b>Este ${live.kind} es MICRO</b> · el estudio es tu ${live.state.studioKind || 'otro aparato'}</span></div>` : ''}
         <div class="row between gap">
-          <div class="row gap-s"><span class="chip ${live.guestMode}">${live.guestMode === 'patio' ? 'Patio · solo micro' : 'Casa · cascos'}</span>${live.state.rec ? html`<span class="rec-chip">REC</span>` : ''}</div>
+          <div class="row gap-s"><span class="chip ${live.guestMode}">${live.guestMode === 'patio' ? 'A su lado · solo micro' : 'En otro sitio · cascos'}</span>${live.state.rec ? html`<span class="rec-chip">REC</span>` : ''}</div>
           <button class="btn sm ghost" data-act="leavemic">Dejar el micro</button>
         </div>
         ${raw(meterHtml())}
@@ -489,10 +490,10 @@ function buildGreenRoom(view, porch, ctx) {
     if (remote && $el('studiomic')) $el('studiomic').textContent = live.remoteState ? (live.remoteState.hasVoice ? 'Activo en el estudio' : 'Aún no activado en el estudio (se activará al salir)') : 'Esperando al estudio…';
     const guests = live.people.filter((p) => p.role === 'guest');
     mount($el('guests'), guests.length ? html`<div class="row gap wrap">${guests.map((g) => html`
-      <div class="guest-chip">${avatar(g)}<div><div class="n">${g.name}</div><div class="d">${g.mode === 'patio' ? 'Patio · sin retorno' : 'Casa · cascos'}</div></div></div>`)}</div>`
+      <div class="guest-chip">${avatar(g)}<div><div class="n">${g.name}</div><div class="d">${g.mode === 'patio' ? 'A tu lado' : 'A distancia · cascos'}</div></div></div>`)}</div>`
       : html`<div class="muted small">Nadie aún. Pulsa «Invitar al micro» y manda el enlace.</div>`);
     const reqs = live.people.filter((p) => p.micReq);
-    mount($el('reqs'), html`${reqs.map((r) => html`<div class="banner dash req"><span class="grow"><b class="orange-t">${r.name}</b> pide micro · ${r.micReq.mode === 'patio' ? 'en el patio' : 'desde casa'}${r.micReq.hp ? '' : ' (sin cascos)'}</span><button class="btn sm yellow" data-grant="${r.cid}">Dar paso</button></div>`)}`);
+    mount($el('reqs'), html`${reqs.map((r) => html`<div class="banner dash req"><span class="grow"><b class="orange-t">${r.name}</b> pide micro · ${r.micReq.mode === 'patio' ? 'a tu lado' : 'a distancia'}${r.micReq.hp ? '' : ' (sin cascos)'}</span><button class="btn sm yellow" data-grant="${r.cid}">Dar paso</button></div>`)}`);
   }
 
   // Mantén para salir: cuenta atrás 3-2-1. Nada sale sin querer.
@@ -584,7 +585,7 @@ function inviteSheet(porch) {
   const link = `${location.origin}/porche/${porch.slug}?i=${encodeURIComponent(live.inviteKey)}&micro=1`;
   sheet(html`
     <h2 class="h2">Invitar al micro</h2>
-    <p class="muted small">Manda este enlace a quien quieras en el programa (también sirve para los ensayos privados). Al abrirlo elige <b>Patio</b> (está contigo) o <b>Casa</b> (desde su casa, con cascos) y <b>entra directo al micro</b>, sin que tengas que darle paso. Si se le corta o cambia de app, vuelve a entrar solo. El enlace sirve para todo el programa y para los siguientes, hasta que lo cambies.</p>
+    <p class="muted small">Manda este enlace a quien quieras en el programa (también sirve para los ensayos privados). Al abrirlo elige <b>Estoy a su lado</b> (está contigo) o <b>Estoy en otro sitio</b> (desde su casa, con cascos) y <b>entra directo al micro</b>, sin que tengas que darle paso. Si se le corta o cambia de app, vuelve a entrar solo. El enlace sirve para todo el programa y para los siguientes, hasta que lo cambies.</p>
     <div class="card mono tiny ellip">${link}</div>
     <button class="btn yellow" data-a="share">${icon('share')} Enviar enlace</button>
     ${live.role === 'host' ? html`<button class="btn ghost" data-a="rotate">Cambiar enlace (anula el anterior)</button>` : ''}`, {
@@ -601,7 +602,7 @@ function buildBooth(view, porch, ctx) {
   const ctl = makeCtl();
   const remote = ctl.remote;
   let tab = 'voces';
-  let stab = 'jingle', origin = 'serie';
+  let stab = 'jingle', folder = '', query = '';
   let items = [];
   mount(view, html`
     <section class="screen is-live">
@@ -653,7 +654,7 @@ function buildBooth(view, porch, ctx) {
   }
   function reqs() {
     const r = live.people.filter((p) => p.micReq);
-    mount($el('reqs'), html`${!remote && !live.voice ? html`<div class="banner red"><span class="grow">Tu micro no está activo.</span><button class="btn sm yellow" data-act="activatemic">Activar micro</button></div>` : ''}${r.map((p) => html`<div class="banner dash req"><span class="grow ellip"><b class="orange-t">${p.name}</b> pide micro · ${p.micReq.mode === 'patio' ? 'en el patio' : 'desde casa'}</span><button class="btn sm yellow" data-grant="${p.cid}">Dar paso</button><button class="btn sm ghost" data-deny="${p.cid}" aria-label="Rechazar">✕</button></div>`)}`);
+    mount($el('reqs'), html`${!remote && !live.voice ? html`<div class="banner red"><span class="grow">Tu micro no está activo.</span><button class="btn sm yellow" data-act="activatemic">Activar micro</button></div>` : ''}${r.map((p) => html`<div class="banner dash req"><span class="grow ellip"><b class="orange-t">${p.name}</b> pide micro · ${p.micReq.mode === 'patio' ? 'a tu lado' : 'a distancia'}</span><button class="btn sm yellow" data-grant="${p.cid}">Dar paso</button><button class="btn sm ghost" data-deny="${p.cid}" aria-label="Rechazar">✕</button></div>`)}`);
   }
 
   // ---------- Paneles
@@ -675,7 +676,7 @@ function buildBooth(view, porch, ctx) {
       <div class="voice-row" data-cid="${g.cid}">
         ${avatar(g)}
         <div class="grow col gap-s">
-          <div class="name"><span class="ellip">${g.name}</span>${g.me ? '' : html`<span class="chip ${g.mode}">${g.mode === 'patio' ? 'Patio' : 'Casa · cascos'}</span>`}${!g.me && !g.hp ? html`<span class="chip dark">sin cascos</span>` : ''}</div>
+          <div class="name"><span class="ellip">${g.name}</span>${g.me ? '' : html`<span class="chip ${g.mode}">${g.mode === 'patio' ? 'A tu lado' : 'A distancia'}</span>`}${!g.me && !g.hp ? html`<span class="chip dark">sin cascos</span>` : ''}</div>
           ${raw(meterHtml())}
         </div>
         <button class="mic-btn" data-mute="${g.cid}" aria-label="Micro de ${g.name}">${icon('mic')}</button>
@@ -705,43 +706,61 @@ function buildBooth(view, porch, ctx) {
 
   async function soundsPanel() {
     items = await ctl.sounds();
-    const paintPads = () => {
-      const T = SOUND_TABS.find((x) => x.id === stab);
-      const list = items.filter((i) => T.zones.includes(i.zone) && i.origin === origin);
-      const groups = [];
-      for (const z of T.zones) {
-        const inZ = list.filter((i) => i.zone === z);
-        for (const sec of [...new Set(inZ.map((i) => i.section || ''))]) {
-          const title = [T.zones.length > 1 ? (z === 'bg' ? 'De fondo · en bucle' : 'Canciones') : '', sec].filter(Boolean).join(' · ');
-          groups.push({ title, items: inZ.filter((i) => (i.section || '') === sec) });
-        }
-      }
-      const music = ctl.music();
-      const fxKeys = new Set(ctl.fxKeys());
-      let idx = 0;
-      const padHtml = (it) => {
-        const playing = fxKeys.has(it.key) || (music && music.key === it.key);
-        return html`<button class="pad c${idx++ % 6} ${playing ? 'playing' : ''}" data-pad="${it.key}">
-          <span class="n">${it.name}</span><span class="d">${fmtShortDur(it.duration)}${it.zone === 'bg' ? ' · bucle' : ''}</span><span class="p"></span><span class="zone-ic" aria-hidden="true">${it.zone === 'fx' ? '⚡' : it.zone === 'jingle' ? '📻' : it.zone === 'bg' ? '♫' : '♪'}</span>
-          <span class="cue" data-cue="${it.key}" role="button" aria-label="Pre-escuchar ${it.name} solo en tus cascos">${icon('hp')}</span>
-        </button>`;
-      };
-      mount(panel, html`
-        <div class="col gap">
-          <div class="seg">${SOUND_TABS.map((t) => html`<button data-stab="${t.id}" class="${stab === t.id ? 'on' : ''}">${t.label}</button>`)}</div>
-          <div class="row between gap">
-            <div class="seg dark grow"><button data-origin="serie" class="${origin === 'serie' ? 'on' : ''}">De serie</button><button data-origin="mias" class="${origin === 'mias' ? 'on' : ''}">Mías</button></div>
-            ${remote ? '' : html`<a class="btn sm ghost" href="/mi-porche?tab=sonidos" aria-label="Añadir sonidos">${icon('plus')}</a>`}
-          </div>
-          <div class="muted tiny">${T.hint} ${stab === 'music' ? 'Toca para que suene; toca otra vez para pararla.' : 'Toca para que suene. Círculo de cascos: lo oyes solo tú antes de lanzarlo.'}</div>
-          ${stab === 'music' ? html`<div class="card tight now">
-            <div class="vinyl ${music ? 'spin' : ''}"></div>
-            <div class="grow"><div class="b ellip">${music ? music.name : 'Sin música sonando'}</div><div class="muted small mono" data-el="mpos">—</div></div>
-            ${music ? html`<button class="btn sm ghost" data-act="stopmusic">Parar</button>` : ''}
-          </div>` : ''}
-          <div class="pads">${list.length ? groups.map((g) => html`${g.title ? html`<div class="sec-title">${g.title}</div>` : ''}${g.items.map(padHtml)}`) : html`<p class="muted small sec-title">${origin === 'mias' ? (remote ? 'Los sonidos propios del estudio aparecen aquí.' : 'Aún no has añadido nada aquí. Pulsa + para subir MP3, vídeo o grabar.') : 'No hay sonidos de serie en esta pestaña.'}</p>`}</div>
-        </div>`);
+    // Esqueleto fijo (la lupa no pierde el foco al escribir); cada zona se repinta por separado
+    mount(panel, html`
+      <div class="col gap sb">
+        <div class="fav-head"><span class="h3">${icon('starf')} Favoritos</span>${remote ? '' : html`<a class="btn sm ghost" href="/mi-porche?tab=sonidos" aria-label="Añadir sonidos propios">${icon('plus')} Añadir</a>`}</div>
+        <div class="fav-strip" data-el="favs"></div>
+        <div class="row gap-s"><div class="seg grow" data-el="stabs"></div><button class="icon-btn sq ${query ? 'on' : ''}" data-act="search" aria-label="Buscar sonido">${icon('search')}</button></div>
+        <div class="search-row ${query ? '' : 'hidden'}" data-el="srow"><input class="input" data-el="sq" placeholder="Buscar sonido…" value="${query}" autocomplete="off"></div>
+        <div class="chips-row" data-el="folders"></div>
+        <div data-el="now"></div>
+        <div class="pads" data-el="grid"></div>
+        <div class="muted tiny" data-el="hint"></div>
+      </div>`);
+    const $p = (n) => panel.querySelector(`[data-el=${n}]`);
+    const favKeys = () => getPref('favs', []).filter((k) => items.some((i) => i.key === k));
+    const zoneCls = (z) => `z-${z}`;
+    const padHtml = (it, F, playingSet, music) => {
+      const playing = playingSet.has(it.key) || (music && music.key === it.key);
+      const fav = F.includes(it.key);
+      return html`<button class="pad ${zoneCls(it.zone)} ${playing ? 'playing' : ''}" data-pad="${it.key}">
+        <span class="n">${it.name}</span>
+        <span class="d">${fmtShortDur(it.duration)}${it.zone === 'bg' ? ' · bucle' : ''}${it.origin === 'mias' ? ' · tuyo' : ''}</span><span class="p"></span>
+        <span class="star ${fav ? 'on' : ''}" data-fav="${it.key}" role="button" aria-label="${fav ? 'Quitar de favoritos' : 'Añadir a favoritos'}">${icon(fav ? 'starf' : 'star')}</span>
+        <span class="cue" data-cue="${it.key}" role="button" aria-label="Pre-escuchar ${it.name} solo en tus cascos">${icon('hp')}</span>
+      </button>`;
     };
+    const paintPads = () => {
+      const F = favKeys();
+      const music = ctl.music();
+      const playingSet = new Set(ctl.fxKeys());
+      // Favoritos: siempre arriba, en el orden en que los marcaste
+      const favItems = F.map((k) => items.find((i) => i.key === k)).filter(Boolean);
+      mount($p('favs'), favItems.length ? html`${favItems.map((it) => padHtml(it, F, playingSet, music))}` : html`<div class="fav-empty">Toca ${icon('star')} en cualquier sonido para tenerlo siempre aquí, a un toque.</div>`);
+      // Pestañas
+      mount($p('stabs'), html`${SOUND_TABS.map((t) => html`<button data-stab="${t.id}" class="${!query && stab === t.id ? 'on' : ''}">${t.label}</button>`)}`);
+      const T = SOUND_TABS.find((x) => x.id === stab);
+      const q = query.trim().toLowerCase();
+      let list = q ? items.filter((i) => `${i.name} ${i.section || ''}`.toLowerCase().includes(q)) : items.filter((i) => T.zones.includes(i.zone));
+      // Carpetas (las secciones): solo si hay más de una
+      const folders = q ? [] : [...new Set(list.map((i) => i.section || ''))].filter(Boolean);
+      if (!folders.includes(folder)) folder = '';
+      mount($p('folders'), folders.length ? html`<button X data-folder="">Todas</button>${folders.map((f) => html`<button class="cat-chip small ${folder === f ? 'on' : ''}" data-folder="${f}">${f}</button>`)}` : '');
+      $p('folders').classList.toggle('hidden', !folders.length);
+      if (folder) list = list.filter((i) => (i.section || '') === folder);
+      if (!q && stab === 'music') list = [...list.filter((i) => i.zone === 'bg'), ...list.filter((i) => i.zone !== 'bg')];
+      // Lo que suena ahora (música)
+      mount($p('now'), !q && stab === 'music' ? html`<div class="card tight now">
+        <div class="vinyl ${music ? 'spin' : ''}"></div>
+        <div class="grow"><div class="b ellip">${music ? music.name : 'Sin música sonando'}</div><div class="muted small mono" data-el="mpos">—</div></div>
+        ${music ? html`<button class="btn sm ghost" data-act="stopmusic">Parar</button>` : ''}
+      </div>` : '');
+      mount($p('grid'), list.length ? html`${list.map((it) => padHtml(it, F, playingSet, music))}`
+        : html`<p class="muted small sec-title">${q ? `Nada con «${query}».` : remote ? 'No hay sonidos aquí todavía.' : html`Aún no hay nada aquí. Pulsa <b>Añadir</b> para subir MP3, vídeo o grabar.`}</p>`);
+      $p('hint').textContent = q ? '' : `${T.hint} ${stab === 'music' ? 'Toca para que suene; otra vez para pararla.' : 'Toca para que suene.'} Cascos: lo oyes solo tú antes. Estrella: a favoritos.`;
+    };
+    $p('sq').addEventListener('input', (e) => { query = e.target.value; paintPads(); });
     paintPads();
     let lastSig = '';
     const loop = () => {
@@ -749,7 +768,7 @@ function buildBooth(view, porch, ctx) {
       const mu = ctl.music();
       const sig = keys.join('|') + '#' + (mu ? mu.key : '');
       if (sig !== lastSig) { lastSig = sig; for (const el of panel.querySelectorAll('[data-pad]')) { const k = el.dataset.pad; const on = keys.includes(k) || (mu && mu.key === k); el.classList.toggle('playing', !!on); if (!keys.includes(k)) setPct(el, '--p', 0); } }
-      for (const k of keys) { const el = panel.querySelector(`[data-pad="${CSS.escape(k)}"]`); if (el) setPct(el, '--p', (ctl.fxProgress(k) || 0) * 100); }
+      for (const k of keys) for (const el of panel.querySelectorAll(`[data-pad="${CSS.escape(k)}"]`)) setPct(el, '--p', (ctl.fxProgress(k) || 0) * 100);
       const mp = panel.querySelector('[data-el=mpos]');
       if (mp) mp.textContent = mu ? `${fmtShortDur(mu.pos)} / ${fmtShortDur(mu.dur)}` : '—';
       raf = requestAnimationFrame(loop);
@@ -817,7 +836,7 @@ function buildBooth(view, porch, ctx) {
   let pressT = null, pressed = false;
   panel.addEventListener('pointerdown', (e) => {
     const pad = e.target.closest('[data-pad]');
-    if (!pad || e.target.closest('[data-cue]')) return;
+    if (!pad || e.target.closest('[data-cue]') || e.target.closest('[data-fav]')) return;
     pressed = false;
     pressT = setTimeout(() => { pressed = true; fire(pad.dataset.pad, true); }, 550);
   });
@@ -830,10 +849,19 @@ function buildBooth(view, porch, ctx) {
     if ((b = t.closest('[data-tab]'))) return showTab(b.dataset.tab);
     if ((b = t.closest('[data-grant]'))) return live.send({ t: 'grant', cid: b.dataset.grant });
     if ((b = t.closest('[data-deny]'))) return live.send({ t: 'deny', cid: b.dataset.deny });
+    if ((b = t.closest('[data-fav]'))) {
+      e.stopPropagation();
+      const k = b.dataset.fav;
+      const F = getPref('favs', []);
+      const next = F.includes(k) ? F.filter((x) => x !== k) : [...F, k].slice(-24);
+      setPref('favs', next);
+      haptic(15);
+      return soundsPanel.repaint?.();
+    }
     if ((b = t.closest('[data-cue]'))) { e.stopPropagation(); return fire(b.dataset.cue, true); }
     if ((b = t.closest('[data-pad]'))) { if (pressed) { pressed = false; return; } b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 120); return fire(b.dataset.pad, false); }
-    if ((b = t.closest('[data-stab]'))) { stab = b.dataset.stab; return soundsPanel.repaint(); }
-    if ((b = t.closest('[data-origin]'))) { origin = b.dataset.origin; return soundsPanel.repaint(); }
+    if ((b = t.closest('[data-stab]'))) { stab = b.dataset.stab; folder = ''; query = ''; const sq = panel.querySelector('[data-el=sq]'); if (sq) sq.value = ''; panel.querySelector('[data-el=srow]')?.classList.add('hidden'); return soundsPanel.repaint(); }
+    if ((b = t.closest('[data-folder]'))) { folder = b.dataset.folder; return soundsPanel.repaint(); }
     if ((b = t.closest('[data-mute]'))) {
       const cid = b.dataset.mute;
       const muted = cid === 'me' ? ctl.selfMuted() : live.people.find((x) => x.cid === cid)?.muted;
@@ -869,6 +897,15 @@ function buildBooth(view, porch, ctx) {
         try { audioCtx(); await live.startVoice(localStorage.getItem('rp_hp') !== '0'); reqs(); toast('Micro activo', 'good'); } catch { toast('No se ha podido abrir el micro', 'bad'); }
         break;
       case 'stopmusic': ctl.stopMusic(); setTimeout(() => soundsPanel.repaint?.(), remote ? 900 : 80); break;
+      case 'search': {
+        const row = panel.querySelector('[data-el=srow]');
+        if (!row) break;
+        const open = row.classList.toggle('hidden') === false;
+        b.classList.toggle('on', open);
+        if (open) panel.querySelector('[data-el=sq]')?.focus();
+        else { query = ''; panel.querySelector('[data-el=sq]').value = ''; soundsPanel.repaint?.(); }
+        break;
+      }
       case 'sharetab':
         try { await live.mixer.shareTab(); live.mixer.onTabEnd = () => tab === 'mesa' && mesaPanel(); mesaPanel(); toast('Pestaña en antena', 'good'); } catch (err) { toast(err.message || 'No se ha compartido', 'bad'); }
         break;

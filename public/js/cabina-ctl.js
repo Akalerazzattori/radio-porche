@@ -2,6 +2,7 @@
 // y en otro aparato del anfitrión (mando a distancia: manda órdenes al estudio).
 import { live } from './live.js';
 import { decode } from './audio/sounds.js';
+import { db } from './db.js';
 import { audioCtx } from './audio/voice.js';
 import { toast } from './util.js';
 
@@ -34,7 +35,8 @@ export function makeCtl() {
       let src;
       if (!R()) { if (!live.items.length) await live.loadItems(); src = live.findItem(item.key); }
       else if (item.origin === 'serie' && item.src) src = { origin: 'serie', id: item.key.split(':')[1], src: item.src };
-      if (!src) { toast('Este sonido está solo en el estudio: no se puede escuchar aquí.'); return false; }
+      else if (item.origin === 'mias') { const own = await db.get('sounds', item.key.split(':')[1]); if (own) src = { ...own, origin: 'mias' }; }
+      if (!src) { toast('Este sonido aún no ha llegado a este aparato. Llegará en un momento.'); return false; }
       try {
         const c = audioCtx();
         const buf = await decode(src);

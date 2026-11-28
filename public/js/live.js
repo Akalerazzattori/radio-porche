@@ -265,7 +265,7 @@ export const live = {
       this.want();
       keepAwake(true);
       if (this.isOwner) toast('Micro activo en este aparato', 'good');
-      else toast(mode === 'patio' ? '¡Tienes micro! Modo Patio: tu móvil es solo micro.' : '¡Tienes micro! Modo Casa: usa cascos.', 'good');
+      else toast(mode === 'patio' ? '¡Tienes micro! Estás a su lado: tu móvil es solo micro.' : '¡Tienes micro! Ponte los cascos.', 'good');
     } catch (e) {
       toast('No se ha podido abrir el micro. Revisa los permisos.', 'bad');
       this.send({ t: 'leaveMic' });

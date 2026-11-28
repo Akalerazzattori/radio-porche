@@ -5,7 +5,7 @@ import { LIMITS, SOUND_TABS } from '../config.js';
 import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtDur, fmtDate, fmtShortDur, fmtBytes, setPct, esc } from '../util.js';
 import { requireIdentity, porchCover, podcastCover, shareUrl, copy } from '../common.js';
 import { db } from '../db.js';
-import { OTHER, sendRecording, pickup } from '../inbox.js';
+import { OTHER, sendRecording, pickup, getPref, setPref } from '../inbox.js';
 import { live } from '../live.js';
 import { loadStandard, loadMine, importSound, deleteSound, renameSound, recordMic, saveRecordedSound, decode } from '../audio/sounds.js';
 import { audioCtx } from '../audio/voice.js';
@@ -233,6 +233,7 @@ export async function render(view, _p, { go }) {
       <div class="item">
         <button class="play-dot" data-prev="${x.origin}:${x.id}" aria-label="Escuchar o parar">${icon('play')}</button>
         <div class="grow"><div class="t ellip">${x.name}</div><div class="m">${fmtShortDur(x.duration)}${kind(x)}${x.section ? ` · ${x.section}` : ''}${own ? '' : ' · libre de derechos'}</div></div>
+        <button class="icon-btn fav-btn ${getPref('favs', []).includes(x.origin + ':' + x.id) ? 'on' : ''}" data-favsnd="${x.origin}:${x.id}" aria-label="Favorito en la botonera">${icon(getPref('favs', []).includes(x.origin + ':' + x.id) ? 'starf' : 'star')}</button>
         ${own ? html`<button class="icon-btn" data-ren="${x.id}" aria-label="Renombrar">${icon('edit')}</button><button class="icon-btn" data-delsnd="${x.id}" aria-label="Borrar">${icon('trash')}</button>` : ''}
       </div>`;
     mount(panel, html`<div class="col gap">
@@ -243,9 +244,9 @@ export async function render(view, _p, { go }) {
         <label class="btn yellow grow">${icon('upload')} Subir archivo<input type="file" multiple accept="audio/*,video/mp4,video/quicktime,.mp3,.m4a,.wav,.ogg,.mp4,.mov" hidden data-act="file"></label>
         <button class="btn ghost grow" data-act="rec">${icon('mic')} Grabar</button>
       </div>
-      <div class="muted tiny">MP3 o cualquier audio, y también vídeo MP4/MOV: sacamos el audio aquí, en tu móvil. No se descarga nada de YouTube.</div>
+      <div class="muted tiny">MP3 o cualquier audio, y también vídeo MP4/MOV: sacamos el audio aquí mismo. No se descarga nada de YouTube. La ${icon('star')} lo pone en Favoritos, arriba del todo en la botonera del Estudio.</div>
       <div class="h3">Mías · ${myList.length}</div>
-      <div class="list">${myList.length ? myList.map((x) => row(x, true)) : html`<p class="muted small">Aún no has añadido nada aquí. Se guarda solo en este móvil.</p>`}</div>
+      <div class="list">${myList.length ? myList.map((x) => row(x, true)) : html`<p class="muted small">Aún no has añadido nada aquí. Lo que añadas llega solo a tu otro aparato (móvil u ordenador).</p>`}</div>
       <div class="h3">De serie · ${stdList.length}</div>
       <div class="list">${stdList.map((x) => row(x, false))}</div>
     </div>`);
@@ -255,6 +256,14 @@ export async function render(view, _p, { go }) {
     panel.onclick = async (e) => {
       let b;
       if ((b = e.target.closest('[data-stab]'))) { stab = b.dataset.stab; return soundsTab(); }
+      if ((b = e.target.closest('[data-favsnd]'))) {
+        const k = b.dataset.favsnd, F = getPref('favs', []);
+        const on = !F.includes(k);
+        setPref('favs', on ? [...F, k].slice(-24) : F.filter((x) => x !== k));
+        b.classList.toggle('on', on); mount(b, icon(on ? 'starf' : 'star'));
+        toast(on ? 'En Favoritos de la botonera' : 'Quitado de Favoritos');
+        return;
+      }
       if ((b = e.target.closest('[data-prev]'))) {
         const key = b.dataset.prev;
         if (prevKey === key) { stopPrev(); paintBtns(); return; }

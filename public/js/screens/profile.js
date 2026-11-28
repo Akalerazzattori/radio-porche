@@ -143,12 +143,12 @@ function helpSheet() {
   sheet(html`
     <h2 class="h2">Cómo emitir bien</h2>
     <p><b>Todos los que hablan, con cascos</b> (de cable o Bluetooth). Así no hay acoples y suena a radio de verdad.</p>
-    <p><b>Patio</b>: estás junto al presentador. Tu móvil es solo micro y no suena por el altavoz; por los cascos oyes solo la música y los cortes.</p>
-    <p><b>Casa</b>: oyes la emisión por cascos (sin tu propia voz), con un pequeño retraso como en una videollamada.</p>
+    <p><b>Estoy a su lado</b>: estás junto a quien presenta. Tu móvil es solo micro y no suena por el altavoz; por los cascos oyes solo la música y los cortes.</p>
+    <p><b>Estoy en otro sitio</b>: oyes el programa por cascos (sin tu propia voz), con un pequeño retraso como en una videollamada.</p>
     <p><b>Oírme</b>: escuchas tu voz en tus cascos. Con Bluetooth hay unas décimas de retraso; con cable, no.</p>
     <p><b>Wifi mejor que datos</b>: con datos móviles alguna conexión directa entre móviles puede fallar. Con wifi va casi siempre.</p>
     <p><b>Pantalla encendida</b>: mientras emites, la app mantiene la pantalla encendida. Si bloqueas el móvil o cambias de app, el audio puede cortarse; al volver se reconecta solo.</p>
     <p><b>Capacidad</b>: pensada para unos 15–20 oyentes a la vez por porche.</p>
-    <p><b>Programas con vídeo</b>: usa un ordenador con Chrome como estudio y «Compartir pestaña con audio». Tu móvil puede entrar como micro en modo Patio.</p>
+    <p><b>Programas con vídeo</b>: usa un ordenador con Chrome como estudio y «Compartir pestaña con audio». Tu móvil puede ser tu micro (interruptor «Micro aquí»).</p>
     <button class="btn yellow" data-close="">Entendido</button>`);
 }
