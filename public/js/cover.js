@@ -75,6 +75,23 @@ async function compress(canvas) {
   return new Promise((r) => small.toBlob(r, 'image/jpeg', 0.6));
 }
 
+/** Foto de perfil: recorte cuadrado de 256 px, muy ligera (unos 15–40 KB). */
+export async function avatarBlob(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImg(url);
+    const S = 256, side = Math.min(img.width, img.height);
+    const c = document.createElement('canvas');
+    c.width = c.height = S;
+    c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);
+    for (const [t, q] of [['image/webp', 0.8], ['image/jpeg', 0.8], ['image/jpeg', 0.6], ['image/jpeg', 0.45]]) {
+      const b = await new Promise((r) => c.toBlob(r, t, q));
+      if (b && b.type === t && b.size <= 75 * 1024) return b;
+    }
+    throw new Error('No se ha podido reducir la foto');
+  } finally { URL.revokeObjectURL(url); }
+}
+
 /** Reduce una foto cualquiera (para la portada del porche). */
 export async function shrinkPhoto(file, max = 900) {
   const url = URL.createObjectURL(file);

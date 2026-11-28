@@ -3,7 +3,7 @@
 import { api, session } from '../api.js';
 import { LIMITS, VOICE_FX, BROADCAST_MODES, QUICK_REACTIONS, ZONES, SOUND_TABS } from '../config.js';
 import { html, mount, icon, raw, toast, sheet, confirmSheet, fmtTime, fmtShortDur, fmtDate, initial, avatarColor, haptic, canShareTab, setPct, esc, on } from '../util.js';
-import { porchCover, requireIdentity, personMenu, shareUrl, isBlocked, nameColor, copy } from '../common.js';
+import { porchCover, requireIdentity, personMenu, shareUrl, isBlocked, nameColor, copy, avatar } from '../common.js';
 import { live, onLive } from '../live.js';
 import { meterHtml, setMeter, audioCtx } from '../audio/voice.js';
 import { loadAll, decode } from '../audio/sounds.js';
@@ -260,7 +260,7 @@ function buildListener(view, porch, ctx) {
     $el('title').textContent = s.live ? s.title || porch.name : s.hostOnline ? 'Empieza en breve' : porch.nextShow ? `Vuelve ${porch.nextShow}` : 'Aún no ha empezado';
     $el('n').textContent = live.counts.listeners;
     const guests = live.people.filter((p) => p.role === 'guest' || p.role === 'host').slice(0, 4);
-    $el('avs').innerHTML = guests.map((g) => `<span class="av sm ${avatarColor(g.name)}">${esc(initial(g.name))}</span>`).join('');
+    mount($el('avs'), html`${guests.map((g) => avatar(g, 'sm'))}`);
     $el('wave').classList.toggle('stop', !(s.live && !s.paused && live.rtcState === 'connected'));
     const pin = $el('pinned');
     pin.hidden = !s.pinned;
@@ -437,7 +437,7 @@ function buildGreenRoom(view, porch, ctx) {
     if (remote && $el('studiomic')) $el('studiomic').textContent = live.remoteState ? (live.remoteState.hasVoice ? 'Activo en el estudio' : 'Aún no activado en el estudio (se activará al salir)') : 'Esperando al estudio…';
     const guests = live.people.filter((p) => p.role === 'guest');
     mount($el('guests'), guests.length ? html`<div class="row gap wrap">${guests.map((g) => html`
-      <div class="guest-chip"><span class="av ${avatarColor(g.name)}">${initial(g.name)}</span><div><div class="n">${g.name}</div><div class="d">${g.mode === 'patio' ? 'Patio · sin retorno' : 'Casa · cascos'}</div></div></div>`)}</div>`
+      <div class="guest-chip">${avatar(g)}<div><div class="n">${g.name}</div><div class="d">${g.mode === 'patio' ? 'Patio · sin retorno' : 'Casa · cascos'}</div></div></div>`)}</div>`
       : html`<div class="muted small">Nadie aún. Pulsa «Invitar al micro» y manda el enlace.</div>`);
     const reqs = live.people.filter((p) => p.micReq);
     mount($el('reqs'), html`${reqs.map((r) => html`<div class="banner dash req"><span class="grow"><b class="orange-t">${r.name}</b> pide micro · ${r.micReq.mode === 'patio' ? 'en el patio' : 'desde casa'}${r.micReq.hp ? '' : ' (sin cascos)'}</span><button class="btn sm yellow" data-grant="${r.cid}">Dar paso</button></div>`)}`);
@@ -578,7 +578,7 @@ function buildBooth(view, porch, ctx) {
   // ---------- Paneles
   function voicesPanel() {
     const guests = live.people.filter((p) => p.role === 'guest');
-    const rows = [{ cid: 'me', name: `${session.name} (estudio)`, me: true }, ...guests];
+    const rows = [{ cid: 'me', name: `${session.name} (estudio)`, me: true, dev: session.deviceId, av: session.get()?.avatar || 0 }, ...guests];
     const hp = localStorage.getItem('rp_hp') !== '0';
     mount(panel, html`<div class="list">
       ${remote ? '' : html`<div class="card col gap-s">
@@ -593,7 +593,7 @@ function buildBooth(view, porch, ctx) {
       </div>`}
       ${rows.map((g) => html`
       <div class="voice-row" data-cid="${g.cid}">
-        <span class="av ${avatarColor(g.name)}">${initial(g.name)}</span>
+        ${avatar(g)}
         <div class="grow col gap-s">
           <div class="name"><span class="ellip">${g.name}</span>${g.me ? '' : html`<span class="chip ${g.mode}">${g.mode === 'patio' ? 'Patio' : 'Casa · cascos'}</span>`}${!g.me && !g.hp ? html`<span class="chip dark">sin cascos</span>` : ''}</div>
           ${raw(meterHtml())}

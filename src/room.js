@@ -62,7 +62,7 @@ export class Room extends DurableObject {
     for (const w of this.sockets()) {
       const a = this.att(w);
       if (!full && a.role === 'listener') continue;
-      out.push({ cid: a.cid, owner: !!a.isOwner, name: a.name || 'Oyente', role: a.role, mode: a.mode || '', hp: !!a.hp, muted: !!a.muted, isMod: !!a.isMod, dev: a.dev || '', micReq: a.micReq || null });
+      out.push({ cid: a.cid, av: a.av || 0, owner: !!a.isOwner, name: a.name || 'Oyente', role: a.role, mode: a.mode || '', hp: !!a.hp, muted: !!a.muted, isMod: !!a.isMod, dev: a.dev || '', micReq: a.micReq || null });
     }
     return out;
   }
@@ -140,7 +140,7 @@ export class Room extends DurableObject {
     const cid = randomId(6);
     const a = {
       tab,
-      cid, ip: auth.ip, dev: auth.ident?.deviceId || '', name: auth.ident?.name || '', isNew: !!auth.ident?.isNew,
+      cid, ip: auth.ip, dev: auth.ident?.deviceId || '', name: auth.ident?.name || '', av: auth.ident?.avatar || 0, isNew: !!auth.ident?.isNew,
       isOwner: !!auth.isOwner, isMod: !!auth.isMod, invited: hasInvite, role: 'listener', mode: '', hp: false,
       muted: false, last: Date.now(), lastChat: 0, chatWin: 0, chatN: 0, lastMic: 0, lastReact: 0, micReq: null,
     };

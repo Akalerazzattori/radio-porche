@@ -669,3 +669,33 @@ body { -webkit-user-select: none; user-select: none; }
 .onair-meta { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 6px 10px; }
 .onair-meta .clock { font: 700 17px var(--mono); color: var(--cream); }
 .onair-meta .rec-chip { font-size: 13px; padding: 2px 10px; }
+
+/* ---------- Marca, dial con flechas, avatares, tarjetas de grabación ---------- */
+.brand-ic { width: 40px; height: 40px; border-radius: 10px; flex: none; border: 2px solid var(--edge); }
+.home-logo { width: min(100%, 360px); height: auto; margin: -4px auto 0; display: block; filter: drop-shadow(4px 4px 0 rgba(0,0,0,.6)); }
+@media (max-height: 700px) { .home-logo { width: min(100%, 260px); } }
+.dial-row { display: flex; align-items: center; gap: 6px; }
+.dial-row .dial { flex: 1; min-width: 0; }
+.dial-arrow { width: 40px; height: 64px; border-radius: 12px; background: var(--panel); border: 2px solid var(--line); color: var(--cream); display: grid; place-items: center; flex: none; box-shadow: 0 3px 0 var(--edge); }
+.dial-arrow:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--edge); }
+.dial-arrow.next .ic { transform: rotate(180deg); }
+img.av { object-fit: cover; background: var(--panel2); }
+.av.xl { width: 64px; height: 64px; font-size: 30px; }
+.avatar-edit { position: relative; cursor: pointer; flex: none; }
+.avatar-edit .cam { position: absolute; right: -4px; bottom: -4px; width: 26px; height: 26px; border-radius: 50%; background: var(--yellow); color: var(--ink); display: grid; place-items: center; border: 2px solid var(--edge); }
+.avatar-edit .cam .ic { width: 15px; height: 15px; }
+.mini-ic { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: var(--muted); flex: none; }
+.mini-ic:active { background: var(--panel2); }
+.mini-ic .ic { width: 18px; height: 18px; }
+.rec-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.rec-actions .btn { flex: 1; min-width: 0; }
+.rec-actions .btn:last-child { flex: 0 0 44px; padding: 0; }
+[data-sc].on img, [data-scene].on img { border-color: var(--yellow); box-shadow: 0 0 0 2px var(--yellow); }
+
+/* ---------- Escritorio: columna fija (antes se estrechaba al ensanchar la ventana) ---------- */
+@media (min-width: 620px) {
+  #app { width: 480px; flex: none; }
+}
+@media (min-width: 1100px) {
+  body { grid-template-columns: 1fr 480px 1fr; }
+}

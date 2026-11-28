@@ -20,6 +20,7 @@ export class Hub extends DurableObject {
     this.sql = ctx.storage.sql;
     ctx.blockConcurrencyWhile(async () => {
       this.migrate();
+      this.migrateColumns();
       if ((await ctx.storage.getAlarm()) == null) await ctx.storage.setAlarm(Date.now() + 60_000);
     });
   }
@@ -62,9 +63,16 @@ export class Hub extends DurableObject {
       CREATE TABLE IF NOT EXISTS rl (key TEXT PRIMARY KEY, exp INTEGER NOT NULL, n INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS library (id TEXT PRIMARY KEY, zone TEXT NOT NULL, name TEXT NOT NULL, section TEXT DEFAULT '',
         mime TEXT NOT NULL, bytes INTEGER NOT NULL, duration REAL DEFAULT 0, created INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS _m (k TEXT PRIMARY KEY);
       CREATE TABLE IF NOT EXISTS link_codes (code TEXT PRIMARY KEY, device TEXT NOT NULL, exp INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, action TEXT NOT NULL, detail TEXT);
     `);
+  }
+
+  /** Migraciones que añaden columnas (una sola vez). */
+  migrateColumns() {
+    const cols = this.sql.exec('PRAGMA table_info(identities)').toArray().map((c) => c.name);
+    if (!cols.includes('avatar')) this.sql.exec('ALTER TABLE identities ADD COLUMN avatar INTEGER NOT NULL DEFAULT 0');
   }
 
   one(q, ...a) { const r = this.sql.exec(q, ...a).toArray(); return r[0] || null; }
@@ -288,13 +296,15 @@ export class Hub extends DurableObject {
       if (p === '/api/identity' && m === 'POST') return await this.createIdentity(req, ip);
       if (p === '/api/link/claim' && m === 'POST') {
         // Vincular otro aparato con un código de 6 cifras (caduca en 10 min, un solo uso)
-        if (!this.limit(`link:ip:${ip}`, HOUR, 10) || !this.limit('link:global', HOUR, 300)) return err(429, 'Demasiados intentos. Prueba dentro de un rato.');
+        // solo cuentan los intentos fallidos
+        if (!this.limit(`link:ip:${ip}`, HOUR, 15, false) || !this.limit('link:global', HOUR, 300, false)) return err(429, 'Demasiados intentos fallidos. Prueba dentro de un rato.');
+        const fail = (msg) => { this.limit(`link:ip:${ip}`, HOUR, 15); this.limit('link:global', HOUR, 300); return err(404, msg); };
         const b = await req.json().catch(() => ({}));
         const code = String(b.code || '').replace(/\D/g, '');
-        if (code.length !== 6) return err(400, 'El código tiene 6 cifras');
+        if (code.length !== 6) return fail('El código tiene 6 cifras');
         this.run('DELETE FROM link_codes WHERE exp < ?', now());
         const row = this.one('SELECT * FROM link_codes WHERE code=?', code);
-        if (!row) return err(404, 'Código incorrecto o caducado');
+        if (!row) return fail('Código incorrecto o caducado. Pide uno nuevo en el otro aparato.');
         this.run('DELETE FROM link_codes WHERE code=?', code);
         const ident = this.one('SELECT * FROM identities WHERE device_id=?', row.device);
         if (!ident || ident.blocked) return err(403, 'Esta identidad no está disponible');
@@ -352,6 +362,11 @@ export class Hub extends DurableObject {
             .filter((c) => !c.hidden || c.device === ident?.device_id)
             .map((c) => ({ id: c.id, device: c.device, name: c.name, t: c.t, text: c.text, created: c.created, hidden: !!c.hidden })),
         });
+      }
+      if ((mm = /^\/api\/avatar\/([A-Za-z0-9_-]+)$/.exec(p)) && m === 'GET') {
+        const d = this.getChunk(mm[1], 'v', 0);
+        if (!d) return err(404, 'Sin foto');
+        return new Response(d, { headers: { 'content-type': sniffImage(d) || 'image/webp', 'cache-control': 'public, max-age=600' } });
       }
       if (p === '/api/library' && m === 'GET') {
         return json({ items: this.all('SELECT id, zone, name, section, mime, bytes, duration, created FROM library ORDER BY zone, section, name') });
@@ -416,7 +431,7 @@ export class Hub extends DurableObject {
       const porch = this.one('SELECT * FROM porches WHERE owner=?', me);
       const following = this.all('SELECT porch_id FROM follows WHERE device=?', me).map((r) => r.porch_id);
       return json({
-        deviceId: me, name: ident.name, created: ident.created, terms: ident.terms, isNew: this.isNew(ident),
+        deviceId: me, name: ident.name, created: ident.created, terms: ident.terms, isNew: this.isNew(ident), avatar: ident.avatar || 0,
         porch: this.porchPublic(porch, me), modKey: porch ? porch.mod_key : null, following,
       });
     }
@@ -424,8 +439,22 @@ export class Hub extends DurableObject {
       const b = await req.json().catch(() => ({}));
       const name = cleanName(b.name);
       if (!name) return err(400, 'Nombre no válido');
+      // si el porche aún se llama "Porche de <nombre anterior>", se actualiza también
+      const pr = this.one('SELECT id, name FROM porches WHERE owner=?', me);
+      if (pr && pr.name === `Porche de ${ident.name}`.slice(0, LIMITS.PORCH_NAME_MAX)) this.run('UPDATE porches SET name=? WHERE id=?', `Porche de ${name}`.slice(0, LIMITS.PORCH_NAME_MAX), pr.id);
       this.run('UPDATE identities SET name=? WHERE device_id=?', name, me);
       return json({ ok: true, name });
+    }
+    if (p === '/api/me/avatar' && m === 'POST') {
+      // Foto de perfil: pequeña (≤ 80 KB), reducida en el navegador
+      if (!this.limit(`av:${me}`, HOUR, 20)) return err(429, 'Demasiados cambios. Espera un poco.');
+      const u8 = new Uint8Array(await req.arrayBuffer());
+      if (u8.length === 0) { this.run("DELETE FROM chunks WHERE pid=? AND kind='v'", me); this.run('UPDATE identities SET avatar=0 WHERE device_id=?', me); return json({ avatar: 0 }); }
+      if (u8.length > 80 * 1024 || !sniffImage(u8)) return err(400, 'La foto debe ser JPEG o WebP y pequeña');
+      this.putBlob(me, 'v', u8);
+      const v = Date.now() % 1e9;
+      this.run('UPDATE identities SET avatar=? WHERE device_id=?', v, me);
+      return json({ avatar: v });
     }
     if (p === '/api/me/terms' && m === 'POST') {
       const b = await req.json().catch(() => ({}));
@@ -743,6 +772,7 @@ export class Hub extends DurableObject {
     }
     this.run('DELETE FROM listens WHERE device=?', me);
     this.run('DELETE FROM follows WHERE device=?', me);
+    this.run("DELETE FROM chunks WHERE pid=? AND kind='v'", me);
     this.run("UPDATE reports SET reporter='anon-' || id WHERE reporter=?", me);
     this.run("UPDATE reports SET target='' WHERE target=?", me);
     this.run('DELETE FROM identities WHERE device_id=?', me);
@@ -762,7 +792,7 @@ export class Hub extends DurableObject {
       const banned = !!ident && !!this.one('SELECT 1 FROM porch_bans WHERE porch_id=? AND device=?', pr.id, ident.device_id);
       return json({
         ok: true,
-        ident: ident ? { deviceId: ident.device_id, name: ident.name, isNew: this.isNew(ident), blocked: !!ident.blocked } : null,
+        ident: ident ? { deviceId: ident.device_id, name: ident.name, isNew: this.isNew(ident), blocked: !!ident.blocked, avatar: ident.avatar || 0 } : null,
         isOwner, isMod, banned,
         porch: { id: pr.id, name: pr.name, freq: pr.freq, owner: pr.owner, scene: pr.scene, hasCover: !!pr.has_cover },
         badwords: this.settings().badwords,

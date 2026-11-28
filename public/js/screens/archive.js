@@ -11,7 +11,7 @@ export async function render(view, _p, { go }) {
   mount(view, html`
     <section class="screen">
       <div class="top">
-        <div><h1 class="h1">Podcasts</h1></div>
+        <div class="row gap-s"><img class="brand-ic" src="/img/app-icon-192.png" alt="" width="40" height="40"><div><h1 class="h1">Podcasts</h1></div></div>
         <span class="mono muted small" data-el="count"></span>
       </div>
       <div class="promo">

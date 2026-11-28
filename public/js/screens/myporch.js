@@ -35,6 +35,7 @@ export async function render(view, _p, { go }) {
   mount(view, html`
     <section class="screen">
       <div class="top">
+        <img class="brand-ic" src="/img/app-icon-192.png" alt="" width="40" height="40">
         <div class="grow"><h1 class="h1">Mi porche</h1><div class="sub ellip"><span class="chip freq">${porch.freq.toFixed(1)}</span> ${porch.name}</div></div>
         <button class="icon-btn" data-act="share" aria-label="Compartir mi porche">${icon('share')}</button>
       </div>
@@ -75,15 +76,15 @@ export async function render(view, _p, { go }) {
         <div class="item rec-row" data-play="${r.id}">
           <div class="thumb-play"><img class="rec-thumb" src="${recordingThumb(r)}" alt=""><span class="pp" data-pp="${r.id}">${icon('play')}</span></div>
           <div class="grow">
-            <div class="t ellip">${r.title}${r.part > 1 ? ` · Parte ${r.part}` : ''}</div>
+            <div class="row gap-s"><div class="t ellip grow">${r.title}${r.part > 1 ? ` · Parte ${r.part}` : ''}</div><button class="mini-ic" data-det="${r.id}" aria-label="Cambiar título y foto">${icon('edit')}</button></div>
             <div class="m">${r.kind === 'draft' ? `Borrador · se borra en ${left(r)} días` : 'Privado'} · ${fmtDur(r.duration)} · ${fmtDate(r.created)}</div>
             ${r.duration < LIMITS.MIN_PUBLISH_MIN * 60 ? html`<div class="m orange-t">Menos de ${LIMITS.MIN_PUBLISH_MIN} min: no se puede publicar.</div>` : ''}
             <div class="prog" data-prog="${r.id}"><i></i></div>
-          </div>
-          <div class="col gap-s">
-            <a class="btn sm yellow" href="/editor/${r.id}">${icon('scissors')} Editar</a>
-            <button class="btn sm ghost" data-det="${r.id}">${icon('edit')} Título y foto</button>
-            <button class="btn sm ghost" data-del="${r.id}">${icon('trash')} Borrar</button>
+            <div class="rec-actions">
+              ${r.duration >= LIMITS.MIN_PUBLISH_MIN * 60 ? html`<a class="btn sm red" href="/editor/${r.id}?publicar=1">Publicar</a>` : ''}
+              <a class="btn sm yellow" href="/editor/${r.id}">${icon('scissors')} Recortar</a>
+              <button class="btn sm ghost" data-del="${r.id}" aria-label="Borrar">${icon('trash')}</button>
+            </div>
           </div>
         </div>`) : html`<div class="empty"><img src="/img/scenes/escena-2.webp" alt=""><p>Aún no hay grabaciones. Sal al aire en modo <b>Directo + grabación</b> y aparecerán aquí.</p></div>`}
     </div>`);

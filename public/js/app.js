@@ -7,7 +7,7 @@ import { live, onLive } from './live.js';
 import { player } from './screens/player.js';
 import { renderLegal } from './screens/legal.js';
 
-const view = document.getElementById('view');
+let view = document.getElementById('view');
 const tabbar = document.getElementById('tabbar');
 const mini = document.getElementById('mini');
 const app = document.getElementById('app');
@@ -49,6 +49,11 @@ async function route() {
   cleanup = null;
   if (!r) { go('/', { replace: true }); return; }
   const params = r.params || (path.match(r.re) || []).slice(1);
+  // Contenedor nuevo en cada pantalla: así no se acumulan escuchadores de toques
+  // (antes un toque podía ejecutarse dos veces, p. ej. crear dos códigos de vinculación).
+  const fresh = view.cloneNode(false);
+  view.replaceWith(fresh);
+  view = fresh;
   app.classList.toggle('immersive', !!r.immersive);
   currentTab = r.tab || '';
   paintTabbar();
@@ -103,7 +108,7 @@ function paintMini() {
     mount(mini, html`<img src="${porchCover(live.porch)}" alt=""><a class="grow" href="/porche/${live.porch.slug}"><div class="b ellip">${live.state.live ? live.state.title || live.porch.name : live.porch.name}</div><div class="muted tiny">${live.state.live ? 'En directo' : 'Esperando'} · ${live.porch.freq?.toFixed?.(1) || ''}${live.role === 'guest' ? ' · tienes micro' : ''}</div></a><button class="btn sm ghost" data-mini="stoplive" aria-label="Dejar de escuchar">${icon('close')}</button>`);
   } else if (player.p) {
     const p = player.p, a = player.audio;
-    mount(mini, html`<img src="${podcastCover(p)}" alt=""><a class="grow" href="/p/${p.id}"><div class="b ellip">${p.title}</div><div class="muted tiny ellip">${p.porchName}</div><div class="bar"><i></i></div></a><button class="play-dot" data-mini="toggle" aria-label="Play/pausa">${icon(a && !a.paused ? 'pause' : 'play')}</button>`);
+    mount(mini, html`<img src="${podcastCover(p)}" alt=""><a class="grow" href="/p/${p.id}"><div class="b ellip">${p.title}</div><div class="muted tiny ellip">${p.porchName}</div><div class="bar"><i></i></div></a><button class="play-dot" data-mini="toggle" aria-label="Play/pausa">${icon(a && !a.paused ? 'pause' : 'play')}</button><button class="mini-ic" data-mini="f30" aria-label="Adelante 30 segundos">${icon('fwd30')}</button>`);
     setPct(mini.querySelector('.bar'), '--p', a && a.duration ? (a.currentTime / a.duration) * 100 : 0);
   }
 }
@@ -111,6 +116,7 @@ mini.addEventListener('click', (e) => {
   const b = e.target.closest('[data-mini]');
   if (!b) return;
   if (b.dataset.mini === 'toggle') player.toggle();
+  if (b.dataset.mini === 'f30') player.skip(30);
   if (b.dataset.mini === 'stoplive') { if (live.role === 'guest') live.leaveMic(); live.disconnect(); paintMini(); }
 });
 let miniT = 0;

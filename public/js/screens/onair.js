@@ -10,23 +10,24 @@ export async function render(view, _p, { go }) {
   mount(view, html`
     <section class="screen">
       <div class="top">
-        <div><h1 class="h1">Directo</h1><div class="sub">${weekdayGreeting()}</div></div>
+        <div class="row gap-s"><img class="brand-ic" src="/img/app-icon-192.png" alt="" width="40" height="40"><div><h1 class="h1">Directo</h1><div class="sub">${weekdayGreeting()}</div></div></div>
         <div class="row gap-s">
           <a class="icon-btn" href="/podcasts?buscar=1" aria-label="Buscar">${icon('search')}</a>
           <button class="icon-btn bell" data-act="notices" aria-label="Avisos"><img src="/img/ui/nav-avisos.png" alt="" width="24" height="24"><span class="badge" data-el="badge" hidden></span></button>
         </div>
       </div>
-      <div class="stats">
-        <div class="card stat"><span class="big-num red-t" data-el="nlive">–</span><div class="lbl">porches en directo</div></div>
-        <div class="card stat"><span class="big-num" data-el="npod">–</span><div class="lbl">podcasts grabados</div></div>
-      </div>
+      <img class="home-logo" src="/img/logo-v2.webp" alt="Radio Porche" width="900" height="311">
       <article class="station" data-el="station"></article>
       <div class="dial-wrap">
-        <div class="dial" data-el="dial" role="slider" aria-label="Dial de radio" aria-valuemin="88" aria-valuemax="108" tabindex="0">
-          <div class="track" data-el="track"><div class="ticks"></div></div>
-          <div class="fade l"></div><div class="fade r"></div><div class="needle"></div>
+        <div class="dial-row">
+          <button class="dial-arrow" data-act="prev" aria-label="Emisora anterior">${icon('back')}</button>
+          <div class="dial" data-el="dial" role="slider" aria-label="Dial de radio" aria-valuemin="88" aria-valuemax="108" tabindex="0">
+            <div class="track" data-el="track"><div class="ticks"></div></div>
+            <div class="fade l"></div><div class="fade r"></div><div class="needle"></div>
+          </div>
+          <button class="dial-arrow next" data-act="next" aria-label="Emisora siguiente">${icon('back')}</button>
         </div>
-        <div class="dial-hint"><span aria-hidden="true">⟷</span> Desliza el dial para sintonizar</div>
+        <div class="dial-hint" data-el="hint">Cada porche tiene su frecuencia. Desliza el dial o usa las flechas.</div>
       </div>
       <div class="card tight next-card" data-el="next" hidden></div>
     </section>`);
@@ -162,6 +163,13 @@ export async function render(view, _p, { go }) {
   view.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-act]');
     if (!b) return;
+    if (b.dataset.act === 'prev' || b.dataset.act === 'next') {
+      if (stations.length < 2) { toast('De momento solo hay un porche en el dial. Cuando se abran más, aparecerán aquí.'); return; }
+      const i = stations.indexOf(current);
+      const n = stations[(i + (b.dataset.act === 'next' ? 1 : -1) + stations.length) % stations.length];
+      freq = n.freq; pos(); select(n); haptic(10);
+      return;
+    }
     if (b.dataset.act === 'notices') { (await import('./notices.js')).noticesSheet(go); return; }
     if (b.dataset.act === 'listen' && current) go(`/porche/${current.slug}`);
     if (b.dataset.act === 'tune') { const s = stations.find((x) => x.freq === Number(b.dataset.f)); if (s) { freq = s.freq; pos(); select(s); haptic(10); } }
@@ -180,15 +188,14 @@ export async function render(view, _p, { go }) {
 
   async function load() {
     try {
-      const [st, pr] = await Promise.all([api('/api/stats'), api('/api/porches')]);
-      $el('nlive').textContent = st.live;
-      $el('npod').textContent = st.podcasts.toLocaleString('es-ES');
+      const pr = await api('/api/porches');
       porches = pr.porches;
       // Con poca gente en directo también se ven los apagados (nunca vacío)
       stations = porches.filter((p) => p.live || p.nextShow || p.podcasts > 0 || p.owner === session.deviceId);
       if (stations.length < 4) stations = porches.slice();
       stations.sort((a, b) => a.freq - b.freq);
       paintStations();
+      $el('hint').textContent = stations.length > 1 ? `${stations.filter((s) => s.live).length} en directo · desliza el dial o usa las flechas` : 'Cuando se abran más porches, aparecerán en el dial.';
       if (!stations.length) {
         mount($el('station'), html`<img src="/img/scenes/escena-1.webp" alt=""><div class="inner"><span class="live-chip off">Silencio en el barrio</span><div><div class="ttl">Abre el primer porche</div><div class="row between gap"><div class="meta">Emite con tus amigos desde el móvil.</div><a class="btn red title" href="/mi-porche">Empezar</a></div></div></div>`);
         paintNext();

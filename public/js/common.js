@@ -1,7 +1,13 @@
 // Piezas compartidas: entrar con nombre, aceptar condiciones, reportar, bloquear, compartir.
 import { api, session, getConfig, turnstileWidget } from './api.js';
 import { LEGAL, LIMITS, NAME_PATTERN, REPORT_REASONS } from './config.js';
-import { html, sheet, toast, icon, esc } from './util.js';
+import { html, sheet, toast, icon, esc, initial, avatarColor } from './util.js';
+
+/** Avatar: su foto si la tiene, si no la inicial en un círculo de color. */
+export function avatar(p, cls = '') {
+  if (p && p.av && p.dev) return html`<img class="av ${cls}" src="/api/avatar/${p.dev}?v=${p.av}" alt="">`;
+  return html`<span class="av ${cls} ${avatarColor(p?.name)}">${initial(p?.name)}</span>`;
+}
 
 export function porchCover(p) {
   if (!p) return '/img/scenes/escena-1.webp';
@@ -141,14 +147,18 @@ export function recoverSheet() {
 export async function linkDeviceSheet() {
   let r;
   try { r = await api('/api/link/create', { method: 'POST', body: {} }); } catch (e) { toast(e.message, 'bad'); return; }
-  const s = sheet(html`
+  let s;
+  s = sheet(html`
     <h2 class="h2">Vincular otro aparato</h2>
     <p class="muted small">En el ordenador (o el otro móvil) abre <b>${location.host}</b>, ve a <b>Perfil → Ya tengo porche en otro aparato</b> y escribe:</p>
     <div class="link-code">${r.code}</div>
     <p class="muted tiny center" data-el="left"></p>
     <p class="muted tiny">Ese aparato será tú: podrá emitir, ser el estudio o controlar la cabina a distancia. El código sirve una sola vez y caduca en 10 minutos. No se lo des a nadie.</p>
-    <button class="btn ghost" data-close="">Hecho</button>`);
+    <div class="row gap"><button class="btn ghost grow" data-a="new">Código nuevo</button><button class="btn yellow grow" data-close="">Hecho</button></div>`);
   const left = s.el.querySelector('[data-el=left]');
+  s.el.querySelector('[data-a=new]').onclick = async () => {
+    try { r = await api('/api/link/create', { method: 'POST', body: {} }); s.el.querySelector('.link-code').textContent = r.code; toast('Código nuevo. El anterior ya no vale.'); } catch (e) { toast(e.message, 'bad'); }
+  };
   const iv = setInterval(() => {
     const ms = r.exp - Date.now();
     if (ms <= 0) { left.textContent = 'Caducado. Pide otro.'; clearInterval(iv); return; }

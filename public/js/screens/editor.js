@@ -10,7 +10,7 @@ import { requireIdentity } from '../common.js';
 import { db } from '../db.js';
 import { audioCtx } from '../audio/voice.js';
 import { renderSegments, mixToMono, encodeBest, canEncodeOpus } from '../audio/encode.js';
-import { composeCover, SCENES } from '../cover.js';
+import { composeCover, SCENES, shrinkPhoto } from '../cover.js';
 
 const SR = 24000; // suficiente para voz y música de fondo, y ligero en memoria
 
@@ -39,12 +39,17 @@ export function recordingDetailsSheet(rec) {
     onMount(a) {
       const prev = a.el.querySelector('[data-el=prev]');
       const refresh = async () => {
+        a.el.querySelectorAll('[data-sc]').forEach((b) => b.classList.toggle('on', !photo && Number(b.dataset.sc) === scene));
         const blob = await composeCover({ photo, scene, title: a.el.querySelector('[name=title]').value, date: rec.created });
         prev.src = URL.createObjectURL(blob);
       };
       refresh();
       a.el.querySelector('[name=title]').addEventListener('change', refresh);
-      a.el.querySelectorAll('[data-ph]').forEach((i) => (i.onchange = (e) => { if (e.target.files[0]) { photo = e.target.files[0]; refresh(); } }));
+      a.el.querySelectorAll('[data-ph]').forEach((i) => (i.onchange = async (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        try { photo = await shrinkPhoto(f, 1080); refresh(); toast(`Foto lista (${Math.round(photo.size / 1024)} KB)`); } catch { toast('No se ha podido leer la foto', 'bad'); }
+      }));
       a.el.addEventListener('click', async (e) => {
         const sc = e.target.closest('[data-sc]');
         if (sc) { scene = Number(sc.dataset.sc); photo = null; refresh(); return; }
@@ -425,5 +430,6 @@ export async function render(view, [id], { go }) {
     return s.done;
   }
   paint();
+  if (new URLSearchParams(location.search).get('publicar') === '1') setTimeout(() => view.querySelector('[data-act=publish]')?.click(), 200);
   return () => stopPlay();
 }

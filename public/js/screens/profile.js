@@ -4,6 +4,8 @@ import { LEGAL } from '../config.js';
 import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, initial, avatarColor, fmtBytes } from '../util.js';
 import { requireIdentity, recoveryLink, copy, recoverSheet, unblockAll, blockedList, linkDeviceSheet } from '../common.js';
 import { exportBackup, importBackup, wipeLocal, storageEstimate, requestPersist } from '../db.js';
+import { avatarBlob } from '../cover.js';
+import { avatar } from '../common.js';
 import { live } from '../live.js';
 
 export async function render(view, _p, { go }) {
@@ -11,13 +13,13 @@ export async function render(view, _p, { go }) {
   const est = await storageEstimate();
   mount(view, html`
     <section class="screen">
-      <div class="top"><div><h1 class="h1">Perfil</h1><div class="sub">Lo avanzado está aquí</div></div></div>
+      <div class="top"><div class="row gap-s"><img class="brand-ic" src="/img/app-icon-192.png" alt="" width="40" height="40"><div><h1 class="h1">Perfil</h1><div class="sub">Lo avanzado está aquí</div></div></div></div>
       <div class="fill scroll col gap">
         ${logged ? html`
           <div class="card row gap">
-            <span class="av ${avatarColor(session.name)}">${initial(session.name)}</span>
-            <div class="grow"><div class="b">${session.name}</div><div class="muted tiny">Identidad guardada en este dispositivo</div></div>
-            <button class="btn sm ghost" data-act="rename">${icon('edit')}</button>
+            <label class="avatar-edit" aria-label="Cambiar foto de perfil">${avatar({ name: session.name, dev: session.deviceId, av: session.get()?.avatar || 0 }, 'xl')}<span class="cam">${icon('camera')}</span><input type="file" accept="image/*" hidden data-act="avatar"></label>
+            <div class="grow"><div class="b">${session.name}</div><div class="muted tiny">Toca la foto para cambiarla. Se guarda muy reducida.</div></div>
+            <button class="btn sm ghost" data-act="rename" aria-label="Cambiar nombre">${icon('edit')}</button>
           </div>`
         : html`<div class="card col gap-s"><b>Aún no has entrado</b><p class="muted small">Puedes escuchar sin entrar. Para chatear, pedir micro o abrir tu porche, entra solo con un nombre.</p><button class="btn yellow" data-act="login">Entrar con mi nombre</button><button class="btn ghost" data-act="recover">Ya tengo porche en otro aparato</button></div>`}
 
@@ -109,6 +111,18 @@ export async function render(view, _p, { go }) {
       case 'help': helpSheet(); break;
     }
   });
+  const avIn = view.querySelector('[data-act=avatar]');
+  if (avIn) avIn.onchange = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      const blob = await avatarBlob(f);
+      const r = await api('/api/me/avatar', { method: 'POST', raw: blob });
+      session.update({ avatar: r.avatar });
+      toast(`Foto actualizada (${Math.round(blob.size / 1024)} KB)`, 'good');
+      go('/perfil', { replace: true });
+    } catch (err) { toast(err.message || 'No se ha podido subir la foto', 'bad'); }
+  };
   view.querySelector('[data-act=import]').onchange = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
