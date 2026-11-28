@@ -7,6 +7,16 @@ import { toast } from './util.js';
 
 const keyOf = (i) => i.origin + ':' + i.id;
 
+// Pre-escucha: un solo sonido a la vez, solo en este aparato. Tocar el mismo = parar.
+const pv = { src: null, key: null, subs: new Set() };
+const pvEmit = () => pv.subs.forEach((f) => f(pv.key));
+export function onPreview(fn) { pv.subs.add(fn); return () => pv.subs.delete(fn); }
+export function stopPreview() {
+  if (pv.src) { try { pv.src.onended = null; pv.src.stop(); } catch {} }
+  pv.src = null; pv.key = null; pvEmit();
+}
+export const previewKey = () => pv.key;
+
 export function makeCtl() {
   const R = () => live.role !== 'host';
   const S = () => live.remoteState || {};
@@ -18,14 +28,23 @@ export function makeCtl() {
       return (await live.loadItems()).map((i) => ({ key: keyOf(i), name: i.name, zone: i.zone, origin: i.origin, duration: i.duration, section: i.section || '', src: i.src || '' }));
     },
     fire(key, { loop } = {}) { R() ? live.ctl('fire', { key, loop }) : live.fireSound(key, { loop }); },
+    /** Escuchar un sonido solo tú. Devuelve true si empieza a sonar, false si se para. */
     async cue(item) {
-      if (!R()) return live.fireSound(item.key, { cue: true });
-      if (item.origin !== 'serie' || !item.src) { toast('Este sonido está solo en el estudio: no se puede pre-escuchar aquí.'); return; }
+      if (pv.key === item.key) { stopPreview(); return false; }
+      stopPreview();
+      let src;
+      if (!R()) { if (!live.items.length) await live.loadItems(); src = live.findItem(item.key); }
+      else if (item.origin === 'serie' && item.src) src = { origin: 'serie', id: item.key.split(':')[1], src: item.src };
+      if (!src) { toast('Este sonido está solo en el estudio: no se puede escuchar aquí.'); return false; }
       try {
         const c = audioCtx();
-        const buf = await decode({ origin: 'serie', id: item.key.split(':')[1], src: item.src });
-        const s = c.createBufferSource(); s.buffer = buf; s.connect(c.destination); s.start();
-      } catch {}
+        const buf = await decode(src);
+        const s = c.createBufferSource(); s.buffer = buf; s.connect(c.destination);
+        s.onended = () => { if (pv.src === s) { pv.src = null; pv.key = null; pvEmit(); } };
+        s.start();
+        pv.src = s; pv.key = item.key; pvEmit();
+        return true;
+      } catch { return false; }
     },
     stopMusic() { R() ? live.ctl('stopMusic') : live.mixer?.stopMusic(); },
     music() {

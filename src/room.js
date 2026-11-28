@@ -19,8 +19,9 @@ export class Room extends DurableObject {
     ctx.blockConcurrencyWhile(async () => {
       this.state = (await ctx.storage.get('state')) || {
         porchId: '', live: false, mode: '', title: '', since: 0, inviteKey: randomId(9), pinned: null,
-        paused: false, rec: false, part: 1, studio: null, hostGoneAt: 0,
+        paused: false, rec: false, part: 1, studio: null, hostGoneAt: 0, guests: {},
       };
+      if (!this.state.guests) this.state.guests = {};
     });
   }
 
@@ -151,6 +152,11 @@ export class Room extends DurableObject {
       if (h) studioBusy = true;
       else { a.role = 'host'; this.state.studio = cid; this.state.hostGoneAt = 0; await this.save(); }
     }
+    // ¿Ya tenía micro en este programa? (reconexión, cambio de app…) → lo recupera sin pedirlo otra vez
+    // (el anfitrión usa la misma identidad en varios aparatos: para él se recuerda por pestaña)
+    const gk = this.guestKey(a);
+    const prevGuest = gk && a.role !== 'host' ? this.state.guests[gk] : null;
+    if (prevGuest && this.counts().mics < LIMITS.ROOM_MAX_MICS) { a.role = 'guest'; a.mode = prevGuest.mode; a.hp = !!prevGuest.hp; studioBusy = false; }
     this.setAtt(server, a);
     this.send(server, {
       t: 'welcome', cid, role: a.role, isOwner: a.isOwner, isMod: a.isMod, invited: hasInvite,
@@ -158,6 +164,7 @@ export class Room extends DurableObject {
       inviteKey: a.isOwner ? this.state.inviteKey : undefined,
     });
     if (studioBusy) this.send(server, { t: 'studioBusy' });
+    if (a.role === 'guest') this.send(server, { t: 'granted', mode: a.mode, host: this.state.studio, rec: this.state.rec, restored: true });
     if (a.role === 'host') this.broadcast({ t: 'studio', cid, state: this.publicState() }, (x) => x.cid !== cid);
     if (a.name && a.role !== 'host' && this.state.live && !rejoin && !devAlready) this.system(`${a.name} se ha unido`);
     this.pushPeople();
@@ -227,6 +234,11 @@ export class Room extends DurableObject {
         a.lastMic = Date.now();
         a.micReq = { mode: msg.mode === 'patio' ? 'patio' : 'casa', hp: !!msg.hp, ts: Date.now() };
         this.setAtt(ws, a);
+        // Con enlace de invitación: entra directo al micro (sin esperar a "Dar paso")
+        if ((a.invited || a.isOwner) && this.counts().mics < LIMITS.ROOM_MAX_MICS) {
+          await this.makeGuest(ws, a);
+          return;
+        }
         const h = this.host();
         if (a.name && this.state.live) this.system(`${a.name} ha pedido micro`);
         this.pushPeople();
@@ -244,24 +256,21 @@ export class Room extends DurableObject {
         if (msg.t === 'deny') { t.micReq = null; this.setAtt(tw, t); this.send(tw, { t: 'denied' }); this.pushPeople(); return; }
         if (!t.micReq) return;
         if (this.counts().mics >= LIMITS.ROOM_MAX_MICS) return this.send(ws, { t: 'error', code: 'mics', msg: `Máximo ${LIMITS.ROOM_MAX_MICS} micros a la vez` });
-        t.role = 'guest'; t.mode = t.micReq.mode; t.hp = t.micReq.hp; t.micReq = null; t.muted = false;
-        this.setAtt(tw, t);
-        this.send(tw, { t: 'granted', mode: t.mode, host: this.state.studio, rec: this.state.rec });
-        this.pushPeople();
+        await this.makeGuest(tw, t);
         return;
       }
       case 'ownerGuest': {
         // El móvil del anfitrión entra como micro en modo Patio mientras otro dispositivo es el estudio.
         if (!a.isOwner || isHost) return;
         if (this.counts().mics >= LIMITS.ROOM_MAX_MICS) return;
-        a.role = 'guest'; a.mode = 'patio'; a.hp = !!msg.hp; this.setAtt(ws, a);
-        this.send(ws, { t: 'granted', mode: 'patio', host: this.state.studio, rec: this.state.rec });
-        this.pushPeople();
+        a.micReq = { mode: 'patio', hp: !!msg.hp };
+        await this.makeGuest(ws, a);
         return;
       }
       case 'leaveMic': {
         if (a.role !== 'guest') return;
         a.role = 'listener'; a.mode = ''; this.setAtt(ws, a);
+        if (this.guestKey(a)) { delete this.state.guests[this.guestKey(a)]; await this.save(); }
         const h = this.host();
         if (h) this.send(h, { t: 'peerLeft', cid: a.cid });
         this.pushPeople();
@@ -287,6 +296,7 @@ export class Room extends DurableObject {
         const t = this.att(tw);
         if (t.role === 'host' || t.isOwner) return;
         if (t.isMod && !isHost) return;
+        if (this.guestKey(t)) { delete this.state.guests[this.guestKey(t)]; await this.save(); }
         const canBan = isHost || a.isOwner;
         this.send(tw, { t: 'kicked', ban: !!msg.ban && canBan });
         if (msg.ban && canBan && t.dev) {
@@ -393,9 +403,21 @@ export class Room extends DurableObject {
     }
   }
 
+  guestKey(a) { return a.isOwner ? (a.tab ? `t:${a.tab}` : '') : a.dev || ''; }
+
+  /** Dar micro a una conexión y recordarlo para el resto del programa. */
+  async makeGuest(ws, t) {
+    t.role = 'guest'; t.mode = t.micReq?.mode || 'casa'; t.hp = !!t.micReq?.hp; t.micReq = null; t.muted = false;
+    this.setAtt(ws, t);
+    const gk = this.guestKey(t);
+    if (gk) { this.state.guests[gk] = { mode: t.mode, hp: t.hp }; await this.save(); }
+    this.send(ws, { t: 'granted', mode: t.mode, host: this.state.studio, rec: this.state.rec });
+    this.pushPeople();
+  }
+
   async endLive(text) {
     this.state.live = false; this.state.mode = ''; this.state.rec = false; this.state.title = ''; this.state.pinned = null;
-    this.state.paused = false; this.state.since = 0; this.state.hostGoneAt = 0;
+    this.state.paused = false; this.state.since = 0; this.state.hostGoneAt = 0; this.state.guests = {};
     await this.save();
     this.backlog = []; // el chat no se guarda tras cerrar
     for (const w of this.sockets()) {

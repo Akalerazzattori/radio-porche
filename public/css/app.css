@@ -794,3 +794,12 @@ img.av { object-fit: cover; background: var(--panel2); }
 /* Logo de cabecera más pequeño */
 .brand-wm { height: 30px; }
 @media (max-width: 370px) { .brand-wm { height: 26px; } }
+
+/* Camerino: probar micro a todo lo ancho; cintas con play/pausa */
+.btn.full { width: 100%; }
+.row.two > label { justify-content: flex-start; }
+.tape-card { position: relative; }
+.tape-pp { position: absolute; right: 6px; bottom: 6px; width: 26px; height: 26px; border-radius: 50%; background: var(--cream); color: var(--ink); display: grid; place-items: center; border: 2px solid var(--edge); }
+.tape-pp .ic { width: 12px; height: 12px; }
+.tape-card.playing { transform: translateY(-3px); filter: drop-shadow(0 0 8px rgba(255,199,44,.7)); }
+.tape-card.playing .tape-pp { background: var(--yellow); }

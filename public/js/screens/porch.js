@@ -8,7 +8,7 @@ import { live, onLive } from '../live.js';
 import { meterHtml, setMeter, audioCtx } from '../audio/voice.js';
 import { loadAll, decode } from '../audio/sounds.js';
 import { getSetting, setSetting } from '../db.js';
-import { makeCtl } from '../cabina-ctl.js';
+import { makeCtl, onPreview, stopPreview, previewKey } from '../cabina-ctl.js';
 import { myPrograms, programSheet, programPickerHtml } from '../programs.js';
 
 export async function render(view, [slug], ctx) {
@@ -388,7 +388,7 @@ function buildGreenRoom(view, porch, ctx) {
     <section class="screen">
       <div class="top">
         <button class="btn sm ghost" data-act="x" aria-label="Volver">${icon('back')} Volver</button>
-        <div class="grow right"><h1 class="h1">Estudio</h1><div class="sub ellip">Antes de salir al aire · <span class="mono">${porch.freq.toFixed(1)}</span></div></div>
+        <div class="grow right"><h1 class="h1">Camerino</h1><div class="sub ellip">Antes de salir al aire · <span class="mono">${porch.freq.toFixed(1)}</span></div></div>
       </div>
       <div data-el="role">${roleBadge()}</div>
       ${remote ? remoteBanner() : ''}
@@ -399,10 +399,10 @@ function buildGreenRoom(view, porch, ctx) {
           <div class="row between"><b>1 · Prueba tu voz</b><span class="muted small" data-el="probe">Toca «Probar micro»</span></div>
           ${raw(meterHtml())}
           <div data-el="voice"></div>
-          <div class="row gap wrap">
-            <button class="btn sm yellow pulse-hint" data-act="startmic">${icon('mic')} Probar micro</button>
-            <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="hp" ${headphones ? 'checked' : ''}><span></span></span> Llevo cascos</label>
-            <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="monitor"><span></span></span> Oírme</label>
+          <button class="btn yellow pulse-hint full" data-act="startmic">${icon('mic')} Probar micro</button>
+          <div class="row gap two">
+            <label class="row gap-s small grow"><span class="switch"><input type="checkbox" data-act="monitor"><span></span></span> Oírme</label>
+            <label class="row gap-s small grow"><span class="switch"><input type="checkbox" data-act="hp" ${headphones ? 'checked' : ''}><span></span></span> Llevo cascos</label>
           </div>
           <div class="muted tiny">«Oírme» viene apagado: con Bluetooth hay unas décimas de retraso. Con cascos de cable suena sin retraso.</div>
         </div>`}
@@ -454,6 +454,8 @@ function buildGreenRoom(view, porch, ctx) {
     $el('progs').querySelectorAll('[data-prog]').forEach((x) => x.classList.toggle('on', x === b));
   });
   let allItems = [];
+  const paintTapes = () => view.querySelectorAll('[data-tape]').forEach((el) => { const on = el.dataset.tape === previewKey(); el.classList.toggle('playing', on); mount(el.querySelector('.tape-pp'), icon(on ? 'pause' : 'play')); });
+  const offPv = onPreview(() => { paintTapes(); document.querySelectorAll('[data-prev]').forEach((el) => mount(el, icon(el.dataset.prev === previewKey() ? 'pause' : 'play'))); });
   let introKey = localStorage.getItem('rp_intro') || '';
   const paintIntro = () => { const it = allItems.find((x) => x.key === introKey); $el('introlbl').textContent = it ? it.name : 'Nada (sales en silencio)'; };
   ctl.sounds().then((items) => {
@@ -461,7 +463,8 @@ function buildGreenRoom(view, porch, ctx) {
     $el('ncortes').textContent = SOUND_TABS.map((t) => `${n(t.zones)} ${t.label.toLowerCase()}`).join(' · ');
     allItems = items;
     const pick = [...items.filter((i) => i.zone === 'jingle'), ...items.filter((i) => i.zone === 'fx'), ...items.filter((i) => i.zone !== 'jingle' && i.zone !== 'fx')];
-    mount($el('tapes'), html`${pick.map((it, i) => html`<button class="tape-card" data-tape="${it.key}" aria-label="Escuchar ${it.name}"><img src="/img/cassettes/cassette-${(i % 6) + 1}.webp" alt="" width="138" height="82"><span class="tape-label">${it.name}</span></button>`)}`);
+    mount($el('tapes'), html`${pick.map((it, i) => html`<button class="tape-card" data-tape="${it.key}" aria-label="Escuchar o parar ${it.name}"><img src="/img/cassettes/cassette-${(i % 6) + 1}.webp" alt="" width="138" height="82"><span class="tape-label">${it.name}</span><span class="tape-pp">${icon('play')}</span></button>`)}`);
+    paintTapes();
     paintIntro();
   });
 
@@ -512,6 +515,7 @@ function buildGreenRoom(view, porch, ctx) {
   ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => hold.addEventListener(ev, () => { if (holdStart) cancel(); }));
   hold.addEventListener('contextmenu', (e) => e.preventDefault());
   function done() {
+    stopPreview();
     cancelAnimationFrame(holdRaf); holdStart = 0; hold.classList.remove('pressing');
     const title = $el('title').value.trim();
     localStorage.setItem('rp_lasttitle', title);
@@ -526,7 +530,7 @@ function buildGreenRoom(view, porch, ctx) {
     const g = e.target.closest('[data-grant]');
     if (g) { live.send({ t: 'grant', cid: g.dataset.grant }); return; }
     const tp = e.target.closest('[data-tape]');
-    if (tp) { const it = allItems.find((x) => x.key === tp.dataset.tape); if (it) { ctl.cue(it); toast(`Escuchando «${it.name}» (solo tú)`); } return; }
+    if (tp) { const it = allItems.find((x) => x.key === tp.dataset.tape); if (it) ctl.cue(it); return; }
     const b = e.target.closest('[data-act]');
     if (!b) return;
     if (b.dataset.act === 'startmic') startMic();
@@ -537,6 +541,7 @@ function buildGreenRoom(view, porch, ctx) {
         ${opts.map((x) => html`<div class="row gap"><button class="opt grow ${x.key === introKey ? 'yellow-t' : ''}" data-close="${x.key}">${x.key === introKey ? '✓ ' : ''}${x.name} <span class="muted small">· ${ZONES[x.zone]?.label || ''}</span></button><button class="mini-ic" data-prev="${x.key}" aria-label="Escuchar">${icon('play')}</button></div>`)}`, {
         onMount(a) { a.el.addEventListener('click', (ev) => { const pv = ev.target.closest('[data-prev]'); if (pv) { ev.stopPropagation(); const it = allItems.find((y) => y.key === pv.dataset.prev); if (it) ctl.cue(it); } }); },
       }).done;
+      stopPreview();
       if (v) { introKey = v === '__none' ? '' : v; localStorage.setItem('rp_intro', introKey); paintIntro(); }
     }
     if (b.dataset.act === 'invite') inviteSheet(porch);
@@ -551,16 +556,16 @@ function buildGreenRoom(view, porch, ctx) {
     if (e.target.matches('[data-act=monitor]')) live.voice?.setMonitor(e.target.checked);
     if (e.target.matches('[data-act=hearhere]')) live.setHearHere(e.target.checked);
   });
-  const offs = [onLive('update', paint), onLive('remote', paint)];
+  const offs = [onLive('update', paint), onLive('remote', paint), offPv];
   paint();
-  return () => { offs.forEach((f) => f()); cancelAnimationFrame(raf); cancelAnimationFrame(holdRaf); };
+  return () => { stopPreview(); offs.forEach((f) => f()); cancelAnimationFrame(raf); cancelAnimationFrame(holdRaf); };
 }
 
 function inviteSheet(porch) {
   const link = `${location.origin}/porche/${porch.slug}?i=${encodeURIComponent(live.inviteKey)}&micro=1`;
   sheet(html`
     <h2 class="h2">Invitar al micro</h2>
-    <p class="muted small">Manda este enlace a quien quieras en el programa (sirve también para los ensayos privados). Al abrirlo podrá pedir micro y elegir <b>Patio</b> (está contigo) o <b>Casa</b> (desde su casa, con cascos). Tú le das paso.</p>
+    <p class="muted small">Manda este enlace a quien quieras en el programa (también sirve para los ensayos privados). Al abrirlo elige <b>Patio</b> (está contigo) o <b>Casa</b> (desde su casa, con cascos) y <b>entra directo al micro</b>, sin que tengas que darle paso. Si se le corta o cambia de app, vuelve a entrar solo. El enlace sirve para todo el programa y para los siguientes, hasta que lo cambies.</p>
     <div class="card mono tiny ellip">${link}</div>
     <button class="btn yellow" data-a="share">${icon('share')} Enviar enlace</button>
     ${live.role === 'host' ? html`<button class="btn ghost" data-a="rotate">Cambiar enlace (anula el anterior)</button>` : ''}`, {
@@ -788,7 +793,7 @@ function buildBooth(view, porch, ctx) {
     const it = items.find((i) => i.key === key);
     if (!it) return;
     haptic(8);
-    if (cue) { ctl.cue(it); toast(`Pre-escucha: ${it.name} (solo en tus cascos)`); return; }
+    if (cue) { ctl.cue(it).then((on) => { if (on) toast(`Pre-escucha: ${it.name} (solo tú). Toca otra vez para parar.`); }); return; }
     ctl.fire(key, { loop: it.zone === 'bg' ? true : it.zone === 'song' ? false : undefined });
     setTimeout(() => soundsPanel.repaint?.(), remote ? 900 : 80);
   }
@@ -912,5 +917,5 @@ function buildBooth(view, porch, ctx) {
     }),
   ];
   header(); reqs(); showTab('voces');
-  return () => { clearInterval(clockIv); cancelAnimationFrame(raf); panelCleanup?.(); offs.forEach((f) => f()); };
+  return () => { stopPreview(); clearInterval(clockIv); cancelAnimationFrame(raf); panelCleanup?.(); offs.forEach((f) => f()); };
 }

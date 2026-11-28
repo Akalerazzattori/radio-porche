@@ -154,7 +154,13 @@ export const live = {
       case 'invite': this.inviteKey = m.key; emit('update'); break;
       case 'ctl': if (this.role === 'host') this.runCtl(m.cmd, m.args || {}); break;
       case 'studioState': this.remoteState = m.s; emit('remote'); break;
-      case 'studioSounds': this.remoteSounds = Array.isArray(m.s) ? m.s : []; emit('remote'); break;
+      case 'studioSounds': {
+        const s = m.s || {};
+        if (s.part === 0) this._snd = [];
+        this._snd = (this._snd || []).concat(Array.isArray(s.items) ? s.items : []);
+        if (s.part === s.total - 1) { this.remoteSounds = this._snd; emit('remote'); }
+        break;
+      }
     }
   },
 
@@ -194,6 +200,7 @@ export const live = {
   cancelMic() { this.send({ t: 'micCancel' }); },
   async onGranted(mode) {
     this.guestMode = mode;
+    if (this.guestVoice && this.role === 'guest') { this.peer?.close(); this.peer?.setMic(this.guestVoice.track); this.want(); emit('update'); return; }
     try {
       const v = new Voice();
       await v.start({ headphones: this.guestHp !== false });
@@ -280,8 +287,9 @@ export const live = {
     const m = this.mixer;
     if (!this.soundsSent && this.items.length) {
       this.soundsSent = true;
-      const list = this.items.slice(0, 80).map((i) => ({ key: i.origin + ':' + i.id, name: i.name, zone: i.zone, origin: i.origin, duration: i.duration, section: i.section || '', src: i.src || '' }));
-      this.send({ t: 'studioSounds', s: list });
+      const list = this.items.slice(0, 200).map((i) => ({ key: (i.origin + ':' + i.id).slice(0, 60), name: String(i.name).slice(0, 40), zone: i.zone, origin: i.origin, duration: i.duration, section: String(i.section || '').slice(0, 40), src: String(i.src || '').slice(0, 120) }));
+      const total = Math.max(1, Math.ceil(list.length / 15));
+      for (let k = 0; k < total; k++) this.send({ t: 'studioSounds', s: { part: k, total, items: list.slice(k * 15, k * 15 + 15) } });
     }
     const levels = {}, gains = {}, names = {};
     for (const [id, v] of m.voices) { levels[id] = Math.round(m.voiceLevel(id) * 100) / 100; gains[id] = Math.round(v.gain.gain.value * 100) / 100; names[id] = v.name || ''; }
