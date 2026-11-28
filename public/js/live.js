@@ -60,7 +60,7 @@ export const live = {
   // cliente
   peer: null, audio: null, guestMode: '', guestVoice: null, mutedByHost: false, linkState: '',
   // mando a distancia (otro aparato del anfitrión)
-  remote: false, remoteState: null, remoteSounds: [], hearHere: true,
+  remote: false, remoteState: null, remoteSounds: [], hearHere: true, soundsSentTo: new Set(),
   // sonidos del estudio
   items: [], fxPlaying: new Map(),
 
@@ -136,7 +136,7 @@ export const live = {
         if (['blocked', 'banned', 'full', 'ip', 'private', 'noporch'].includes(m.code)) { this.fatal = m; this.closedByUser = true; emit('update'); }
         break;
       case 'info': toast(m.msg); break;
-      case 'people': this.people = m.people; this.counts = { listeners: m.listeners, mics: m.mics }; emit('update'); break;
+      case 'people': this.people = m.people; this.counts = { listeners: m.listeners, mics: m.mics }; this.guardEcho(); emit('update'); break;
       case 'state': this.state = m.state; emit('update'); break;
       case 'chat': this.chat.push(m.m); if (this.chat.length > 200) this.chat.shift(); emit('chat', m.m); break;
       case 'react': emit('react', m.e); break;
@@ -307,6 +307,14 @@ export const live = {
     return [...seen.values()];
   },
   takeStudio() { this.send({ t: 'takeStudio' }); },
+  /** Si otro aparato tuyo hace de micro, el que emite deja de sonar: escuchas en el que tiene el micro.
+   *  Así tu voz no sale por un altavoz y vuelve a entrar (eco que se repite). */
+  guardEcho() {
+    if (this.role !== 'host' || !this.mixer) return;
+    const otherMic = this.people.some((p) => p.owner && p.cid !== this.cid && p.role === 'guest');
+    if (otherMic && !this._otherMic && this.mixer.monitorOn) { this.mixer.setMonitor(false); toast('Escuchas en el aparato del micro. Este deja de sonar para que no haya eco.'); }
+    this._otherMic = otherMic;
+  },
 
   // ================= ESTUDIO
   async setupStudio() {
@@ -323,7 +331,9 @@ export const live = {
       onState: () => emit('update'),
     });
     if (this.voice) this.mixer.addVoice('me', { node: this.voice.node, local: true, name: session.name });
+    this._otherMic = false;
     this.mixer.setMonitor(localStorage.getItem('rp_hp') !== '0');
+    this.guardEcho();
     if (this.state.live) this.mixer.setOnAir(!this.state.paused);
     keepAwake(true);
     this.remote = false;
@@ -335,8 +345,7 @@ export const live = {
 
   // ---------- Sonidos del estudio (los usa la cabina local y el mando a distancia)
   async loadItems(force = false) {
-    if (!this.items.length || force) this.items = await loadAll();
-    this.soundsSent = false;
+    if (!this.items.length || force) { this.items = await loadAll(); this.soundsSentTo = new Set(); }
     return this.items;
   },
   findItem(key) { return this.items.find((i) => i.origin + ':' + i.id === key); },
@@ -363,8 +372,9 @@ export const live = {
   pushStudioState() {
     if (this.role !== 'host' || !this.mixer || !this.hasRemote()) return;
     const m = this.mixer;
-    if (!this.soundsSent && this.items.length) {
-      this.soundsSent = true;
+    const owners = this.people.filter((p) => p.owner && p.cid !== this.cid).map((p) => p.cid);
+    if (this.items.length && owners.some((c) => !this.soundsSentTo.has(c))) {
+      owners.forEach((c) => this.soundsSentTo.add(c));
       const list = this.items.slice(0, 200).map((i) => ({ key: (i.origin + ':' + i.id).slice(0, 60), name: String(i.name).slice(0, 40), zone: i.zone, origin: i.origin, duration: i.duration, section: String(i.section || '').slice(0, 40), src: String(i.src || '').slice(0, 120) }));
       const total = Math.max(1, Math.ceil(list.length / 15));
       for (let k = 0; k < total; k++) this.send({ t: 'studioSounds', s: { part: k, total, items: list.slice(k * 15, k * 15 + 15) } });

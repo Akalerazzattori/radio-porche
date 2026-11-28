@@ -465,7 +465,10 @@ function buildGreenRoom(view, porch, ctx) {
   const offPv = onPreview(() => { paintTapes(); document.querySelectorAll('[data-prev]').forEach((el) => mount(el, icon(el.dataset.prev === previewKey() ? 'pause' : 'play'))); });
   let introKey = localStorage.getItem('rp_intro') || '';
   const paintIntro = () => { const it = allItems.find((x) => x.key === introKey); $el('introlbl').textContent = it ? it.name : 'Nada (sales en silencio)'; };
-  ctl.sounds().then((items) => {
+  let lastSoundsN = -1;
+  const loadSounds = () => ctl.sounds().then((items) => {
+    if (items.length === lastSoundsN) return;
+    lastSoundsN = items.length;
     const n = (zs) => items.filter((i) => zs.includes(i.zone)).length;
     $el('ncortes').textContent = SOUND_TABS.map((t) => `${n(t.zones)} ${t.label.toLowerCase()}`).join(' · ');
     allItems = items;
@@ -474,6 +477,7 @@ function buildGreenRoom(view, porch, ctx) {
     paintTapes();
     paintIntro();
   });
+  loadSounds();
 
   async function startMic() {
     try {
@@ -567,7 +571,7 @@ function buildGreenRoom(view, porch, ctx) {
     if (e.target.matches('[data-act=michere]')) live.setMicHere(e.target.checked).catch(() => toast('No se ha podido abrir el micro', 'bad'));
     if (e.target.matches('[data-act=listenhere]')) live.setListenHere(e.target.checked);
   });
-  const offs = [onLive('update', paint), onLive('remote', paint), offPv];
+  const offs = [onLive('update', paint), onLive('remote', () => { paint(); loadSounds(); }), offPv];
   paint();
   return () => { stopPreview(); offs.forEach((f) => f()); cancelAnimationFrame(raf); cancelAnimationFrame(holdRaf); };
 }
