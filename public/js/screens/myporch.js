@@ -267,7 +267,7 @@ export async function render(view, _p, { go }) {
     const s = sheet(html`
       <h2 class="h2">Editar episodio</h2>
       <div class="h3">Portada</div>
-      <div class="row gap"><img class="ep-cover" data-el="cprev" src="${podcastCover(p)}" alt=""><div class="col gap-s grow"><label class="btn sm yellow">${icon('camera')} Subir una foto<input type="file" accept="image/*" hidden data-el="cfile"></label><div class="muted tiny">O elige una ilustración:</div></div></div>
+      <div class="row gap"><img class="ep-cover" data-el="cprev" src="${podcastCover(p)}" alt=""><div class="col gap-s grow"><button class="btn sm yellow" data-pc>${icon('radio')} Foto del programa</button><label class="btn sm ghost">${icon('camera')} Subir una foto<input type="file" accept="image/*" hidden data-el="cfile"></label><div class="muted tiny">O elige una ilustración:</div></div></div>
       <div class="scene-pick">${SCENES.map((u, i) => html`<button data-sc="${i + 1}" class="${!p.hasCover && (p.scene || 1) === i + 1 ? 'on' : ''}" aria-label="Ilustración ${i + 1}"><img src="${u}" alt=""></button>`)}</div>
       <label class="field">Título<input class="input" name="title" maxlength="${LIMITS.TITLE_MAX}" value="${p.title}"></label>
       <label class="field">Descripción<textarea class="input" name="desc" maxlength="${LIMITS.DESC_MAX}" rows="3">${p.description}</textarea></label>
@@ -284,14 +284,24 @@ export async function render(view, _p, { go }) {
         const setPrev = (blob) => { a.el.querySelector('[data-el=cprev]').src = URL.createObjectURL(blob); };
         a.el.querySelector('[data-el=cfile]').onchange = async (ev) => {
           const f = ev.target.files[0]; if (!f) return;
-          try { const photo = await shrinkPhoto(f, 1400); const blob = await composeCover({ photo, scene: p.scene || 1, title: titleOf(), date: p.created }); newCover = { blob }; setPrev(blob); a.el.querySelectorAll('[data-sc]').forEach((x) => x.classList.remove('on')); } catch (err) { toast(err.message || 'No se ha podido usar esa foto', 'bad'); }
+          try { const photo = await shrinkPhoto(f, 1400); const blob = await composeCover({ photo, scene: p.scene || 1, title: titleOf(), date: p.created, kicker: p.programName ? `${p.programName}${p.episode ? ` · Episodio ${p.episode}` : ''}` : '' }); newCover = { blob }; setPrev(blob); a.el.querySelectorAll('[data-sc]').forEach((x) => x.classList.remove('on')); } catch (err) { toast(err.message || 'No se ha podido usar esa foto', 'bad'); }
         };
         a.el.addEventListener('click', async (e) => {
+          if (e.target.closest('[data-pc]')) {
+            const pr = programs.find((x) => x.id === programId);
+            if (!pr) return toast('Elige primero el programa (abajo)', 'bad');
+            let photo = null;
+            if (pr.hasCover) { try { photo = await (await fetch(programCover(pr))).blob(); } catch {} }
+            const blob = await composeCover({ photo, scene: pr.scene || 1, title: titleOf(), date: p.created, kicker: `${pr.name}${p.episode ? ` · Episodio ${p.episode}` : ''}` });
+            newCover = { blob, scene: photo ? 0 : pr.scene || 1 }; if (!photo) newCover.scene = pr.scene || 1; else delete newCover.scene;
+            setPrev(blob); a.el.querySelectorAll('[data-sc]').forEach((x) => x.classList.remove('on'));
+            return;
+          }
           const sc = e.target.closest('[data-sc]');
           if (sc) {
             const n = Number(sc.dataset.sc);
             a.el.querySelectorAll('[data-sc]').forEach((x) => x.classList.toggle('on', x === sc));
-            const blob = await composeCover({ scene: n, title: titleOf(), date: p.created });
+            const blob = await composeCover({ scene: n, title: titleOf(), date: p.created, kicker: p.programName ? `${p.programName}${p.episode ? ` · Episodio ${p.episode}` : ''}` : '' });
             newCover = { blob, scene: n }; setPrev(blob); return;
           }
           const pg = e.target.closest('[data-prog]');

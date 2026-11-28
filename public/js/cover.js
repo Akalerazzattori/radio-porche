@@ -21,7 +21,8 @@ function wrap(ctx, text, maxW) {
 }
 
 /** Devuelve un Blob JPEG/WebP ≤ 500 KB. */
-export async function composeCover({ photo, scene = 1, title = '', date = Date.now(), label = '' }) {
+/** Portada: foto (o ilustración) + fecha arriba + programa y episodio (kicker) + título del episodio grande. */
+export async function composeCover({ photo, scene = 1, title = '', date = Date.now(), label = '', kicker = '' }) {
   await Promise.all([document.fonts.load('120px Anton'), document.fonts.load('bold 40px "Space Mono"')]).catch(() => {});
   const S = 1080;
   const c = document.createElement('canvas');
@@ -56,6 +57,15 @@ export async function composeCover({ photo, scene = 1, title = '', date = Date.n
   const lh = size * 1.0;
   let y = S - 70 - (lines.length - 1) * lh;
   x.textBaseline = 'alphabetic';
+  // Programa · Episodio N, justo encima del título (lo que se mantiene en todos los episodios)
+  if (kicker) {
+    let ks = 44; x.font = `bold ${ks}px "Space Mono", monospace`;
+    const k = kicker.toUpperCase();
+    while (x.measureText(k).width > S - 120 && ks > 26) { ks -= 2; x.font = `bold ${ks}px "Space Mono", monospace`; }
+    const ky = y - size * 0.95 - 18;
+    x.fillStyle = '#120d0c'; x.fillText(k, 63, ky + 4);
+    x.fillStyle = '#ffc72c'; x.fillText(k, 60, ky);
+  }
   for (const l of lines) {
     x.fillStyle = '#120d0c'; x.fillText(l, 66, y + 7);
     x.fillStyle = '#fbeee0'; x.fillText(l, 60, y);

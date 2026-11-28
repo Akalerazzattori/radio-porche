@@ -12,7 +12,7 @@ import { sendDelete, pickup } from '../inbox.js';
 import { audioCtx } from '../audio/voice.js';
 import { renderSegments, mixToMono, encodeBest, canEncodeOpus } from '../audio/encode.js';
 import { composeCover, SCENES, shrinkPhoto } from '../cover.js';
-import { myPrograms, programSheet, programPickerHtml } from '../programs.js';
+import { myPrograms, programSheet, programPickerHtml, programCover } from '../programs.js';
 
 const SR = 24000; // suficiente para voz y música de fondo, y ligero en memoria
 
@@ -409,11 +409,22 @@ export async function render(view, [id], { go }) {
           const b = e.target.closest('[data-prog]');
           if (!b) return;
           if (b.dataset.prog === '__new') { const p = await programSheet(); if (p && typeof p === 'object') { programs = await myPrograms(true); programId = p.id; paintProgs(); } return; }
-          programId = b.dataset.prog; paintProgs();
+          programId = b.dataset.prog; paintProgs(); refresh();
         });
         a.publishProgram = () => programId;
         const prev = a.el.querySelector('[data-el=prev]');
-        const refresh = async () => { prev.src = URL.createObjectURL(await composeCover({ photo: rec.photo, scene: rec.scene || 1, title: rec.title, date: rec.created })); };
+        // Portada del episodio: la foto del PROGRAMA (si la grabación no tiene foto propia), «Programa · Episodio N» y el título del episodio
+        const progPhoto = new Map();
+        const coverFor = async () => {
+          const p = programs.find((x) => x.id === programId);
+          let photo = rec.photo || null;
+          if (!photo && p?.hasCover) {
+            if (!progPhoto.has(p.id)) { try { progPhoto.set(p.id, await (await fetch(programCover(p))).blob()); } catch { progPhoto.set(p.id, null); } }
+            photo = progPhoto.get(p.id);
+          }
+          return composeCover({ photo, scene: p && !rec.photo ? p.scene || rec.scene || 1 : rec.scene || 1, title: rec.title, date: rec.created, kicker: p ? `${p.name} · Episodio ${(p.lastEpisode || 0) + 1}` : '' });
+        };
+        const refresh = async () => { prev.src = URL.createObjectURL(await coverFor()); };
         refresh();
         a.el.addEventListener('click', async (e) => {
           if (e.target.closest('[data-a=details]')) { await recordingDetailsSheet(rec); $el('title').textContent = `${rec.title} ✎`; a.el.querySelector('b.ellip').textContent = rec.title; refresh(); return; }
@@ -426,7 +437,7 @@ export async function render(view, [id], { go }) {
             const r = await rendered((k) => ps.set(k * 0.8, 'Comprimiendo el audio en tu móvil…'));
             if (r.blob.size > LIMITS.MAX_UPLOAD_BYTES) throw new Error('El audio pesa demasiado. Recórtalo un poco.');
             ps.set(0.85, 'Creando la portada…');
-            const cover = await composeCover({ photo: rec.photo, scene: rec.scene || 1, title: rec.title, date: rec.created });
+            const cover = await coverFor();
             ps.set(0.9, 'Subiendo…');
             const fd = new FormData();
             fd.append('meta', JSON.stringify({ title: rec.title, description: rec.description || '', chapters: finalChapters(), part: rec.part || 1, series: rec.series || '', scene: rec.scene || 1, programId: a.publishProgram?.() || '', clipOf: rec.clipOf || '' }));
