@@ -223,19 +223,6 @@ export class Mixer {
   }
 
   // ---------- Pestaña con audio (solo ordenador con Chrome)
-  async shareTab() {
-    const ds = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, preferCurrentTab: false, selfBrowserSurface: 'exclude', systemAudio: 'include' });
-    const at = ds.getAudioTracks()[0];
-    ds.getVideoTracks().forEach((t) => t.stop());
-    if (!at) throw new Error('Marca "Compartir audio de la pestaña" al elegir la pestaña');
-    this.stopTab();
-    const s = new MediaStream([at]);
-    this.tabSrc = this.ctx.createMediaStreamSource(s);
-    this.tabSrc.connect(this.tabBus);
-    this.tabTrack = at;
-    at.onended = () => this.stopTab();
-    return true;
-  }
   stopTab() {
     try { this.tabSrc?.disconnect(); this.tabTrack?.stop(); } catch {}
     this.tabSrc = null; this.tabTrack = null;

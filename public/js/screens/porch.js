@@ -2,7 +2,7 @@
 // Camerino (antes de salir) y Cabina (en directo) para quien presenta.
 import { api, session } from '../api.js';
 import { LIMITS, VOICE_FX, BROADCAST_MODES, QUICK_REACTIONS, SOUND_TABS } from '../config.js';
-import { html, mount, icon, raw, toast, sheet, confirmSheet, fmtTime, fmtShortDur, fmtDate, haptic, canShareTab, setPct, esc, on } from '../util.js';
+import { html, mount, icon, raw, toast, sheet, confirmSheet, fmtTime, fmtShortDur, fmtDate, haptic, setPct, esc, on } from '../util.js';
 import { porchCover, requireIdentity, personMenu, shareUrl, isBlocked, nameColor, avatar } from '../common.js';
 import { live, onLive } from '../live.js';
 import { meterHtml, setMeter, audioCtx } from '../audio/voice.js';
@@ -10,6 +10,7 @@ import { meterHtml, setMeter, audioCtx } from '../audio/voice.js';
 import { getSetting, setSetting } from '../db.js';
 import { makeCtl, onPreview, stopPreview, previewKey, cueSource } from '../cabina-ctl.js';
 import { loadStandard } from '../audio/sounds.js';
+import { mountShareCard, stopShare } from '../screenshare.js';
 import { getPref, setPref } from '../inbox.js';
 import { myPrograms, programSheet, programPickerHtml } from '../programs.js';
 
@@ -337,7 +338,7 @@ function buildListener(view, porch, ctx) {
           <label class="row gap-s grow small"><span class="switch"><input type="checkbox" data-act="monitor"><span></span></span> Oírme <span class="muted tiny">(con cascos de cable suena sin retraso)</span></label>
           <button class="mic-btn" data-act="selfmute" aria-label="Silenciarme">${icon('mic')}</button>
         </div>
-        ${live.isOwner ? '' : html`<button class="btn ghost" data-act="gfx">${icon('bolt')} Efectos y cortinillas</button>`}
+        <div class="row gap">${live.isOwner ? '' : html`<button class="btn ghost grow" data-act="gfx">${icon('bolt')} Efectos</button>`}<button class="btn ghost grow" data-act="gshare">${icon('tab')} Compartir pantalla</button></div>
         <div class="composer"><input class="input" maxlength="${LIMITS.CHAT_MAX}" placeholder="Escribe al porche…" aria-label="Mensaje"></div>
       </div>`);
       vs.bind(b);
@@ -368,6 +369,7 @@ function buildListener(view, porch, ctx) {
       case 'leavemic': live.leaveMic(); break;
       case 'selfmute': if (!live.mutedByHost) { live.guestVoice?.setMuted(!live.guestVoice.muted); paintGuestState(); } break;
       case 'gfx': guestFxSheet(); break;
+      case 'gshare': { let off = null; const sh = sheet(html`<h2 class="h2">Compartir pantalla</h2><div data-el="sc"></div>`, { onMount(a) { off = mountShareCard(a.el.querySelector('[data-el=sc]')); } }); sh.done.then(() => off?.()); break; }
       case 'share': shareUrl(`${location.origin}/porche/${porch.slug}`, porch.name); break;
     }
   });
@@ -819,11 +821,7 @@ function buildBooth(view, porch, ctx) {
       <div class="muted tiny">Cada tira es una línea de la emisión: el medidor enseña lo que suena y el deslizador sube o baja su volumen. Lo que oyes en tus cascos de tu propia voz sigue a tu tira.</div>
       <div class="toggle-row"><div class="grow"><b>Los invitados pueden lanzar efectos</b><div class="muted tiny">Efectos y cortinillas de serie, desde su móvil. La música la pones solo tú.</div></div><span class="switch"><input type="checkbox" data-act="guestfx" ${localStorage.getItem('rp_guestfx') !== '0' ? 'checked' : ''}><span></span></span></div>
       <div class="toggle-row"><div class="grow"><b>Protege las voces</b><div class="muted tiny">Cuando alguien habla, la música y los sonidos largos (falcas, cortinillas) bajan solos para que se os entienda, y vuelven al callar. Si mueves una tira, manda tu mano unos segundos.</div></div><span class="switch"><input type="checkbox" data-act="ducking" ${ctl.ducking() ? 'checked' : ''}><span></span></span></div>
-      ${!remote && canShareTab() ? html`<div class="card col gap-s">
-        <b>${icon('tab')} Compartir pestaña con audio</b>
-        <div class="muted tiny">Mete en la emisión el sonido de una pestaña de Chrome (p. ej. un vídeo que comentáis). Marca «Compartir audio» al elegirla. Solo fragmentos breves para comentar: emitir contenido completo puede vulnerar derechos.</div>
-        ${live.mixer?.tabSrc ? html`<button class="btn sm ghost" data-act="stoptab">Dejar de compartir</button>` : html`<button class="btn sm yellow" data-act="sharetab">Elegir pestaña</button>`}
-      </div>` : ''}
+      <div data-el="sharecard"></div>
       <p class="muted tiny">Hasta unos 15–20 oyentes y 8 micros a la vez. Con wifi va casi siempre; con datos móviles alguna conexión puede fallar.</p>
     </div>`);
     // Deslizadores verticales (arrastrar o tocar en cualquier punto de la tira)
@@ -890,7 +888,7 @@ function buildBooth(view, porch, ctx) {
     view.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
     if (t === 'voces') voicesPanel.paint = voicesPanel();
     else if (t === 'sonidos') await soundsPanel();
-    else if (t === 'mesa') mesaPanel();
+    else if (t === 'mesa') { mesaPanel(); const sc = panel.querySelector('[data-el=sharecard]'); if (sc) panelCleanup = mountShareCard(sc); }
     else if (t === 'chat') panelCleanup = chatPanel();
   }
 
@@ -978,10 +976,6 @@ function buildBooth(view, porch, ctx) {
         else { query = ''; panel.querySelector('[data-el=sq]').value = ''; soundsPanel.repaint?.(); }
         break;
       }
-      case 'sharetab':
-        try { await live.mixer.shareTab(); live.mixer.onTabEnd = () => tab === 'mesa' && mesaPanel(); mesaPanel(); toast('Pestaña en antena', 'good'); } catch (err) { toast(err.message || 'No se ha compartido', 'bad'); }
-        break;
-      case 'stoptab': live.mixer?.stopTab(); mesaPanel(); break;
       case 'pause': ctl.pause(!live.state.paused); break;
       case 'nextpart': ctl.nextPart(); toast('Grabando la parte siguiente', 'good'); break;
       case 'pinmsg': { const inp = panel.querySelector('.composer input'); const txt = inp?.value.trim(); if (txt) { live.send({ t: 'pin', text: txt }); inp.value = ''; } else toast('Escribe el mensaje que quieres fijar'); break; }
@@ -1046,7 +1040,7 @@ function buildBooth(view, porch, ctx) {
     }),
   ];
   header(); reqs(); showTab('voces');
-  return () => { stopPreview(); clearInterval(clockIv); cancelAnimationFrame(raf); panelCleanup?.(); offs.forEach((f) => f()); };
+  return () => { stopPreview(); stopShare(); clearInterval(clockIv); cancelAnimationFrame(raf); panelCleanup?.(); offs.forEach((f) => f()); };
 }
 
 /** Botonera del invitado: efectos y cortinillas de serie, con pre-escucha (solo la oye él) o al aire (lo lanza el estudio). */

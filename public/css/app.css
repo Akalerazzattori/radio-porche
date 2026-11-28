@@ -889,3 +889,11 @@ button.avatar-edit { padding: 0; background: none; border: 0; }
 .cue-banner .cue-now { font-weight: 800; }
 .cue-mode .pad { outline: 3px dashed var(--violet); outline-offset: -3px; }
 .pad.previewing { box-shadow: 0 0 0 3px var(--violet), 0 4px 0 var(--edge); }
+
+/* Compartir pantalla: vista previa y estado (preparado / al aire) */
+.share-card .share-state { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; font-size: 13px; color: var(--ink); border: 2px solid var(--edge); }
+.share-card.prep .share-state { background: repeating-linear-gradient(-45deg, var(--violet), var(--violet) 12px, #b49cf0 12px, #b49cf0 24px); }
+.share-card.air .share-state { background: var(--red); color: var(--cream); }
+.share-card .share-state .ic { width: 18px; height: 18px; }
+.share-card .share-state .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--cream); animation: blink 1s infinite; }
+.share-prev { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; border: 2px solid var(--edge); object-fit: contain; }
