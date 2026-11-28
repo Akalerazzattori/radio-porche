@@ -24,7 +24,7 @@ export function porchCover(p) {
   return p.hasCover ? `/api/porch/${p.id}/cover` : `/img/scenes/escena-${p.scene || 1}.webp`;
 }
 export function podcastCover(p) {
-  return p.hasCover ? `/api/podcasts/${p.id}/cover` : `/img/scenes/escena-${p.scene || 1}.webp`;
+  return p.hasCover ? `/api/podcasts/${p.id}/cover${p.coverV ? `?v=${p.coverV}` : ''}` : `/img/scenes/escena-${p.scene || 1}.webp`;
 }
 
 // ---------- Bloqueos (en el dispositivo) ----------

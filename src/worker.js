@@ -130,6 +130,14 @@ export default {
       headers.set('x-rp-ip', ip);
       headers.delete('cookie');
 
+      // Grabación compartida en privado: la escucha quien tenga el enlace (sin entrar)
+      const sh = /^\/api\/share\/([A-Za-z0-9_-]{8,40})\/([A-Za-z0-9_-]{8,40})(\/audio)?$/.exec(path);
+      if (sh && (req.method === 'GET' || req.method === 'HEAD')) {
+        const lk = env.LOCKER.get(env.LOCKER.idFromName(sh[1]));
+        const h = new Headers(); if (req.headers.get('range')) h.set('range', req.headers.get('range'));
+        return withHeaders(await lk.fetch(`https://locker/internal/share/${sh[2]}${sh[3] || ''}`, { method: req.method, headers: h }));
+      }
+
       // Tu espacio (grabaciones y sonidos en tu cuenta): un Durable Object por identidad
       if (path === '/api/cloud' || path.startsWith('/api/cloud/')) {
         const dev = await whoami(env, req);
@@ -168,7 +176,7 @@ export default {
       }));
     }
     if (path === '/robots.txt') {
-      return withHeaders(new Response(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin\n\nSitemap: ${url.origin}/sitemap.xml\n`, {
+      return withHeaders(new Response(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin\nDisallow: /escucha/\n\nSitemap: ${url.origin}/sitemap.xml\n`, {
         headers: { 'content-type': 'text/plain; charset=utf-8' },
       }));
     }

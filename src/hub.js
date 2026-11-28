@@ -2,7 +2,7 @@
 // (troceados en filas ≤ 2 MB), comentarios, me gusta, escuchas, reportes, límites,
 // biblioteca "de serie", panel de administración y registro de acciones.
 import { DurableObject } from 'cloudflare:workers';
-import { LIMITS, LEGAL, REPORT_REASONS, SERIOUS_REASONS, DEFAULT_BADWORDS, ZONES, DEFAULT_CATEGORIES, SCENE_COUNT, VECINO_COUNT } from '../public/js/config.js';
+import { LIMITS, LEGAL, REPORT_REASONS, SERIOUS_REASONS, DEFAULT_BADWORDS, ZONES, DEFAULT_CATEGORIES, SCENE_COUNT, VECINO_COUNT, CLIP_MIN_SEC, CLIP_MAX_MIN } from '../public/js/config.js';
 import {
   json, err, b64u, unb64u, randomId, safeEqual, sha256, hmac,
   cleanText, cleanName, cleanInt, cleanNum, cleanId, slugify, filterChat, now,
@@ -86,6 +86,7 @@ export class Hub extends DurableObject {
     if (!pc.includes('category')) this.sql.exec("ALTER TABLE podcasts ADD COLUMN category TEXT NOT NULL DEFAULT ''");
     // Dónde está el audio: '' = aquí (Hub), 'lk' = en el espacio de su dueño (Locker). Así el Hub no se llena.
     if (!pc.includes('store')) this.sql.exec("ALTER TABLE podcasts ADD COLUMN store TEXT NOT NULL DEFAULT ''");
+    if (!pc.includes('cover_v')) this.sql.exec('ALTER TABLE podcasts ADD COLUMN cover_v INTEGER NOT NULL DEFAULT 0');
   }
 
   one(q, ...a) { const r = this.sql.exec(q, ...a).toArray(); return r[0] || null; }
@@ -226,7 +227,7 @@ export class Hub extends DurableObject {
     const o = {
       id: r.id, porchId: r.porch_id, porchName: porch ? porch.name : '', porchSlug: porch ? porch.slug : '',
       title: r.title, description: r.description, chapters: JSON.parse(r.chapters || '[]'),
-      created: r.created, duration: r.duration, bytes: r.bytes, mime: r.mime, hasCover: !!r.cover_mime, scene: r.scene,
+      created: r.created, duration: r.duration, bytes: r.bytes, mime: r.mime, hasCover: !!r.cover_mime, coverV: r.cover_v || 0, scene: r.scene,
       part: r.part, prevId: r.prev_id, series: r.series, listens: r.listens, likes: r.likes, comments: r.comments,
       hidden: !!r.hidden, owner: r.owner, programId: r.program_id || '', episode: r.episode || 0, subtitle: r.subtitle || '', category: r.category || '',
     };
@@ -721,6 +722,22 @@ export class Hub extends DurableObject {
       this.run('UPDATE podcasts SET title=?, description=?, chapters=?, program_id=?, category=?, episode=? WHERE id=?', title, description, chapters, programId, category, episode, r.id);
       return json({ podcast: this.podcastPublic(this.one('SELECT * FROM podcasts WHERE id=?', r.id), me) });
     }
+    // Cambiar la portada de un episodio ya publicado (vacío = quitarla y usar la ilustración)
+    if ((mm = /^\/api\/podcasts\/([A-Za-z0-9_-]+)\/cover$/.exec(p)) && m === 'POST') {
+      const r = this.one('SELECT id FROM podcasts WHERE id=? AND owner=?', mm[1], me);
+      if (!r) return err(404, 'No es tuyo o no existe');
+      const u8 = new Uint8Array(await req.arrayBuffer());
+      const sc = cleanInt(url.searchParams.get('scene'), 0, SCENE_COUNT, 0);
+      if (sc) this.run('UPDATE podcasts SET scene=? WHERE id=?', sc, r.id);
+      if (!u8.length) { this.run("DELETE FROM chunks WHERE pid=? AND kind='c'", r.id); this.run("UPDATE podcasts SET cover_mime='', cover_v=? WHERE id=?", now(), r.id); }
+      else {
+        const mime = sniffImage(u8);
+        if (u8.length > LIMITS.COVER_MAX_BYTES || !mime) return err(400, 'La portada debe ser JPEG o WebP de menos de 500 KB');
+        this.putBlob(r.id, 'c', u8);
+        this.run('UPDATE podcasts SET cover_mime=?, cover_v=? WHERE id=?', mime, now(), r.id);
+      }
+      return json({ podcast: this.podcastPublic(this.one('SELECT * FROM podcasts WHERE id=?', r.id), me) });
+    }
     if ((mm = /^\/api\/podcasts\/([A-Za-z0-9_-]+)\/delete$/.exec(p)) && m === 'POST') {
       const r = this.one('SELECT id FROM podcasts WHERE id=? AND owner=?', mm[1], me);
       if (!r) return err(404, 'No es tuyo o no existe');
@@ -801,7 +818,13 @@ export class Hub extends DurableObject {
     if (!mime) return err(400, 'Formato de audio no admitido (Opus/WebM/MP4)');
     const dur = audioDuration(u8, mime);
     if (dur == null) return err(400, 'No se ha podido comprobar la duración del audio');
-    if (dur < LIMITS.MIN_PUBLISH_MIN * 60) return err(400, `Dura menos de ${LIMITS.MIN_PUBLISH_MIN} minutos. Guárdalo en privado.`);
+    // Un clip de un podcast tuyo ya publicado puede ser corto
+    const clipOf = cleanId(String(meta.clipOf || ''));
+    const isClip = clipOf && this.one('SELECT id FROM podcasts WHERE id=? AND owner=?', clipOf, me);
+    if (isClip) {
+      if (dur < CLIP_MIN_SEC) return err(400, `Un clip tiene que durar al menos ${CLIP_MIN_SEC} segundos.`);
+      if (dur > CLIP_MAX_MIN * 60) return err(400, `Un clip dura como máximo ${CLIP_MAX_MIN} minutos.`);
+    } else if (dur < LIMITS.MIN_PUBLISH_MIN * 60) return err(400, `Dura menos de ${LIMITS.MIN_PUBLISH_MIN} minutos. Guárdalo en privado.`);
     if (dur > LIMITS.SERVER_MAX_MIN * 60) return err(400, `Dura más de ${LIMITS.MAX_PART_MIN} minutos. Divídelo en partes.`);
 
     let cover = null, coverMime = '';

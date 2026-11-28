@@ -27,6 +27,11 @@ export const SCENE_COUNT = 20;
 export const VECINO_COUNT = 12;
 export const VECINOS = ['La del quinto', 'El abuelo del banco', 'La DJ de azotea', 'El del bar', 'La presidenta', 'El de los patines', 'La abuela rockera', 'El taxista de noche', 'La estudiante', 'El músico del metro', 'La frutera', 'El vecino nuevo'];
 
+/** Mínimo para publicar: 5 min, o 20 s si es un clip de un podcast tuyo ya publicado. */
+export const CLIP_MIN_SEC = 20;
+export const CLIP_MAX_MIN = 10;
+export const minPublishSec = (rec) => (rec?.clipOf ? CLIP_MIN_SEC : null) ?? LIMITS.MIN_PUBLISH_MIN * 60;
+
 export const LIMITS = {
   MAX_PART_MIN: 40, // máximo por parte
   WARN_1_MIN: 35, // "Te quedan 5 minutos"

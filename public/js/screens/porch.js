@@ -782,10 +782,18 @@ function buildBooth(view, porch, ctx) {
   // ---------- Mesa de mezclas: una tira por línea, con medidor de lo que suena y deslizador vertical
   function mesaPanel() {
     const f = ctl.faders();
+    // Tus micros se llaman por el aparato (si tienes dos abiertos, sabes cuál es cuál)
+    const studioKind = live.role === 'host' ? live.kind : live.state?.studioKind || '';
+    const voiceLabel = (v) => {
+      if (v.id === 'me') return `Tú · ${studioKind || 'estudio'}`;
+      const p = live.people.find((x) => x.cid === v.id);
+      if (p?.owner) return `Tú · ${p.kind || 'otro aparato'}`;
+      return v.name || p?.name || 'Invitado';
+    };
     const strips = [
-      ...f.voices.map((v) => ({ id: 'v:' + v.id, vid: v.id, label: v.id === 'me' ? session.name || 'Tú' : v.name || 'Invitado', val: v.gain, max: 1.5, kind: 'voz', mute: v.id })),
+      ...f.voices.map((v) => ({ id: 'v:' + v.id, vid: v.id, label: voiceLabel(v), val: v.gain, max: 1.5, kind: 'voz', mute: v.id })),
       { id: 'music', label: 'Música', val: f.music, max: 1, kind: 'music' },
-      { id: 'fx', label: 'Efectos', val: f.fx, max: 1, kind: 'fx' },
+      { id: 'fx', label: 'Cortinillas y efectos', val: f.fx, max: 1, kind: 'fx' },
       ...(f.tab != null ? [{ id: 'tab', label: 'Pestaña', val: f.tab, max: 1, kind: 'tab' }] : []),
     ];
     const muted = (st) => (st.mute === 'me' ? ctl.selfMuted() : !!live.people.find((x) => x.cid === st.mute)?.muted);
@@ -793,7 +801,7 @@ function buildBooth(view, porch, ctx) {
     mount(panel, html`<div class="col gap">
       <div class="mesa">${strips.map((st) => html`
         <div class="strip k-${st.kind}" data-strip="${st.id}">
-          <div class="strip-name ellip">${st.label}</div>
+          <div class="strip-name">${st.label}</div>
           <div class="strip-body">
             <div class="vu" data-vu="${st.id}">${raw('<i></i>'.repeat(SEG))}</div>
             <div class="vfader" data-vf="${st.id}" data-max="${st.max}" style="--v:${Math.min(1, st.val / st.max)}" role="slider" aria-label="Volumen de ${st.label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round((st.val / st.max) * 100)}" tabindex="0">
@@ -803,8 +811,8 @@ function buildBooth(view, porch, ctx) {
           <div class="strip-val mono" data-sv="${st.id}">${Math.round((st.val / st.max) * 100)}</div>
           ${st.mute ? html`<button class="strip-mute ${muted(st) ? 'on' : ''}" data-mute="${st.mute}" aria-label="Silenciar ${st.label}">${icon(muted(st) ? 'micoff' : 'mic')}</button>` : html`<span class="strip-mute ghost"></span>`}
         </div>`)}</div>
-      <div class="muted tiny">Cada tira es una línea de la emisión: el medidor enseña lo que está sonando y el deslizador sube o baja su volumen. Los sonidos y las músicas ya llegan igualados de base.</div>
-      <div class="toggle-row"><div class="grow"><b>La música baja sola cuando alguien habla</b><div class="muted tiny">Y vuelve al callar. Si mueves la tira de Música, manda tu mano.</div></div><span class="switch"><input type="checkbox" data-act="ducking" ${ctl.ducking() ? 'checked' : ''}><span></span></span></div>
+      <div class="muted tiny">Cada tira es una línea de la emisión: el medidor enseña lo que suena y el deslizador sube o baja su volumen. Lo que oyes en tus cascos de tu propia voz sigue a tu tira.</div>
+      <div class="toggle-row"><div class="grow"><b>Protege las voces</b><div class="muted tiny">Cuando alguien habla, la música y los sonidos largos (falcas, cortinillas) bajan solos para que se os entienda, y vuelven al callar. Si mueves una tira, manda tu mano unos segundos.</div></div><span class="switch"><input type="checkbox" data-act="ducking" ${ctl.ducking() ? 'checked' : ''}><span></span></span></div>
       ${!remote && canShareTab() ? html`<div class="card col gap-s">
         <b>${icon('tab')} Compartir pestaña con audio</b>
         <div class="muted tiny">Mete en la emisión el sonido de una pestaña de Chrome (p. ej. un vídeo que comentáis). Marca «Compartir audio» al elegirla. Solo fragmentos breves para comentar: emitir contenido completo puede vulnerar derechos.</div>

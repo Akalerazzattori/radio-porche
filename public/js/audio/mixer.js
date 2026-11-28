@@ -40,6 +40,8 @@ export class Mixer {
 
     // Buses
     this.fxBus = c.createGain(); this.fxBus.gain.value = 0.9;
+    // Los sonidos largos (una falca, una cortinilla de un minuto) bajan solos cuando alguien habla, como la música
+    this.fxLong = c.createGain(); this.fxLong.connect(this.fxBus);
     this.musicBus = c.createGain(); this.musicBus.gain.value = BG_LEVEL;
     this.duck = c.createGain();
     this.musicBus.connect(this.duck);
@@ -96,12 +98,18 @@ export class Mixer {
     if (v.el) { v.el.srcObject = null; }
     this.voices.delete(id);
   }
-  setVoiceGain(id, val) { const v = this.voices.get(id); if (v) v.gain.gain.setTargetAtTime(val, this.ctx.currentTime, 0.03); }
+  setVoiceGain(id, val) { const v = this.voices.get(id); if (v) { v.gain.gain.setTargetAtTime(val, this.ctx.currentTime, 0.03); v.level = val; } this.syncSelf(); }
+  /** "Oírme" (tu voz en tus cascos) sigue a tu tira: si la bajas, la silencias o pones solo música, te oyes igual que te oyen. */
+  syncSelf() {
+    const me = this.voices.get('me');
+    if (me && this.selfVoice) this.selfVoice.setMonitorScale(me.userMuted || this.soloMusic ? 0 : (me.level ?? 1));
+  }
   muteVoice(id, on) {
     const v = this.voices.get(id);
     if (!v) return;
     v.userMuted = !!on;
     v.mute.gain.setTargetAtTime(on || this.soloMusic ? 0 : 1, this.ctx.currentTime, 0.03);
+    this.syncSelf();
   }
   /** Nivel 0..1 de una línea de la mesa: music, fx o tab. */
   busLevel(k) {
@@ -146,7 +154,7 @@ export class Mixer {
   playFx(buffer, { onEnd, cue = false } = {}) {
     const s = this.ctx.createBufferSource();
     s.buffer = buffer;
-    s.connect(cue ? this.cueGain : this.fxBus);
+    s.connect(cue ? this.cueGain : buffer.duration > 8 ? this.fxLong : this.fxBus);
     const h = { src: s, start: this.ctx.currentTime, duration: buffer.duration, cue };
     s.onended = () => { this.fxPlaying.delete(h); onEnd?.(); };
     s.start();
@@ -211,6 +219,7 @@ export class Mixer {
     this.soloMusic = !!on;
     for (const v of this.voices.values()) v.mute.gain.setTargetAtTime(on || v.userMuted ? 0 : 1, this.ctx.currentTime, 0.05);
     on ? this.musicUp() : this.musicDown();
+    this.syncSelf();
   }
 
   // ---------- Pestaña con audio (solo ordenador con Chrome)
@@ -240,10 +249,13 @@ export class Mixer {
     if (this.ducking && performance.now() > this.manualUntil && !this.soloMusic) {
       let max = 0;
       for (const v of this.voices.values()) if (!v.userMuted) max = Math.max(max, this.voiceLevel(v.id));
-      const target = max > 0.12 ? 0.35 : 1;
+      // Con voz, la música y los sonidos largos bajan a una cuarta parte (−12 dB): la voz siempre se entiende
+      const target = max > 0.1 ? 0.25 : 1;
       if (Math.abs(this.duck.gain.value - target) > 0.02) this.duck.gain.setTargetAtTime(target, t, target < 1 ? 0.12 : 0.6);
+      if (Math.abs(this.fxLong.gain.value - target) > 0.02) this.fxLong.gain.setTargetAtTime(target, t, target < 1 ? 0.12 : 0.6);
     } else if (!this.ducking && this.duck.gain.value < 0.98) {
       this.duck.gain.setTargetAtTime(1, t, 0.3);
+      this.fxLong.gain.setTargetAtTime(1, t, 0.3);
     }
     // Acople: un pico estrecho y fuerte que se mantiene
     this.analyser.getFloatFrequencyData(this.fft);

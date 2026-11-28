@@ -237,10 +237,15 @@ export class Voice {
     }
   }
 
+  /** Escala de "Oírme" según tu tira de la mesa (0..1.5). */
+  setMonitorScale(k) {
+    this.monitorScale = k;
+    if (this.monitorOn) this.monitor.gain.setTargetAtTime(k, this.ctx.currentTime, 0.03);
+  }
   setMonitor(on) {
     this.monitorOn = !!on;
     try { localStorage.setItem('rp_oirme', on ? '1' : '0'); } catch {}
-    if (this.monitor) this.monitor.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.02);
+    if (this.monitor) this.monitor.gain.setTargetAtTime(on ? (this.monitorScale ?? 1) : 0, this.ctx.currentTime, 0.02);
   }
   setMuted(on) {
     this.muted = !!on;

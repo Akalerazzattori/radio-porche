@@ -335,7 +335,7 @@ export const live = {
       onVoiceGone: (cid) => { this.mixer?.removeVoice(cid); emit('update'); },
       onState: () => emit('update'),
     });
-    if (this.voice) this.mixer.addVoice('me', { node: this.voice.node, local: true, name: session.name });
+    if (this.voice) { this.mixer.addVoice('me', { node: this.voice.node, local: true, name: session.name }); this.mixer.selfVoice = this.voice; this.mixer.syncSelf(); }
     this._otherMic = false;
     this.mixer.setMonitor(localStorage.getItem('rp_hp') !== '0');
     this.guardEcho();
@@ -456,7 +456,7 @@ export const live = {
     if (fx) v.setEffect(fx);
     this.voice = v;
     this.headphones = headphones;
-    if (this.mixer) { this.mixer.addVoice('me', { node: v.node, local: true, name: session.name }); this.mixer.setMonitor(headphones); }
+    if (this.mixer) { this.mixer.addVoice('me', { node: v.node, local: true, name: session.name }); this.mixer.selfVoice = v; this.mixer.syncSelf(); this.mixer.setMonitor(headphones); }
     emit('update');
     return v;
   },

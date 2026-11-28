@@ -1,7 +1,7 @@
 // Mi porche: ir al camerino, grabaciones (borradores y privados), publicados (editar),
 // sonidos propios (efectos, música de fondo, canciones) y datos del porche.
 import { api, session } from '../api.js';
-import { LIMITS, SOUND_TABS } from '../config.js';
+import { LIMITS, SOUND_TABS, minPublishSec } from '../config.js';
 import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtDur, fmtDate, fmtShortDur, fmtTime, setPct, esc } from '../util.js';
 import { requireIdentity, porchCover, podcastCover, shareUrl, copy, brandHead } from '../common.js';
 import { db } from '../db.js';
@@ -9,7 +9,7 @@ import { OTHER, sendRecording, pickup, getPref, setPref } from '../inbox.js';
 import { live } from '../live.js';
 import { loadStandard, loadMine, importSound, deleteSound, renameSound, recordMic, saveRecordedSound, decode } from '../audio/sounds.js';
 import { audioCtx } from '../audio/voice.js';
-import { shrinkPhoto, SCENES } from '../cover.js';
+import { shrinkPhoto, SCENES, composeCover } from '../cover.js';
 import { recordingThumb, recordingDetailsSheet } from './editor.js';
 import { myPrograms, programSheet, programPickerHtml, programCover, getCategories, catName } from '../programs.js';
 
@@ -70,25 +70,26 @@ export async function render(view, _p, { go }) {
   async function recordingsTab() {
     stopRec();
     const list = (await db.all('recordings')).sort((a, b) => b.created - a.created);
-    const left = (r) => Math.max(0, Math.ceil((r.created + LIMITS.DRAFT_DAYS * 86400000 - Date.now()) / 86400000));
+    const shared = (r) => r.shareKey && r.shareExp > Date.now();
     mount(panel, html`<div class="list">
       <div class="banner yellow small">${icon('lock')} Solo las ves tú hasta que las publiques como podcast${LIMITS.DRAFT_DAYS ? ` (se borran solas a los ${LIMITS.DRAFT_DAYS} días)` : ''}.</div>
       ${list.length ? list.map((r) => html`
         <div class="item rec-row" data-play="${r.id}">
-          <div class="thumb-play"><img class="rec-thumb" src="${recordingThumb(r)}" alt=""><span class="pp" data-pp="${r.id}">${icon('play')}</span></div>
-          <div class="grow">
-            <div class="row gap-s"><div class="t ellip grow">${r.title}${r.part > 1 ? ` · Parte ${r.part}` : ''}</div><button class="mini-ic" data-det="${r.id}" aria-label="Cambiar título y foto">${icon('edit')}</button></div>
-            ${r.from ? html`<div class="m">Llegó de tu ${r.from}</div>` : ''}
-            <div class="m">${r.kind === 'draft' ? (LIMITS.DRAFT_DAYS ? `Sin publicar · se borra en ${left(r)} días` : 'Sin publicar') : 'Privado'} · ${fmtDur(r.duration)} · ${fmtDate(r.created)}</div>
-            ${r.duration < LIMITS.MIN_PUBLISH_MIN * 60 ? html`<div class="m orange-t">Menos de ${LIMITS.MIN_PUBLISH_MIN} min: no se puede publicar.</div>` : ''}
-            <div class="prog seekable" data-prog="${r.id}"><i></i></div>
-            <div class="m mono rec-time" data-time="${r.id}">0:00 / ${fmtTime(r.duration)}</div>
-            <div class="rec-actions">
-              ${r.duration >= LIMITS.MIN_PUBLISH_MIN * 60 ? html`<a class="btn sm red" href="/editor/${r.id}?publicar=1">Publicar</a>` : ''}
-              <a class="btn sm yellow" href="/editor/${r.id}" aria-label="Recortar" title="Recortar">${icon('scissors')}</a>
-              <button class="btn sm ghost" data-send="${r.id}">${icon('send')} Al ${OTHER}</button>
-              <button class="btn sm ghost" data-del="${r.id}" aria-label="Borrar">${icon('trash')}</button>
+          <div class="rec-top">
+            <div class="thumb-play"><img class="rec-thumb" src="${recordingThumb(r)}" alt=""><span class="pp" data-pp="${r.id}">${icon('play')}</span></div>
+            <div class="grow">
+              <div class="t ellip">${r.title}${r.part > 1 ? ` · Parte ${r.part}` : ''}</div>
+              <div class="m">${fmtDur(r.duration)} · ${fmtDate(r.created)}${r.from ? ` · llegó de tu ${r.from}` : ''}</div>
+              ${shared(r) ? html`<div class="m yellow-t">${icon('share')} Compartida en privado hasta el ${fmtDate(r.shareExp)}</div>` : ''}
             </div>
+          </div>
+          <div class="prog seekable" data-prog="${r.id}"><i></i></div>
+          <div class="rec-foot"><span class="m mono" data-time="${r.id}">0:00 / ${fmtTime(r.duration)}</span>${r.duration < minPublishSec(r) ? html`<span class="m orange-t">Para publicar: mínimo ${r.clipOf ? '20 s' : LIMITS.MIN_PUBLISH_MIN + ' min'}</span>` : ''}</div>
+          <div class="rec-actions">
+            ${r.duration >= minPublishSec(r) ? html`<a class="ra red" href="/editor/${r.id}?publicar=1">${icon('upload')}<span>Publicar</span></a>` : html`<button class="ra" data-whypub>${icon('upload')}<span>Publicar</span></button>`}
+            <button class="ra" data-share="${r.id}">${icon('share')}<span>Compartir</span></button>
+            <a class="ra" href="/editor/${r.id}">${icon('scissors')}<span>Recortar</span></a>
+            <button class="ra" data-more="${r.id}">${icon('more')}<span>Más</span></button>
           </div>
         </div>`) : html`<div class="empty"><img src="/img/scenes/escena-2.webp" alt=""><p>Aún no hay grabaciones. Sal al aire en modo <b>Directo + grabación</b> y aparecerán aquí.</p></div>`}
     </div>`);
@@ -97,11 +98,28 @@ export async function render(view, _p, { go }) {
     };
     panel.onclick = async (e) => {
       if (e.target.closest('a')) return;
-      const d = e.target.closest('[data-det]');
-      if (d) { const r = list.find((x) => x.id === d.dataset.det); if ((await recordingDetailsSheet(r)) === 'ok') recordingsTab(); return; }
-      const snd = e.target.closest('[data-send]');
-      if (snd) {
-        const r = list.find((x) => x.id === snd.dataset.send);
+      if (e.target.closest('[data-whypub]')) return toast(`Para publicar como podcast hace falta un mínimo de ${LIMITS.MIN_PUBLISH_MIN} minutos. Esta puedes compartirla en privado.`);
+      const sh = e.target.closest('[data-share]');
+      if (sh) return shareRecording(list.find((x) => x.id === sh.dataset.share));
+      const mo = e.target.closest('[data-more]');
+      if (mo) {
+        const r = list.find((x) => x.id === mo.dataset.more);
+        const act = await sheet(html`<h2 class="h2 ellip">${r.title}</h2>
+          <button class="opt" data-close="send">${icon('send')} <span class="grow">Pasar a tu ${OTHER}</span><span class="muted small">para editarla allí</span></button>
+          <button class="opt" data-close="det">${icon('edit')} <span class="grow">Cambiar título y foto</span></button>
+          ${shared(r) ? html`<button class="opt" data-close="unshare">${icon('close')} <span class="grow">Dejar de compartir</span><span class="muted small">el enlace deja de funcionar</span></button>` : ''}
+          <button class="opt red-t" data-close="del">${icon('trash')} <span class="grow">Borrar</span></button>`).done;
+        if (act === 'det') { if ((await recordingDetailsSheet(r)) === 'ok') recordingsTab(); return; }
+        if (act === 'unshare') {
+          try { await api(`/api/cloud/share/${r.shareKey}/delete`, { method: 'POST', body: {} }); } catch {}
+          delete r.shareKey; delete r.shareExp; await db.put('recordings', r); toast('Ya no se puede escuchar con ese enlace'); recordingsTab(); return;
+        }
+        if (act === 'del') {
+          if (!(await confirmSheet('¿Borrar esta grabación?', 'Se borra de este aparato y no se puede recuperar. Si la habías pasado a tu otro aparato, allí sigue.', { ok: 'Borrar', danger: true }))) return;
+          if (shared(r)) { try { await api(`/api/cloud/share/${r.shareKey}/delete`, { method: 'POST', body: {} }); } catch {} }
+          stopRec(); await db.del('recordings', r.id); recordingsTab(); return;
+        }
+        if (act !== 'send') return;
         const go2 = await sheet(html`
           <h2 class="h2">Pasar a tu ${OTHER}</h2>
           <p>Tus grabaciones viven en el aparato donde se grabaron. Si prefieres recortar y publicar «<b>${r.title}</b>» desde tu ${OTHER}, te enviamos una copia.</p>
@@ -114,15 +132,9 @@ export async function render(view, _p, { go }) {
           <button class="btn yellow big" data-close="ok">${icon('send')} Enviar a mi ${OTHER}</button>
           <button class="btn ghost" data-close="">Cancelar</button>`).done;
         if (go2 !== 'ok') return;
-        snd.disabled = true; toast('Enviando…');
+        toast('Enviando…');
         await sendRecording(r, OTHER);
-        snd.disabled = false;
         return;
-      }
-      const del = e.target.closest('[data-del]');
-      if (del) {
-        if (!(await confirmSheet('¿Borrar esta grabación?', 'Se borra de este aparato y no se puede recuperar. Si la habías pasado a tu otro aparato, allí sigue.', { ok: 'Borrar', danger: true }))) return;
-        stopRec(); await db.del('recordings', del.dataset.del); recordingsTab(); return;
       }
       if (e.target.closest('[data-prog]')) return; // la barra se arrastra (ver más abajo)
       const row = e.target.closest('[data-play]');
@@ -131,6 +143,31 @@ export async function render(view, _p, { go }) {
       if (recPlaying === id && recAudio) { recAudio.paused ? recAudio.play() : recAudio.pause(); paintPP(); return; }
       await playRec(id);
     };
+    /** Compartir en privado con un amigo: enlace para escucharla sin publicarla (30 días). */
+    async function shareRecording(r) {
+      const link = (k) => `${location.origin}/escucha/${session.deviceId}/${k}`;
+      if (shared(r)) return shareUrl(link(r.shareKey), r.title);
+      const ok = await sheet(html`
+        <h2 class="h2">Compartir en privado</h2>
+        <p>Te damos un enlace para que un amigo escuche «<b>${r.title}</b>» <b>sin publicarla</b>: no sale en Podcasts ni en tu porche, solo la oye quien tenga el enlace.</p>
+        <ul class="steps-list small">
+          <li>El enlace funciona <b>30 días</b>. Puedes cortarlo antes desde «Más → Dejar de compartir».</li>
+          <li>Para eso subimos una copia a nuestro servidor, que se borra al caducar el enlace.</li>
+          <li>Si quieres que la escuche todo el mundo, mejor publícala como podcast.</li>
+        </ul>
+        <button class="btn yellow big" data-close="ok">${icon('share')} Crear enlace y compartir</button>
+        <button class="btn ghost" data-close="">Cancelar</button>`).done;
+      if (ok !== 'ok') return;
+      toast('Preparando el enlace…');
+      try {
+        const porch = await api('/api/mine').then((x) => x.porch).catch(() => null);
+        const res = await api('/api/cloud/share', { method: 'POST', raw: r.blob, headers: { 'content-type': r.blob.type || 'audio/webm', 'x-title': encodeURIComponent(r.title || 'Grabación'), 'x-porch': encodeURIComponent(porch?.name || ''), 'x-duration': String(Math.round(r.duration || 0)) } });
+        r.shareKey = res.key; r.shareExp = res.exp;
+        await db.put('recordings', r);
+        recordingsTab();
+        await shareUrl(link(res.key), r.title);
+      } catch (e) { toast(e.message || 'No se ha podido crear el enlace', 'bad'); }
+    }
     async function playRec(id) {
       stopRec();
       const r = list.find((x) => x.id === id);
@@ -192,9 +229,10 @@ export async function render(view, _p, { go }) {
         <div class="item">
           <a href="/p/${p.id}"><img class="rec-thumb" src="${podcastCover(p)}" alt=""></a>
           <div class="grow">
-            <div class="row gap-s"><div class="t ellip grow">${p.title}</div><button class="mini-ic" data-edit="${p.id}" aria-label="Editar">${icon('edit')}</button></div>
-            <div class="m ellip">${p.programName || 'Sin programa'} · ${epLabel(p)} · ${fmtDate(p.created)} · ${fmtDur(p.duration)}</div>
-            <div class="m">${p.listens} escuchas · ♥ ${p.likes} · ${p.comments} comentarios</div>
+            <div class="row gap-s"><div class="t ellip grow">${p.title}</div><button class="btn sm ghost" data-edit="${p.id}">${icon('edit')} Editar</button></div>
+            <div class="m ellip yellow-t">${p.programName || 'Sin programa'}${epLabel(p) ? ` · ${epLabel(p)}` : ''}</div>
+            <div class="m">${fmtDate(p.created)} · ${fmtDur(p.duration)}</div>
+            <div class="m ep-stats"><span>${icon('hp')} ${p.listens}</span><span>${icon('heart')} ${p.likes}</span><span>${icon('chat')} ${p.comments}</span></div>
             ${p.hidden ? html`<div class="m red-t">Oculto por reportes (solo lo ves tú).</div>` : ''}
           </div>
         </div>`) : html`<div class="empty"><p>Aún no has publicado nada. En <b>Grabaciones</b>, pulsa <b>Publicar</b>.</p></div>`}
@@ -211,8 +249,12 @@ export async function render(view, _p, { go }) {
 
   function editPublished(p, programs = []) {
     let programId = p.programId || '';
+    let newCover = null; // { blob, scene } cuando cambias la portada
     const s = sheet(html`
       <h2 class="h2">Editar episodio</h2>
+      <div class="h3">Portada</div>
+      <div class="row gap"><img class="ep-cover" data-el="cprev" src="${podcastCover(p)}" alt=""><div class="col gap-s grow"><label class="btn sm yellow">${icon('camera')} Subir una foto<input type="file" accept="image/*" hidden data-el="cfile"></label><div class="muted tiny">O elige una ilustración:</div></div></div>
+      <div class="scene-pick">${SCENES.map((u, i) => html`<button data-sc="${i + 1}" class="${!p.hasCover && (p.scene || 1) === i + 1 ? 'on' : ''}" aria-label="Ilustración ${i + 1}"><img src="${u}" alt=""></button>`)}</div>
       <label class="field">Título<input class="input" name="title" maxlength="${LIMITS.TITLE_MAX}" value="${p.title}"></label>
       <label class="field">Descripción<textarea class="input" name="desc" maxlength="${LIMITS.DESC_MAX}" rows="3">${p.description}</textarea></label>
       <div class="h3">Programa</div>
@@ -224,7 +266,20 @@ export async function render(view, _p, { go }) {
       <button class="btn yellow" data-a="save">Guardar cambios</button>
       <button class="btn ghost red-t" data-a="del">${icon('trash')} Borrar del servidor</button>`, {
       onMount(a) {
+        const titleOf = () => a.el.querySelector('[name=title]').value || p.title;
+        const setPrev = (blob) => { a.el.querySelector('[data-el=cprev]').src = URL.createObjectURL(blob); };
+        a.el.querySelector('[data-el=cfile]').onchange = async (ev) => {
+          const f = ev.target.files[0]; if (!f) return;
+          try { const photo = await shrinkPhoto(f, 1400); const blob = await composeCover({ photo, scene: p.scene || 1, title: titleOf(), date: p.created }); newCover = { blob }; setPrev(blob); a.el.querySelectorAll('[data-sc]').forEach((x) => x.classList.remove('on')); } catch (err) { toast(err.message || 'No se ha podido usar esa foto', 'bad'); }
+        };
         a.el.addEventListener('click', async (e) => {
+          const sc = e.target.closest('[data-sc]');
+          if (sc) {
+            const n = Number(sc.dataset.sc);
+            a.el.querySelectorAll('[data-sc]').forEach((x) => x.classList.toggle('on', x === sc));
+            const blob = await composeCover({ scene: n, title: titleOf(), date: p.created });
+            newCover = { blob, scene: n }; setPrev(blob); return;
+          }
           const pg = e.target.closest('[data-prog]');
           if (pg) {
             if (pg.dataset.prog === '__new') { const np = await programSheet(); if (np && typeof np === 'object') { programs = await myPrograms(true); programId = np.id; mount(a.el.querySelector('[data-el=progs]'), programPickerHtml(programs, programId)); } return; }
@@ -241,6 +296,7 @@ export async function render(view, _p, { go }) {
             const epv = a.el.querySelector('[name=ep]').value.trim();
             try {
               await api(`/api/podcasts/${p.id}/edit`, { method: 'POST', body: { title: a.el.querySelector('[name=title]').value, description: a.el.querySelector('[name=desc]').value, chapters, programId, ...(epv ? { episode: Number(epv) } : {}) } });
+              if (newCover) await api(`/api/podcasts/${p.id}/cover${newCover.scene ? `?scene=${newCover.scene}` : ''}`, { method: 'POST', raw: newCover.blob, headers: { 'content-type': newCover.blob.type || 'image/jpeg' } });
               toast('Guardado', 'good'); a.close(); publishedTab();
             } catch (err) { toast(err.message, 'bad'); }
           }

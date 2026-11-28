@@ -1,6 +1,7 @@
 // Reproductor de podcasts: capítulos, comentarios clavados en el minuto, velocidades,
 // temporizador para dormir, retomar donde se dejó y controles en la pantalla bloqueada.
 import { api, session } from '../api.js';
+import { db, uid } from '../db.js';
 import { LIMITS } from '../config.js';
 import { html, mount, icon, fmtTime, fmtDur, fmtDate, toast, sheet, setPct, esc } from '../util.js';
 import { podcastCover, requireIdentity, reportSheet, shareUrl, nameColor, isBlocked } from '../common.js';
@@ -144,7 +145,7 @@ export async function render(view, [id], { back, go }) {
         <button class="pill" data-act="sleep" aria-label="Temporizador para dormir">${icon('moon')}</button>
       </div>
       <div class="actions">
-        <button class="y" data-act="clip" title="Muy pronto">${icon('clip')}Clip</button>
+        ${p.owner === session.deviceId ? html`<button class="y" data-act="clip" title="Recorta un trozo y publícalo como clip">${icon('clip')}Clip</button>` : ''}
         <button data-act="comments">${icon('chat')}<span data-el="ncom">${p.comments}</span></button>
         <button data-act="dl">${icon('dl')}Bajar</button>
         <button data-act="share">${icon('share')}Enviar</button>
@@ -207,7 +208,19 @@ export async function render(view, [id], { back, go }) {
       case 'f30': player.skip(30); break;
       case 'rate': { const r = player.audio.playbackRate; player.setRate(RATES[(RATES.indexOf(r) + 1) % RATES.length]); break; }
       case 'sleep': sleepSheet(); break;
-      case 'clip': toast('Los clips llegarán pronto ✂️'); break;
+      case 'clip': {
+        // Clip: copia el podcast a tus Grabaciones y abre el editor para quedarte con un trozo (de 20 s a 10 min)
+        toast('Preparando el clip…');
+        try {
+          const r = await fetch(`/api/podcasts/${p.id}/audio`);
+          if (!r.ok) throw new Error('No se ha podido descargar el audio');
+          const blob = await r.blob();
+          const id = uid();
+          await db.put('recordings', { id, kind: 'draft', created: Date.now(), title: `Clip · ${p.title}`.slice(0, 120), description: '', duration: p.duration, mime: blob.type, blob, scene: p.scene || 1, programId: p.programId || '', clipOf: p.id, chapters: [] });
+          go(`/editor/${id}`);
+        } catch (err) { toast(err.message, 'bad'); }
+        break;
+      }
       case 'comments': commentsSheet(p); break;
       case 'dl': { const a = document.createElement('a'); a.href = `/api/podcasts/${p.id}/audio?dl=1`; a.download = ''; document.body.appendChild(a); a.click(); a.remove(); break; }
       case 'share': shareUrl(`${location.origin}/p/${p.id}`, p.title); break;

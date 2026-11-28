@@ -9,9 +9,15 @@ import { json, err, cleanId, now } from './lib/util.js';
 
 const CHUNK = 1900 * 1024; // < 2 MB por fila
 const KINDS = new Set(['rec', 'snd', 'del']); // del = aviso de borrado (sin audio)
+const SHARE_DAYS = 30; // un enlace privado para un amigo dura 30 días
 const MAX_META = 16 * 1024;
 const MAX_PREFS = 16 * 1024;
 const BYTES_PER_MIN = 64000 / 8 * 60; // grabación a 64 kbps
+
+function randomKey() {
+  const b = new Uint8Array(15); crypto.getRandomValues(b);
+  return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 export function cloudLimits() {
   return {
@@ -39,9 +45,16 @@ export class Locker extends DurableObject {
   run(q, ...a) { this.sql.exec(q, ...a); }
 
   usage() {
-    const r = this.one("SELECT COALESCE(SUM(a_bytes + p_bytes),0) AS n FROM files WHERE kind='rec'").n;
+    const r = this.one("SELECT COALESCE(SUM(a_bytes + p_bytes),0) AS n FROM files WHERE kind IN ('rec','shr')").n;
     const s = this.one("SELECT COALESCE(SUM(a_bytes + p_bytes),0) AS n FROM files WHERE kind='snd'").n;
     return { recBytes: r, sndBytes: s };
+  }
+  /** Quita los enlaces privados caducados. */
+  purgeShares() {
+    for (const f of this.all("SELECT id, meta FROM files WHERE kind='shr'")) {
+      let exp = 0; try { exp = JSON.parse(f.meta).exp || 0; } catch {}
+      if (exp && exp < now()) { this.run('DELETE FROM chunks WHERE fid=?', f.id); this.run('DELETE FROM files WHERE id=?', f.id); }
+    }
   }
   out(f) {
     let meta = {};
@@ -105,6 +118,37 @@ export class Locker extends DurableObject {
           res.headers.set('cache-control', 'public, max-age=3600');
           return res;
         }
+      }
+      // Escuchar una grabación compartida en privado (la oye quien tenga el enlace)
+      if ((pm = /^\/internal\/share\/([A-Za-z0-9_-]{8,40})(\/audio)?$/.exec(p)) && (m === 'GET' || m === 'HEAD')) {
+        this.purgeShares();
+        const f = this.one("SELECT * FROM files WHERE id=? AND kind='shr'", 'shr_' + cleanId(pm[1]));
+        if (!f) return err(404, 'Este enlace ya no está disponible');
+        if (!pm[2]) { let meta = {}; try { meta = JSON.parse(f.meta); } catch {} return json({ title: meta.title || 'Grabación', porchName: meta.porchName || '', duration: meta.duration || 0, exp: meta.exp || 0, created: f.created }); }
+        const res = this.stream(req, f.id, 'a', f.a_bytes, f.a_mime);
+        res.headers.set('cache-control', 'private, max-age=600');
+        return res;
+      }
+      // Compartir en privado con un amigo: crear o quitar el enlace
+      if (p === '/api/cloud/share' && m === 'POST') {
+        this.purgeShares();
+        const u8 = new Uint8Array(await req.arrayBuffer());
+        if (!u8.length) return err(400, 'Falta el audio');
+        const lim = cloudLimits();
+        if (this.usage().recBytes + u8.length > lim.recBytes) return err(413, `No queda sitio para compartir más (${lim.recMin / 60} h). Deja de compartir alguna grabación.`, { full: true });
+        const key = randomKey();
+        const dec = (h) => { try { return decodeURIComponent(req.headers.get(h) || ''); } catch { return ''; } };
+        const exp = now() + SHARE_DAYS * 86400_000;
+        const meta = JSON.stringify({ title: dec('x-title').slice(0, 120), porchName: dec('x-porch').slice(0, 60), duration: Number(req.headers.get('x-duration')) || 0, exp });
+        const id = 'shr_' + key;
+        for (let i = 0, seq = 0; i < u8.length; i += CHUNK, seq++) this.run('INSERT INTO chunks (fid, part, seq, data) VALUES (?,?,?,?)', id, 'a', seq, u8.slice(i, i + CHUNK).buffer);
+        this.run("INSERT INTO files (id, kind, meta, a_bytes, a_mime, created, updated) VALUES (?, 'shr', ?, ?, ?, ?, ?)", id, meta, u8.length, String(req.headers.get('content-type') || 'audio/webm').slice(0, 80), now(), now());
+        return json({ key, exp });
+      }
+      if ((pm = /^\/api\/cloud\/share\/([A-Za-z0-9_-]{8,40})\/delete$/.exec(p)) && m === 'POST') {
+        const id = 'shr_' + cleanId(pm[1]);
+        this.run('DELETE FROM chunks WHERE fid=?', id); this.run("DELETE FROM files WHERE id=? AND kind='shr'", id);
+        return json({ ok: true });
       }
       // Todo: lista + espacio usado
       if (p === '/api/cloud' && m === 'GET') {

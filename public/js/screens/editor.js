@@ -4,7 +4,7 @@
 //  · deshacer, escuchar, capítulos y zoom
 // Todo en el navegador: no se sube nada hasta publicar.
 import { api, turnstileWidget } from '../api.js';
-import { LIMITS } from '../config.js';
+import { LIMITS, minPublishSec, CLIP_MIN_SEC, CLIP_MAX_MIN } from '../config.js';
 import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtTime, setPct, DEVICE_KIND } from '../util.js';
 import { requireIdentity } from '../common.js';
 import { db } from '../db.js';
@@ -241,9 +241,9 @@ export async function render(view, [id], { go }) {
     mount(cutBtn, hasSel ? html`${icon('scissors')}<span>Quitar este trozo</span>` : cutMode ? html`${icon('close')}<span>Cancelar</span>` : html`${icon('scissors')}<span>Quitar un trozo</span>`);
     cutBtn.classList.toggle('on', cutMode);
     const hint = $el('hint');
-    if (finalLen() < LIMITS.MIN_PUBLISH_MIN * 60) { hint.hidden = false; hint.textContent = `Dura menos de ${LIMITS.MIN_PUBLISH_MIN} minutos: puedes guardarla en privado o borrarla, pero no publicarla.`; }
+    if (finalLen() < minPublishSec(rec)) { hint.hidden = false; hint.textContent = rec.clipOf ? `Un clip dura al menos ${CLIP_MIN_SEC} segundos.` : `Dura menos de ${LIMITS.MIN_PUBLISH_MIN} minutos: puedes guardarla en privado o borrarla, pero no publicarla.`; }
     else hint.hidden = true;
-    view.querySelector('[data-act=publish]').disabled = finalLen() < LIMITS.MIN_PUBLISH_MIN * 60;
+    view.querySelector('[data-act=publish]').disabled = finalLen() < minPublishSec(rec) || (rec.clipOf && finalLen() > CLIP_MAX_MIN * 60);
   }
   function setCutMode(on) {
     cutMode = on; selA = selB = null;
@@ -378,7 +378,8 @@ export async function render(view, [id], { go }) {
   };
   view.querySelector('[data-act=publish]').onclick = async () => {
     stopPlay();
-    if (finalLen() < LIMITS.MIN_PUBLISH_MIN * 60) return toast(`Mínimo ${LIMITS.MIN_PUBLISH_MIN} minutos para publicar`, 'bad');
+    if (finalLen() < minPublishSec(rec)) return toast(rec.clipOf ? `Un clip dura al menos ${CLIP_MIN_SEC} segundos` : `Mínimo ${LIMITS.MIN_PUBLISH_MIN} minutos para publicar`, 'bad');
+    if (rec.clipOf && finalLen() > CLIP_MAX_MIN * 60) return toast(`Un clip dura como máximo ${CLIP_MAX_MIN} minutos: recórtalo más`, 'bad');
     if (!(await requireIdentity())) return;
     publishSheet();
   };
@@ -428,7 +429,7 @@ export async function render(view, [id], { go }) {
             const cover = await composeCover({ photo: rec.photo, scene: rec.scene || 1, title: rec.title, date: rec.created });
             ps.set(0.9, 'Subiendo…');
             const fd = new FormData();
-            fd.append('meta', JSON.stringify({ title: rec.title, description: rec.description || '', chapters: finalChapters(), part: rec.part || 1, series: rec.series || '', scene: rec.scene || 1, programId: a.publishProgram?.() || '' }));
+            fd.append('meta', JSON.stringify({ title: rec.title, description: rec.description || '', chapters: finalChapters(), part: rec.part || 1, series: rec.series || '', scene: rec.scene || 1, programId: a.publishProgram?.() || '', clipOf: rec.clipOf || '' }));
             fd.append('audio', r.blob, 'audio.' + (r.blob.type.includes('mp4') ? 'm4a' : 'webm'));
             fd.append('cover', cover, 'cover.' + (cover.type === 'image/webp' ? 'webp' : 'jpg'));
             fd.append('turnstile', ts);

@@ -26,6 +26,7 @@ const ROUTES = [
   { re: /^\/editor\/([A-Za-z0-9_-]+)$/, mod: () => import('./screens/editor.js'), immersive: true },
   { re: /^\/legal\/([a-z-]+)$/, legal: true, immersive: true },
   { re: /^\/admin$/, mod: () => import('./screens/admin.js'), immersive: true },
+  { re: /^\/escucha\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/, mod: () => import('./screens/listen.js'), immersive: true },
 ];
 
 let cleanup = null;
@@ -110,7 +111,7 @@ function paintMini() {
     mount(mini, html`<img src="${porchCover(live.porch)}" alt=""><a class="grow" href="/porche/${live.porch.slug}"><div class="b ellip">${live.state.live ? live.state.title || live.porch.name : live.porch.name}</div><div class="muted tiny">${live.state.live ? 'En directo' : 'Esperando'} · ${live.porch.freq?.toFixed?.(1) || ''}${live.role === 'guest' ? ' · tienes micro' : ''}</div></a><button class="btn sm ghost" data-mini="stoplive" aria-label="Dejar de escuchar">${icon('close')}</button>`);
   } else if (player.p) {
     const p = player.p, a = player.audio;
-    mount(mini, html`<img src="${podcastCover(p)}" alt=""><a class="grow" href="/p/${p.id}"><div class="b ellip">${p.title}</div><div class="muted tiny ellip">${p.porchName}</div><div class="bar"><i></i></div></a><button class="play-dot" data-mini="toggle" aria-label="Play/pausa">${icon(a && !a.paused ? 'pause' : 'play')}</button><button class="mini-ic" data-mini="f30" aria-label="Adelante 30 segundos">${icon('fwd30')}</button>`);
+    mount(mini, html`<img src="${podcastCover(p)}" alt=""><a class="grow" href="/p/${p.id}"><div class="b ellip">${p.title}</div><div class="muted tiny ellip">${p.porchName}</div><div class="bar"><i></i></div></a><button class="play-dot" data-mini="toggle" aria-label="Play/pausa">${icon(a && !a.paused ? 'pause' : 'play')}</button><button class="mini-ic" data-mini="f30" aria-label="Adelante 30 segundos">${icon('fwd30')}</button><button class="mini-ic" data-mini="close" aria-label="Cerrar el reproductor">${icon('close')}</button>`);
     setPct(mini.querySelector('.bar'), '--p', a && a.duration ? (a.currentTime / a.duration) * 100 : 0);
   }
 }
@@ -119,6 +120,7 @@ mini.addEventListener('click', (e) => {
   if (!b) return;
   if (b.dataset.mini === 'toggle') player.toggle();
   if (b.dataset.mini === 'f30') player.skip(30);
+  if (b.dataset.mini === 'close') { player.stop(); paintMini(); }
   if (b.dataset.mini === 'stoplive') { if (live.role === 'guest') live.leaveMic(); live.disconnect(); paintMini(); }
 });
 let miniT = 0;
