@@ -27,7 +27,7 @@ export async function render(view, _p, { go }) {
         <div class="group">
           ${logged ? html`<button class="li" data-act="link">${icon('link')} <span class="grow">Vincular otro aparato (ordenador)</span></button>` : html`<button class="li" data-act="recover">${icon('link')} <span class="grow">Ya tengo porche en otro aparato</span></button>`}
           ${logged ? html`<button class="li" data-act="recovery">${icon('shield')} <span class="grow">Copiar enlace de recuperación</span></button>` : ''}
-          <button class="li" data-act="export">${icon('dl')} <span class="grow">Exportar copia (borradores, sonidos y ajustes)</span></button>
+          <button class="li" data-act="export">${icon('dl')} <span class="grow">Exportar copia (grabaciones, sonidos y ajustes)</span></button>
           <label class="li">${icon('upload')} <span class="grow">Importar copia</span><input type="file" hidden data-act="import" accept=".rpbk,application/octet-stream,*/*"></label>
         </div>
         <p class="muted tiny">La app web <b>no se traspasa sola</b> al cambiar de iPhone o Android, y borrar los datos del navegador la borra. Guarda la copia en iCloud, Drive o pásala por AirDrop, y en el móvil nuevo pulsa «Importar copia».${est ? ` Ocupas ${fmtBytes(est.usage || 0)} en este móvil.` : ''}</p>

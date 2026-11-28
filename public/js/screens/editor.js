@@ -354,7 +354,7 @@ export async function render(view, [id], { go }) {
 
   view.querySelector('[data-act=back]').onclick = async () => {
     stopPlay();
-    if (isEdited() && !(await confirmSheet('¿Salir sin guardar los cortes?', 'La grabación sigue en tus borradores tal como estaba.', { ok: 'Salir', cancel: 'Seguir editando' }))) return;
+    if (isEdited() && !(await confirmSheet('¿Salir sin guardar los cortes?', 'La grabación sigue en Grabaciones tal como estaba.', { ok: 'Salir', cancel: 'Seguir editando' }))) return;
     go('/mi-porche?tab=grabaciones');
   };
   view.querySelector('[data-act=details]').onclick = async () => {

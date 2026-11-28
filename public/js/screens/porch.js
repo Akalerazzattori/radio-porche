@@ -645,7 +645,7 @@ function buildBooth(view, porch, ctx) {
     if (rec) {
       pr.innerHTML = `<span class="muted">Grabando · Parte ${rec.part}</span><span class="mono ${rec.elapsed > LIMITS.WARN_1_MIN * 60 ? 'red-t' : 'muted'}">${fmtTime(rec.elapsed)} / ${LIMITS.MAX_PART_MIN}:00</span><span class="muted">${live.counts.listeners} oyentes</span>`;
     } else if (ctl.partClosed()) {
-      pr.innerHTML = `<span class="muted">Parte guardada en borradores.</span><button class="btn sm yellow" data-act="nextpart">Grabar Parte ${ctl.lastPart() + 1}</button>`;
+      pr.innerHTML = `<span class="muted">Parte guardada en Grabaciones.</span><button class="btn sm yellow" data-act="nextpart">Grabar Parte ${ctl.lastPart() + 1}</button>`;
     } else pr.innerHTML = `<span class="muted">${s.mode === 'ensayo' ? 'Ensayo privado · no se graba' : s.mode === 'rec' ? 'No se está grabando' : 'Solo directo · no se graba'}</span><span class="muted">${live.counts.listeners} oyentes</span>`;
     mount(view.querySelector('[data-act=pause]'), s.paused ? 'Reanudar' : 'Pausa');
     view.querySelector('[data-q=selfmute]').classList.toggle('on', ctl.selfMuted());
@@ -932,7 +932,7 @@ function buildBooth(view, porch, ctx) {
     onLive('chat', () => { if (tab !== 'chat') { unread++; $el('nchat').textContent = `(${unread})`; } }),
     onLive('warn', (msg) => { haptic(200); toast(msg, 'bad'); }),
     onLive('partClosed', (part) => {
-      sheet(html`<h2 class="h2">Parte ${part} guardada</h2><p class="muted">Has llegado a ${LIMITS.MAX_PART_MIN} minutos. Esta parte se ha cerrado y está en tus borradores. El directo sigue sonando para los oyentes.</p><button class="btn yellow big" data-close="go">Grabar Parte ${part + 1}</button><button class="btn ghost" data-close="">Seguir sin grabar</button>`).done.then((v) => { if (v === 'go') live.continueNextPart(); });
+      sheet(html`<h2 class="h2">Parte ${part} guardada</h2><p class="muted">Has llegado a ${LIMITS.MAX_PART_MIN} minutos. Esta parte se ha cerrado y está en Grabaciones. El directo sigue sonando para los oyentes.</p><button class="btn yellow big" data-close="go">Grabar Parte ${part + 1}</button><button class="btn ghost" data-close="">Seguir sin grabar</button>`).done.then((v) => { if (v === 'go') live.continueNextPart(); });
     }),
   ];
   header(); reqs(); showTab('voces');

@@ -71,7 +71,7 @@ export async function render(view, _p, { go }) {
     const list = (await db.all('recordings')).sort((a, b) => b.created - a.created);
     const left = (r) => Math.max(0, Math.ceil((r.created + LIMITS.DRAFT_DAYS * 86400000 - Date.now()) / 86400000));
     mount(panel, html`<div class="list">
-      <div class="banner yellow small">${icon('lock')} Lo grabado vive solo en este móvil hasta que lo publiques. Los borradores se borran solos a los ${LIMITS.DRAFT_DAYS} días.</div>
+      <div class="banner yellow small">${icon('lock')} Lo grabado vive solo en este aparato hasta que lo publiques. Las grabaciones se borran solas a los ${LIMITS.DRAFT_DAYS} días.</div>
       ${list.length ? list.map((r) => html`
         <div class="item rec-row" data-play="${r.id}">
           <div class="thumb-play"><img class="rec-thumb" src="${recordingThumb(r)}" alt=""><span class="pp" data-pp="${r.id}">${icon('play')}</span></div>

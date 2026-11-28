@@ -112,7 +112,7 @@ export const VOICE_FX = [
 export const BROADCAST_MODES = [
   { id: 'ensayo', name: 'Ensayo', hint: 'Solo quien invites. No se graba.' },
   { id: 'directo', name: 'Solo directo', hint: 'Abierto a todos. No se graba nada.' },
-  { id: 'rec', name: 'Directo + grabación', hint: 'Se guarda en tus borradores. Tú decides si se publica.' },
+  { id: 'rec', name: 'Directo + grabación', hint: 'Se guarda en Grabaciones. Tú decides si se publica.' },
 ];
 
 export const REPORT_REASONS = [
