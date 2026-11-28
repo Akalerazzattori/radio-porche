@@ -781,3 +781,16 @@ img.av { object-fit: cover; background: var(--panel2); }
 .dropzone { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 26px 14px; border: 2.5px dashed var(--yellow); border-radius: 16px; text-align: center; cursor: pointer; background: rgba(255,199,44,.05); }
 .dropzone.over { background: rgba(255,199,44,.18); border-style: solid; }
 .dropzone .dz-big { font-size: 34px; color: var(--yellow); line-height: 1; }
+
+/* Sin desplazamiento lateral en las pantallas (solo arriba/abajo) */
+.screen, .scroll { overflow-x: hidden; }
+.screen { touch-action: pan-y; }
+.hrow, .chips-row, .tapes, .prog-pick, .dial { touch-action: pan-x pan-y; }
+
+/* Cintas del estudio más grandes y nombre legible en la etiqueta */
+.tapes .tape-card { flex: 0 0 132px; }
+.tapes .tape-label { left: 17%; right: 17%; top: 10%; height: 21%; font: 800 11px/1 var(--text); letter-spacing: -.01em; }
+
+/* Logo de cabecera más pequeño */
+.brand-wm { height: 30px; }
+@media (max-width: 370px) { .brand-wm { height: 26px; } }

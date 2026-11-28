@@ -41,8 +41,8 @@ export async function render(view, _p, { go }) {
         <button class="icon-btn" data-act="share" aria-label="Compartir mi porche">${icon('share')}</button>
       </div>
       ${onAir
-        ? html`<a class="btn red big" href="/porche/${porch.slug}">${icon('radio')} Estás en el aire · volver a la cabina</a>`
-        : html`<a class="btn red big" href="/porche/${porch.slug}">${icon('mic')} Ir a la cabina</a>`}
+        ? html`<a class="btn red big" href="/porche/${porch.slug}">${icon('radio')} Estás en el aire · volver al estudio</a>`
+        : html`<a class="btn red big" href="/porche/${porch.slug}">${icon('mic')} Ir al estudio</a>`}
       <div class="seg">
         <button data-tab="grabaciones">Grabaciones</button><button data-tab="publicados">Programas</button><button data-tab="sonidos">Botonera</button><button data-tab="porche">Porche</button>
       </div>

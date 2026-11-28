@@ -388,7 +388,7 @@ function buildGreenRoom(view, porch, ctx) {
     <section class="screen">
       <div class="top">
         <button class="btn sm ghost" data-act="x" aria-label="Volver">${icon('back')} Volver</button>
-        <div class="grow right"><h1 class="h1">Camerino</h1><div class="sub ellip">${porch.name} · <span class="mono">${porch.freq.toFixed(1)}</span></div></div>
+        <div class="grow right"><h1 class="h1">Estudio</h1><div class="sub ellip">Antes de salir al aire · <span class="mono">${porch.freq.toFixed(1)}</span></div></div>
       </div>
       <div data-el="role">${roleBadge()}</div>
       ${remote ? remoteBanner() : ''}
