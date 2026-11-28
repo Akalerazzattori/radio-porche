@@ -118,7 +118,8 @@ export function recoverSheet() {
     <input class="input link-code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" data-el="code">
     <button class="btn yellow big" data-a="code">Vincular</button>
     <details class="small muted"><summary>Tengo un enlace de recuperación</summary>
-      <input class="input mt-s" placeholder="https://…/#recuperar=…" data-el="link">
+      <button class="btn yellow mt-s" data-a="paste">Pegar el enlace copiado</button>
+      <input class="input mt-s" placeholder="…o pégalo aquí: https://…/#recuperar=…" data-el="link">
       <button class="btn ghost mt-s" data-a="link">Usar enlace</button>
     </details>`, {
     onMount(a) {
@@ -150,6 +151,11 @@ export function recoverSheet() {
         if (/^\d{6}$/.test(v.replace(/\s/g, ''))) go();
       });
       a.el.querySelector('[data-a=code]').onclick = go;
+      a.el.querySelector('[data-a=paste]').onclick = async () => {
+        let v = '';
+        try { v = await navigator.clipboard.readText(); } catch { return toast('No me deja leer lo copiado: pégalo en la casilla de abajo.', 'bad'); }
+        if (!(await tryLink(v))) toast('Lo que tienes copiado no es un enlace de recuperación.', 'bad');
+      };
       a.el.querySelector('[data-a=link]').onclick = async () => {
         const v = a.el.querySelector('[data-el=link]').value;
         if (!(await tryLink(v))) toast('Ese enlace no parece de recuperación', 'bad');
