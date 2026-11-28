@@ -854,7 +854,6 @@ button.avatar-edit { padding: 0; background: none; border: 0; }
 .strip-mute .ic { width: 18px; height: 18px; }
 .strip-mute.on { background: var(--red); color: var(--cream); }
 .strip-mute.ghost { visibility: hidden; }
-.strip.is-muted .vfader, .strip.is-muted .vu { opacity: 0.35; }
 
 /* Grabaciones: línea de tiempo que se arrastra, con minuto y duración */
 .rec-row .prog.seekable { margin-top: 0; height: 18px; padding: 6px 0; background-clip: content-box; cursor: pointer; touch-action: none; position: relative; overflow: visible; border-radius: 4px; }
@@ -905,13 +904,3 @@ button.avatar-edit { padding: 0; background: none; border: 0; }
 .pause-ban { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 12px; border-radius: 14px; border: 2px solid var(--edge); background: repeating-linear-gradient(-45deg, var(--yellow), var(--yellow) 14px, #f2b62c 14px, #f2b62c 28px); color: var(--ink); box-shadow: 0 4px 0 var(--edge); }
 .pause-ban b { font: 22px var(--display, inherit); letter-spacing: .5px; }
 .pause-ban span { flex: 1 1 180px; font-size: 13px; }
-
-/* Invitado: ¿me oyen? */
-.air-state { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--edge); }
-.air-state b { font-size: 15px; letter-spacing: .04em; }
-.air-state span { font-size: 13px; opacity: .85; }
-.air-state.on { background: var(--red); color: var(--cream); border-color: var(--red); }
-.air-state.off { background: var(--panel2); }
-
-/* Pre-escucha: los cascos del sonido que suena solo para ti se encienden */
-.pad.previewing .cue { background: var(--violet); color: var(--ink); border-color: var(--ink); }

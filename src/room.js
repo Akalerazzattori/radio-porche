@@ -48,7 +48,7 @@ export class Room extends DurableObject {
   publicState() {
     const s = this.state;
     const h = this.host();
-    return { live: s.live, mode: s.mode, title: s.title, since: s.since, pinned: s.pinned, paused: s.paused, solo: !!s.solo, pausedAt: s.pausedAt || 0, pausedTotal: s.pausedTotal || 0, rec: s.rec, part: s.part, studio: s.studio, hostOnline: !!h, studioKind: h ? this.att(h).kind || 'móvil' : '' };
+    return { live: s.live, mode: s.mode, title: s.title, since: s.since, pinned: s.pinned, paused: s.paused, pausedAt: s.pausedAt || 0, pausedTotal: s.pausedTotal || 0, rec: s.rec, part: s.part, studio: s.studio, hostOnline: !!h, studioKind: h ? this.att(h).kind || 'móvil' : '' };
   }
   counts() {
     let listeners = 0, mics = 0;
@@ -383,7 +383,6 @@ export class Room extends DurableObject {
           else if (this.state.pausedAt) { this.state.pausedTotal = (this.state.pausedTotal || 0) + (Date.now() - this.state.pausedAt); this.state.pausedAt = 0; }
           this.state.paused = msg.paused;
         }
-        if (typeof msg.solo === 'boolean') this.state.solo = msg.solo; // «Solo música»: los invitados saben que no se les oye
         if (typeof msg.rec === 'boolean') this.state.rec = msg.rec && this.state.mode === 'rec';
         if (Number.isInteger(msg.part) && msg.part > 0 && msg.part < 50) this.state.part = msg.part;
         if (typeof msg.title === 'string') this.state.title = cleanText(msg.title, LIMITS.TITLE_MAX);

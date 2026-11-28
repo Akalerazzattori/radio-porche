@@ -424,7 +424,7 @@ export const live = {
         break;
       case 'ducking': m.ducking = !!a.on; break;
       case 'guestfx': localStorage.setItem('rp_guestfx', a.on ? '1' : '0'); break;
-      case 'solo': this.setSolo(!!a.on); break;
+      case 'solo': m.setSoloMusic(!!a.on); break;
       case 'up': m.musicUp(); break;
       case 'down': m.musicDown(); break;
       case 'selfmute': this.voice?.setMuted(!!a.on); break;
@@ -499,11 +499,8 @@ export const live = {
     keepAwake(true);
     if (mode === 'rec') this.startRecorder(1);
   },
-  setSolo(on) { this.mixer?.setSoloMusic(on); this.send({ t: 'hostState', solo: !!on }); emit('update'); },
   pause(on) {
     this.mixer?.setOnAir(!on);
-    if (on) this.mixer?.pauseAll(); else this.mixer?.resumeAll();
-    this.state.paused = on; emit('update'); // se ve al momento, sin esperar al servidor
     if (this.rec) { try { on ? this.rec.mr.pause() : this.rec.mr.resume(); } catch {} if (on) this.rec.pausedAt = Date.now(); else if (this.rec.pausedAt) { this.rec.pausedMs += Date.now() - this.rec.pausedAt; this.rec.pausedAt = 0; } }
     this.send({ t: 'hostState', paused: on });
   },
