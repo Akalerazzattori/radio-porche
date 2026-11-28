@@ -723,6 +723,11 @@ export class Hub extends DurableObject {
     if (LIMITS.MAX_PUBLICADOS != null && this.one('SELECT COUNT(*) AS n FROM podcasts WHERE owner=?', me).n >= LIMITS.MAX_PUBLICADOS) {
       return err(403, 'Has llegado al máximo de podcasts publicados');
     }
+    if (LIMITS.MAX_MIN_PUBLICADOS_MES != null) {
+      const d = new Date(); const monthStart = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+      const usedMin = this.one('SELECT COALESCE(SUM(duration),0) AS s FROM podcasts WHERE owner=? AND created>=?', me, monthStart).s / 60;
+      if (usedMin >= LIMITS.MAX_MIN_PUBLICADOS_MES) return err(403, `Has llegado a los ${LIMITS.MAX_MIN_PUBLICADOS_MES} minutos publicados de este mes`);
+    }
     const perDay = this.isNew(ident) ? LIMITS.PUBLISH_PER_DAY_NEW : LIMITS.PUBLISH_PER_DAY;
     if (!this.limit(`pub:${me}`, DAY, perDay, false)) return err(429, `Máximo ${perDay} publicaciones al día.`);
     if (!this.limit('pub:global', HOUR, LIMITS.GLOBAL_PUBLISH_PER_HOUR, false)) return err(503, 'Mucha actividad ahora mismo. Prueba dentro de un rato.');
@@ -992,7 +997,7 @@ export class Hub extends DurableObject {
       this.audit('admin-claim', 'Panel reclamado');
       return json({ key });
     }
-    if (!this.limit(`adm:${ip}`, 60, 120)) return err(429, 'Más despacio');
+    if (!this.limit(`adm:${ip}`, 60, 400)) return err(429, 'Más despacio');
     if (!(await this.isAdmin(req, url))) {
       this.limit(`admfail:${ip}`, HOUR, 1000);
       return err(403, 'Clave de administración no válida');

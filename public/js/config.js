@@ -29,6 +29,10 @@ export const LIMITS = {
   MIN_PUBLISH_MIN: 5, // mínimo para publicar
   SERVER_MAX_MIN: 41, // el servidor rechaza más de esto
   MAX_PUBLICADOS: null, // null = sin cupo (preparado para premium)
+  // Freemium (preparado, sin activar): cuando haya plan de pago, estos serán los límites del plan gratis.
+  //   PORCH_MAX_BYTES (espacio publicado por porche), MAX_PUBLICADOS (nº de episodios),
+  //   MAX_MIN_PUBLICADOS_MES (minutos publicados al mes, null = sin límite).
+  MAX_MIN_PUBLICADOS_MES: null,
   DRAFT_DAYS: 7, // los borradores se borran solos
   MAX_UPLOAD_BYTES: 26 * 1024 * 1024, // ~40 min de Opus mono
   COVER_MAX_BYTES: 500 * 1024,

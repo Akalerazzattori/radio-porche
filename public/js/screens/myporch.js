@@ -229,7 +229,7 @@ export async function render(view, _p, { go }) {
       <div class="muted small">${T.hint}</div>
       ${stab === 'music' ? html`<div class="banner red small">Las canciones comerciales en podcasts publicados pueden tener problemas de derechos. Usa fragmentos breves o música libre.</div>` : ''}
       <div class="row gap">
-        <label class="btn yellow grow">${icon('upload')} Subir archivo<input type="file" accept="audio/*,video/mp4,video/quicktime,.mp3,.m4a,.wav,.ogg,.mp4,.mov" hidden data-act="file"></label>
+        <label class="btn yellow grow">${icon('upload')} Subir archivo<input type="file" multiple accept="audio/*,video/mp4,video/quicktime,.mp3,.m4a,.wav,.ogg,.mp4,.mov" hidden data-act="file"></label>
         <button class="btn ghost grow" data-act="rec">${icon('mic')} Grabar</button>
       </div>
       <div class="muted tiny">MP3 o cualquier audio, y también vídeo MP4/MOV: sacamos el audio aquí, en tu móvil. No se descarga nada de YouTube.</div>
@@ -273,10 +273,18 @@ export async function render(view, _p, { go }) {
       if (e.target.closest('[data-act=rec]')) { const z = await askZone(); if (!z) return; return recordSoundSheet(z).then(soundsTab); }
     };
     panel.querySelector('[data-act=file]').onchange = async (e) => {
-      const f = e.target.files[0];
-      if (!f) return;
+      const files = [...e.target.files];
+      if (!files.length) return;
       const z = await askZone();
       if (!z) return;
+      if (files.length > 1) {
+        toast(`Preparando ${files.length} archivos…`);
+        let ok = 0;
+        for (const f of files) { try { await importSound(f, { zone: z, name: f.name.replace(/\.[^.]+$/, '').slice(0, 40) }); ok++; } catch {} }
+        toast(`Añadidos ${ok} de ${files.length} a tu botonera`, ok ? 'good' : 'bad');
+        return soundsTab();
+      }
+      const f = files[0];
       const name = await promptSheet('Nombre en la botonera', { value: f.name.replace(/\.[^.]+$/, '').slice(0, 40), max: 40 });
       if (name === null || name === undefined) return;
       toast('Preparando el audio…');
