@@ -10,8 +10,10 @@ const reasonName = (id) => REPORT_REASONS.find((r) => r.id === id)?.name || id;
 
 export async function render(view, _p, { go }) {
   const h = new URLSearchParams(location.hash.slice(1));
-  if (h.get('k')) { sessionStorage.setItem('rp_admin', h.get('k')); history.replaceState(null, '', '/admin'); }
-  let key = sessionStorage.getItem('rp_admin') || '';
+  if (h.get('k')) { localStorage.setItem('rp_admin', h.get('k')); history.replaceState(null, '', '/admin'); }
+  // La clave se guarda en este aparato (no hace falta abrir el enlace cada vez). «Salir» la quita.
+  if (!localStorage.getItem('rp_admin') && sessionStorage.getItem('rp_admin')) localStorage.setItem('rp_admin', sessionStorage.getItem('rp_admin'));
+  let key = localStorage.getItem('rp_admin') || '';
   const call = async (path, opts = {}) => {
     const r = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), 'x-admin-key': key } });
     const d = await r.json().catch(() => ({}));
@@ -29,12 +31,12 @@ export async function render(view, _p, { go }) {
       </div></section>`);
     view.querySelector('[data-x]').onclick = () => go('/');
     view.addEventListener('click', async (e) => {
-      if (e.target.closest('[data-act=enter]')) { key = view.querySelector('[data-el=k]').value.trim(); sessionStorage.setItem('rp_admin', key); render(view, _p, { go }); }
+      if (e.target.closest('[data-act=enter]')) { key = view.querySelector('[data-el=k]').value.trim(); localStorage.setItem('rp_admin', key); render(view, _p, { go }); }
       if (e.target.closest('[data-act=claim]')) {
         try {
           const r = await (await fetch('/api/admin/claim', { method: 'POST' })).json();
           if (!r.key) throw new Error(r.error || 'No se pudo');
-          sessionStorage.setItem('rp_admin', r.key);
+          localStorage.setItem('rp_admin', r.key);
           await copy(`${location.origin}/admin#k=${r.key}`, 'Enlace secreto copiado. ¡Guárdalo!');
           alert(`Tu enlace secreto de administración (guárdalo):\n\n${location.origin}/admin#k=${r.key}`);
           render(view, _p, { go });
@@ -55,7 +57,7 @@ export async function render(view, _p, { go }) {
 
   async function load() {
     try { data = await call('/api/admin/overview'); }
-    catch (e) { toast(e.message, 'bad'); sessionStorage.removeItem('rp_admin'); key = ''; render(view, _p, { go }); return false; }
+    catch (e) { toast(e.message, 'bad'); localStorage.removeItem('rp_admin'); sessionStorage.removeItem('rp_admin'); key = ''; render(view, _p, { go }); return false; }
     try { localStorage.setItem('rp_isadmin', '1'); } catch {} // así Perfil enseña «Administración» solo en tus aparatos
     const c = data.counts;
     view.querySelector('[data-el=sum]').textContent = `${c.identities} personas · ${c.porches} porches · ${c.podcasts} podcasts · ${c.live} en directo`;
@@ -266,10 +268,10 @@ export async function render(view, _p, { go }) {
     if (e.target.closest('[data-act=rotate]')) {
       if (!(await confirmSheet('¿Regenerar?', 'El enlace anterior dejará de funcionar.'))) return;
       const r2 = await call('/api/admin/action', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'rotate' }) });
-      key = r2.key; sessionStorage.setItem('rp_admin', key);
+      key = r2.key; localStorage.setItem('rp_admin', key);
       await copy(`${location.origin}/admin#k=${key}`, 'Nuevo enlace copiado. ¡Guárdalo!');
     }
-    if (e.target.closest('[data-act=logout]')) { sessionStorage.removeItem('rp_admin'); try { localStorage.removeItem('rp_isadmin'); } catch {} go('/'); }
+    if (e.target.closest('[data-act=logout]')) { localStorage.removeItem('rp_admin'); sessionStorage.removeItem('rp_admin'); try { localStorage.removeItem('rp_isadmin'); } catch {} go('/'); }
   });
   panel.addEventListener('change', (e) => {
     const p = e.target.closest('[data-p]');

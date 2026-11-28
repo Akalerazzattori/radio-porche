@@ -63,8 +63,8 @@ export async function render(view, [slug], ctx) {
   }
   function leave() {
     if (live.role === 'host' && live.state.live) { ctx.go('/'); return; } // el directo sigue (mini barra para volver)
-    if (live.role === 'guest') { ctx.go('/'); return; }
-    if (live.role !== 'host' && !live.remote) { ctx.go('/'); return; } // oyente: sigue sonando en el mini reproductor
+    // invitado u oyente: vuelve a donde estaba (Podcasts, un programa…); sigue sonando en el mini reproductor
+    if (live.role === 'guest' || (live.role !== 'host' && !live.remote)) { ctx.back(); return; }
     live.disconnect(); ctx.go('/mi-porche');
   }
   sub('update', () => { if (decide() !== mode) build(); });

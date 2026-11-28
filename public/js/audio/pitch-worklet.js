@@ -1,4 +1,4 @@
-// Cambio de tono en tiempo real (Pitufo / Gigante): dos lecturas de una línea de
+// Cambio de tono en tiempo real (Ardilla / Gigante): dos lecturas de una línea de
 // retardo con fundido cruzado. Ligero, pensado para móvil.
 class PitchShifter extends AudioWorkletProcessor {
   static get parameterDescriptors() {

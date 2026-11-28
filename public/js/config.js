@@ -114,7 +114,7 @@ export const SOUND_TABS = [
 // --- Voz ---
 export const VOICE_FX = [
   { id: 'locutor', name: 'Locutor', hint: 'voz de radio' },
-  { id: 'pitufo', name: 'Pitufo', hint: 'agudo' },
+  { id: 'pitufo', name: 'Ardilla', hint: 'agudo' },
   { id: 'gigante', name: 'Gigante', hint: 'grave' },
   { id: 'monstruo', name: 'Monstruo', hint: 'muy grave' },
   { id: 'robot', name: 'Robot', hint: 'metálico' },
