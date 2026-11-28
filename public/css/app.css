@@ -809,3 +809,13 @@ button.role-badge { width: 100%; text-align: left; cursor: pointer; }
 [data-el=role] > .role-badge { flex: 1; min-width: 0; }
 .info-btn { width: 40px; flex: none; border-radius: 12px; border: 2px solid var(--line); background: var(--panel); color: var(--cream); font: 700 18px/1 Georgia, serif; font-style: italic; }
 .info-btn:active { background: var(--panel2); }
+
+/* Cabeceras: logo + título en una línea, subtítulo debajo empezando por la izquierda */
+.brand-head { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.brand-row { display: flex; align-items: flex-end; gap: 10px; }
+.brand-row .brand-wm { height: 28px; margin-bottom: 2px; }
+.brand-row .h1 { font-size: 32px; line-height: .9; }
+.brand-head .sub { margin-top: 2px; font-size: 13px; }
+.top:has(.brand-head) { align-items: flex-start; margin-top: -4px; }
+.freq-tag { display: inline-block; background: var(--yellow); color: var(--ink); font: 700 12px/1 var(--mono); padding: 3px 5px; border-radius: 4px; vertical-align: 1px; }
+@media (max-width: 370px) { .brand-row .brand-wm { height: 24px; } .brand-row .h1 { font-size: 27px; } }

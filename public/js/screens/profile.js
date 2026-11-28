@@ -13,7 +13,7 @@ export async function render(view, _p, { go }) {
   const est = await storageEstimate();
   mount(view, html`
     <section class="screen">
-      <div class="top"><div class="row gap-s"><img class="brand-wm" src="/img/logo-sm.webp" alt="Radio Porche" width="116" height="40"><div><h1 class="h1">Perfil</h1><div class="sub">Lo avanzado está aquí</div></div></div></div>
+      <div class="top"><div class="brand-head"><div class="brand-row"><img class="brand-wm" src="/img/logo-sm.webp" alt="Radio Porche" width="116" height="40"><h1 class="h1">Perfil</h1></div></div></div>
       <div class="fill scroll col gap">
         ${logged ? html`
           <div class="card row gap">

@@ -36,8 +36,7 @@ export async function render(view, _p, { go }) {
   mount(view, html`
     <section class="screen">
       <div class="top">
-        <img class="brand-wm" src="/img/logo-sm.webp" alt="Radio Porche" width="116" height="40">
-        <div class="grow"><h1 class="h1">Mi porche</h1><div class="sub ellip"><span class="chip freq">${porch.freq.toFixed(1)}</span> ${porch.name}</div></div>
+        <div class="brand-head grow"><div class="brand-row"><img class="brand-wm" src="/img/logo-sm.webp" alt="Radio Porche" width="116" height="40"><h1 class="h1">Mi porche</h1></div><div class="sub ellip"><span class="freq-tag">${porch.freq.toFixed(1)}</span> <span data-el="pname">${porch.name}</span></div></div>
         <button class="icon-btn" data-act="share" aria-label="Compartir mi porche">${icon('share')}</button>
       </div>
       ${onAir
@@ -307,6 +306,7 @@ export async function render(view, _p, { go }) {
       <div class="muted tiny">Sin foto usamos una de las escenas. Toca una para elegirla.</div>
       <label class="field">Nombre del porche<input class="input" name="name" maxlength="${LIMITS.PORCH_NAME_MAX}" value="${porch.name}"></label>
       <label class="field">Descripción<textarea class="input" name="desc" maxlength="${LIMITS.DESC_MAX}" rows="3">${porch.description}</textarea></label>
+      <label class="field">Tu frecuencia en el dial (88.0 – 108.0)<input class="input mono" name="freq" inputmode="decimal" maxlength="5" value="${porch.freq.toFixed(1)}"></label>
       <label class="field">Próximo programa<input class="input" name="next" maxlength="${LIMITS.NEXT_SHOW_MAX}" placeholder="el jueves, 22:00" value="${porch.nextShow}"></label>
       <button class="btn yellow" data-act="save">Guardar</button>
       <div class="card col gap-s">
@@ -328,9 +328,10 @@ export async function render(view, _p, { go }) {
       }
       if (e.target.closest('[data-act=save]')) {
         try {
-          const r = await api('/api/porch/update', { method: 'POST', body: { name: panel.querySelector('[name=name]').value, description: panel.querySelector('[name=desc]').value, nextShow: panel.querySelector('[name=next]').value } });
+          const r = await api('/api/porch/update', { method: 'POST', body: { name: panel.querySelector('[name=name]').value, description: panel.querySelector('[name=desc]').value, nextShow: panel.querySelector('[name=next]').value, freq: Number(String(panel.querySelector('[name=freq]').value).replace(',', '.')) } });
           porch = r.porch; toast('Guardado', 'good');
-          view.querySelector('.sub').lastChild.textContent = ' ' + porch.name;
+          view.querySelector('[data-el=pname]').textContent = porch.name;
+          view.querySelector('.freq-tag').textContent = porch.freq.toFixed(1);
         } catch (err) { toast(err.message, 'bad'); }
       }
       if (e.target.closest('[data-act=modcopy]')) { const k = (await api('/api/me')).modKey; copy(`${location.origin}/porche/${porch.slug}?m=${k}`, 'Enlace de moderador copiado'); }

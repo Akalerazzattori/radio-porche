@@ -590,7 +590,17 @@ export class Hub extends DurableObject {
       const nextShow = cleanText(b.nextShow ?? pr.next_show, LIMITS.NEXT_SHOW_MAX);
       const nextTs = cleanInt(b.nextTs ?? pr.next_ts, 0, 4102444800000, 0);
       const scene = cleanInt(b.scene ?? pr.scene, 1, 4, 1);
-      this.run('UPDATE porches SET name=?, description=?, next_show=?, next_ts=?, scene=? WHERE id=?', name, description, nextShow, nextTs, scene, pr.id);
+      let freq = pr.freq;
+      if (b.freq !== undefined && b.freq !== null && b.freq !== '') {
+        const f = Math.round(Number(b.freq) * 10) / 10;
+        if (!Number.isFinite(f) || f < 88 || f > 108) return err(400, 'La frecuencia tiene que estar entre 88.0 y 108.0');
+        if (f !== pr.freq) {
+          const taken = this.one('SELECT 1 FROM porches WHERE ABS(freq - ?) < 0.05 AND id != ?', f, pr.id);
+          if (taken) return err(409, `La ${f.toFixed(1)} ya la tiene otro porche. Elige otra.`);
+          freq = f;
+        }
+      }
+      this.run('UPDATE porches SET name=?, description=?, next_show=?, next_ts=?, scene=?, freq=? WHERE id=?', name, description, nextShow, nextTs, scene, freq, pr.id);
       return json({ porch: this.porchPublic(this.one('SELECT * FROM porches WHERE id=?', pr.id), me) });
     }
     if (p === '/api/porch/cover' && m === 'POST') {
