@@ -408,10 +408,10 @@ function buildGreenRoom(view, porch, ctx) {
           <div data-el="voice"></div>
           <button class="btn yellow pulse-hint full" data-act="startmic">${icon('mic')} Probar micro</button>
           <div class="row gap two">
-            <label class="row gap-s small grow"><span class="switch"><input type="checkbox" data-act="monitor"><span></span></span> Oírme</label>
+            <label class="row gap-s small grow"><span class="switch"><input type="checkbox" data-act="monitor" ${headphones && localStorage.getItem('rp_oirme') !== '0' ? 'checked' : ''}><span></span></span> Oírme</label>
             <label class="row gap-s small grow"><span class="switch"><input type="checkbox" data-act="hp" ${headphones ? 'checked' : ''}><span></span></span> Llevo cascos</label>
           </div>
-          <div class="muted tiny">«Oírme» viene apagado: con Bluetooth hay unas décimas de retraso. Con cascos de cable suena sin retraso.</div>
+          <div class="muted tiny">«Oírme»: tu voz en tus cascos. Con Bluetooth llega con unas décimas de retraso; con cascos de cable, al instante.</div>
         </div>`}
         <div class="h3">2 · ¿Qué programa emites?</div>
         <div data-el="progs"><p class="muted small">Cargando tus programas…</p></div>
@@ -421,9 +421,6 @@ function buildGreenRoom(view, porch, ctx) {
           <label class="radio-opt"><input type="radio" name="mode" value="${m.id}" ${m.id === 'rec' ? 'checked' : ''}><div class="grow"><div class="t">${m.name}</div><div class="d">${m.hint}</div></div>${m.id === 'rec' ? html`<span class="rec-chip">REC</span>` : ''}</label>`)}</div>
         <div class="h3">Al salir al aire suena</div>
         <button class="btn ghost cat-btn" data-act="intro"><span class="grow ellip" data-el="introlbl">Nada</span>${icon('down')}</button>
-        <div class="row between"><div class="h3">4 · Tu botonera</div>${remote ? '' : html`<a class="btn sm ghost" href="/mi-porche?tab=sonidos">${icon('edit')} Editar botonera</a>`}</div>
-        <div class="tapes" data-el="tapes"></div>
-        <div class="muted tiny" data-el="ncortes"></div>
         <div class="row between"><div class="h3">Contigo en el estudio</div><button class="btn sm yellow" data-act="invite">${icon('plus')} Invitar al micro</button></div>
         <div class="col gap-s" data-el="guests"></div>
         <div class="col gap-s" data-el="reqs"></div>
@@ -469,12 +466,7 @@ function buildGreenRoom(view, porch, ctx) {
   const loadSounds = () => ctl.sounds().then((items) => {
     if (items.length === lastSoundsN) return;
     lastSoundsN = items.length;
-    const n = (zs) => items.filter((i) => zs.includes(i.zone)).length;
-    $el('ncortes').textContent = SOUND_TABS.map((t) => `${n(t.zones)} ${t.label.toLowerCase()}`).join(' · ');
     allItems = items;
-    const pick = [...items.filter((i) => i.zone === 'jingle'), ...items.filter((i) => i.zone === 'fx'), ...items.filter((i) => i.zone !== 'jingle' && i.zone !== 'fx')];
-    mount($el('tapes'), html`${pick.map((it, i) => html`<button class="tape-card" data-tape="${it.key}" aria-label="Escuchar o parar ${it.name}"><img src="/img/cassettes/cassette-${(i % 6) + 1}.webp" alt="" width="138" height="82"><span class="tape-label">${it.name}</span><span class="tape-pp">${icon('play')}</span></button>`)}`);
-    paintTapes();
     paintIntro();
   });
   loadSounds();
@@ -548,11 +540,25 @@ function buildGreenRoom(view, porch, ctx) {
     if (b.dataset.act === 'role') roleSheet();
     if (b.dataset.act === 'roleinfo') roleInfoSheet();
     if (b.dataset.act === 'intro') {
-      const opts = allItems.filter((x) => x.zone === 'jingle' || x.zone === 'fx');
+      let tab = (allItems.find((x) => x.key === introKey) && SOUND_TABS.find((t) => t.zones.includes(allItems.find((x) => x.key === introKey).zone))?.id) || 'jingle';
       const v = await sheet(html`<h2 class="h2">Sonido al salir al aire</h2><p class="muted small">Suena justo al entrar en antena. Toca ▶ para oírlo antes.</p>
-        <button class="opt" data-close="__none">— Nada (sales en silencio)</button>
-        ${opts.map((x) => html`<div class="row gap"><button class="opt grow ${x.key === introKey ? 'yellow-t' : ''}" data-close="${x.key}">${x.key === introKey ? '✓ ' : ''}${x.name} <span class="muted small">· ${ZONES[x.zone]?.label || ''}</span></button><button class="mini-ic" data-prev="${x.key}" aria-label="Escuchar">${icon('play')}</button></div>`)}`, {
-        onMount(a) { a.el.addEventListener('click', (ev) => { const pv = ev.target.closest('[data-prev]'); if (pv) { ev.stopPropagation(); const it = allItems.find((y) => y.key === pv.dataset.prev); if (it) ctl.cue(it); } }); },
+        <button class="opt" data-close="__none">${introKey ? '' : '✓ '}Nada (sales en silencio)</button>
+        <div class="seg">${SOUND_TABS.map((t) => html`<button data-itab="${t.id}">${t.label}</button>`)}</div>
+        <div class="col gap-s intro-list" data-el="ilist"></div>`, {
+        onMount(a) {
+          const paintList = () => {
+            a.el.querySelectorAll('[data-itab]').forEach((x) => x.classList.toggle('on', x.dataset.itab === tab));
+            const T = SOUND_TABS.find((t) => t.id === tab);
+            const opts = allItems.filter((x) => T.zones.includes(x.zone));
+            const secs = [...new Set(opts.map((x) => x.section || ''))];
+            mount(a.el.querySelector('[data-el=ilist]'), opts.length ? html`${secs.map((sec) => html`${sec ? html`<div class="sec-title">${sec}</div>` : ''}${opts.filter((x) => (x.section || '') === sec).map((x) => html`<div class="row gap"><button class="opt grow ${x.key === introKey ? 'yellow-t' : ''}" data-close="${x.key}">${x.key === introKey ? '✓ ' : ''}${x.name}</button><button class="mini-ic" data-prev="${x.key}" aria-label="Escuchar">${icon(x.key === previewKey() ? 'pause' : 'play')}</button></div>`)}`)}` : html`<p class="muted small">No hay nada en ${T.label.toLowerCase()}.</p>`);
+          };
+          paintList();
+          a.el.addEventListener('click', (ev) => {
+            const t = ev.target.closest('[data-itab]'); if (t) { tab = t.dataset.itab; paintList(); return; }
+            const pv = ev.target.closest('[data-prev]'); if (pv) { ev.stopPropagation(); const it = allItems.find((y) => y.key === pv.dataset.prev); if (it) ctl.cue(it); }
+          });
+        },
       }).done;
       stopPreview();
       if (v) { introKey = v === '__none' ? '' : v; localStorage.setItem('rp_intro', introKey); paintIntro(); }

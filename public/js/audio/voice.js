@@ -67,7 +67,9 @@ export class Voice {
     this.out.connect(this.analyser);
     this.dest = c.createMediaStreamDestination();
     this.out.connect(this.dest);
-    this.monitor = c.createGain(); this.monitor.gain.value = 0; // "Oírme": apagado por defecto
+    // "Oírme": con cascos viene encendido (se puede apagar y se recuerda); sin cascos, nunca.
+    this.monitorOn = headphones && localStorage.getItem('rp_oirme') !== '0';
+    this.monitor = c.createGain(); this.monitor.gain.value = this.monitorOn ? 1 : 0;
     this.out.connect(this.monitor);
     this.monitor.connect(c.destination);
     this.setEffect(null);
@@ -148,6 +150,7 @@ export class Voice {
 
   setMonitor(on) {
     this.monitorOn = !!on;
+    try { localStorage.setItem('rp_oirme', on ? '1' : '0'); } catch {}
     if (this.monitor) this.monitor.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.02);
   }
   setMuted(on) {
