@@ -3,7 +3,7 @@
 import { api, session } from '../api.js';
 import { LIMITS, SOUND_TABS } from '../config.js';
 import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtDur, fmtDate, fmtShortDur, fmtBytes, setPct, esc } from '../util.js';
-import { requireIdentity, porchCover, podcastCover, shareUrl, copy } from '../common.js';
+import { requireIdentity, porchCover, podcastCover, shareUrl, copy, brandHead } from '../common.js';
 import { db } from '../db.js';
 import { OTHER, sendRecording, pickup, getPref, setPref } from '../inbox.js';
 import { live } from '../live.js';
@@ -15,18 +15,18 @@ import { myPrograms, programSheet, programPickerHtml, programCover, getCategorie
 
 export async function render(view, _p, { go }) {
   if (!session.token) {
-    mount(view, html`<section class="screen"><div class="top"><h1 class="h1">Mi porche</h1></div>
+    mount(view, html`<section class="screen"><div class="top">${brandHead('Mi porche')}</div>
       <div class="empty fill"><img src="/img/scenes/escena-3.webp" alt=""><p class="b">Abre tu porche y emite con tus amigos desde el móvil.</p><button class="btn red big" data-act="login">Entrar con mi nombre</button></div></section>`);
     view.querySelector('[data-act=login]').onclick = async () => { if (await requireIdentity()) go('/mi-porche', { replace: true }); };
     return;
   }
   let me;
-  try { me = await api('/api/me'); } catch (e) { mount(view, html`<section class="screen"><h1 class="h1">Mi porche</h1><p class="muted">${e.message}</p></section>`); return; }
+  try { me = await api('/api/me'); } catch (e) { mount(view, html`<section class="screen"><div class="top">${brandHead('Mi porche')}</div><p class="muted">${e.message}</p></section>`); return; }
   let porch = me.porch;
   const params = new URLSearchParams(location.search);
   let tab = params.get('tab') || 'grabaciones';
   if (!porch) {
-    mount(view, html`<section class="screen"><div class="top"><h1 class="h1">Mi porche</h1></div>
+    mount(view, html`<section class="screen"><div class="top">${brandHead('Mi porche')}</div>
       <div class="empty fill"><img src="/img/scenes/escena-1.webp" alt=""><p>Aún no tienes porche.</p><button class="btn red big" data-act="create">Crear mi porche</button></div></section>`);
     view.querySelector('[data-act=create]').onclick = async () => {
       try { await api('/api/porch/create', { method: 'POST', body: {} }); go('/mi-porche', { replace: true }); } catch (e) { toast(e.message, 'bad'); }
@@ -37,7 +37,7 @@ export async function render(view, _p, { go }) {
   mount(view, html`
     <section class="screen">
       <div class="top">
-        <div class="brand-head grow"><div class="brand-row"><img class="brand-wm" src="/img/logo-sm.webp" alt="Radio Porche" width="116" height="40"><h1 class="h1">Mi porche</h1></div><div class="sub ellip"><span class="freq-tag">${porch.freq.toFixed(1)}</span> <span data-el="pname">${porch.name}</span></div></div>
+        ${brandHead('Mi porche', html`<span class="freq-tag">${porch.freq.toFixed(1)}</span> <span data-el="pname">${porch.name}</span>`, 'grow')}
         <button class="icon-btn" data-act="share" aria-label="Compartir mi porche">${icon('share')}</button>
       </div>
       ${onAir

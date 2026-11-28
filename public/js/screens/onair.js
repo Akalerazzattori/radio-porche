@@ -1,7 +1,7 @@
 // En el aire (inicio): contadores, emisora sintonizada en grande y dial deslizable.
 import { api, session } from '../api.js';
 import { html, mount, icon, toast, haptic, weekdayGreeting } from '../util.js';
-import { porchCover, requireIdentity } from '../common.js';
+import { porchCover, requireIdentity, brandHead } from '../common.js';
 
 const MIN = 87.5, MAX = 108.5, PX = 44; // píxeles por MHz
 
@@ -10,7 +10,7 @@ export async function render(view, _p, { go }) {
   mount(view, html`
     <section class="screen">
       <div class="top">
-        <div class="brand-head"><div class="brand-row"><img class="brand-wm" src="/img/logo-sm.webp" alt="Radio Porche" width="116" height="40"><h1 class="h1">Directo</h1></div><div class="sub">${weekdayGreeting()}</div></div>
+        ${brandHead('Directo', weekdayGreeting())}
         <div class="row gap-s">
           <a class="icon-btn" href="/podcasts?buscar=1" aria-label="Buscar">${icon('search')}</a>
           <button class="icon-btn bell" data-act="notices" aria-label="Avisos"><img src="/img/ui/nav-avisos.png" alt="" width="24" height="24"><span class="badge" data-el="badge" hidden></span></button>

@@ -3,7 +3,7 @@
 // Las categorías favoritas se piden solo cuando ya hay variedad.
 import { api } from '../api.js';
 import { html, mount, icon, fmtDur, fmtDate, debounce, setPct, toast } from '../util.js';
-import { podcastCover } from '../common.js';
+import { podcastCover, brandHead } from '../common.js';
 import { player, getProgress } from './player.js';
 import { programCover, getCategories, catName } from '../programs.js';
 
@@ -36,7 +36,7 @@ export async function render(view, _p, { go }) {
   mount(view, html`
     <section class="screen">
       <div class="top">
-        <div class="brand-head"><div class="brand-row"><img class="brand-wm" src="/img/logo-sm.webp" alt="Radio Porche" width="116" height="40"><h1 class="h1">Podcasts</h1></div></div>
+        ${brandHead('Podcasts')}
         <button class="icon-btn" data-act="search" aria-label="Buscar">${icon('search')}</button>
       </div>
       <input class="input" type="search" placeholder="Buscar programas, episodios o porches…" maxlength="60" data-el="q" aria-label="Buscar" hidden>

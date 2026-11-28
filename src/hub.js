@@ -84,6 +84,8 @@ export class Hub extends DurableObject {
     if (!pc.includes('episode')) this.sql.exec('ALTER TABLE podcasts ADD COLUMN episode INTEGER NOT NULL DEFAULT 0');
     if (!pc.includes('subtitle')) this.sql.exec("ALTER TABLE podcasts ADD COLUMN subtitle TEXT NOT NULL DEFAULT ''");
     if (!pc.includes('category')) this.sql.exec("ALTER TABLE podcasts ADD COLUMN category TEXT NOT NULL DEFAULT ''");
+    // Dónde está el audio: '' = aquí (Hub), 'lk' = en el espacio de su dueño (Locker). Así el Hub no se llena.
+    if (!pc.includes('store')) this.sql.exec("ALTER TABLE podcasts ADD COLUMN store TEXT NOT NULL DEFAULT ''");
   }
 
   one(q, ...a) { const r = this.sql.exec(q, ...a).toArray(); return r[0] || null; }
@@ -266,6 +268,21 @@ export class Hub extends DurableObject {
     return a + b;
   }
 
+  // ------------------------------------------------------------ audio de podcasts en el espacio de su dueño
+  locker(owner) { return this.env.LOCKER ? this.env.LOCKER.get(this.env.LOCKER.idFromName(owner)) : null; }
+  async lockerPutPodcast(owner, id, u8, mime) {
+    const lk = this.locker(owner);
+    if (!lk) return false;
+    try {
+      const r = await lk.fetch(`https://locker/internal/pod/${id}`, { method: 'POST', body: u8, headers: { 'content-type': mime } });
+      return r.ok;
+    } catch { return false; }
+  }
+  lockerDeletePodcast(owner, id) {
+    const lk = this.locker(owner);
+    if (lk) this.ctx.waitUntil(lk.fetch(`https://locker/internal/pod/${id}/delete`, { method: 'POST' }).catch(() => {}));
+  }
+
   // ------------------------------------------------------------ trozos
   putBlob(pid, kind, u8) {
     this.run('DELETE FROM chunks WHERE pid=? AND kind=?', pid, kind);
@@ -423,6 +440,16 @@ export class Hub extends DurableObject {
         const extra = { 'cache-control': 'public, max-age=3600' };
         if (url.searchParams.get('dl') === '1') {
           extra['content-disposition'] = `attachment; filename="${slugify(r.title)}.${ext}"`;
+        }
+        if (r.store === 'lk') {
+          const lk = this.locker(r.owner);
+          const h = {};
+          if (req.headers.get('range')) h.range = req.headers.get('range');
+          const res = await lk.fetch(`https://locker/internal/pod/${r.id}`, { method: m, headers: h });
+          if (!res.ok && res.status !== 206) return err(404, 'No disponible');
+          const out = new Headers(res.headers);
+          for (const [k, v] of Object.entries(extra)) out.set(k, v);
+          return new Response(m === 'HEAD' ? null : res.body, { status: res.status, headers: out });
         }
         return this.streamBlob(req, r.id, 'a', r.bytes, r.mime, extra);
       }
@@ -809,12 +836,13 @@ export class Hub extends DurableObject {
     this.limit(`pub:${me}`, DAY, perDay, true);
     this.limit('pub:global', HOUR, LIMITS.GLOBAL_PUBLISH_PER_HOUR, true);
     const id = randomId(8);
-    this.putBlob(id, 'a', u8);
+    const inLocker = await this.lockerPutPodcast(me, id, u8, mime);
+    if (!inLocker) this.putBlob(id, 'a', u8);
     if (cover) this.putBlob(id, 'c', cover);
     this.run(
-      `INSERT INTO podcasts (id,porch_id,owner,title,description,chapters,created,duration,bytes,mime,cover_mime,scene,part,prev_id,series,program_id,category,episode)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      id, porch.id, me, title, description, chapters, now(), dur, u8.length, mime, coverMime, scene, part, prev || '', series, programId, category, episode,
+      `INSERT INTO podcasts (id,porch_id,owner,title,description,chapters,created,duration,bytes,mime,cover_mime,scene,part,prev_id,series,program_id,category,episode,store)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      id, porch.id, me, title, description, chapters, now(), dur, u8.length, mime, coverMime, scene, part, prev || '', series, programId, category, episode, inLocker ? 'lk' : '',
     );
     const total = this.storageUsed();
     if (total > LIMITS.GLOBAL_STORAGE_BYTES * LIMITS.STORAGE_WARN_RATIO) this.audit('storage-warn', `${Math.round(total / 1048576)} MB usados`);
@@ -822,6 +850,8 @@ export class Hub extends DurableObject {
   }
 
   deletePodcast(id) {
+    const row = this.one('SELECT owner, store FROM podcasts WHERE id=?', id);
+    if (row?.store === 'lk') this.lockerDeletePodcast(row.owner, id);
     this.run('DELETE FROM chunks WHERE pid=?', id);
     this.run('DELETE FROM likes WHERE pid=?', id);
     this.run('DELETE FROM listens WHERE pid=?', id);

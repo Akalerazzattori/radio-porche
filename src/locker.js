@@ -85,9 +85,30 @@ export class Locker extends DurableObject {
     const p = url.pathname;
     const m = req.method;
     try {
+      // Audio de tus podcasts publicados (solo el Hub llega aquí: el Worker nunca reenvía /internal)
+      let pm;
+      if ((pm = /^\/internal\/pod\/([A-Za-z0-9_-]{4,40})(\/delete)?$/.exec(p))) {
+        const id = 'pod_' + cleanId(pm[1]);
+        if (pm[2] && m === 'POST') { this.run('DELETE FROM chunks WHERE fid=?', id); this.run('DELETE FROM files WHERE id=?', id); return json({ ok: true }); }
+        if (m === 'POST') {
+          const u8 = new Uint8Array(await req.arrayBuffer());
+          const mime = String(req.headers.get('content-type') || 'audio/webm').slice(0, 80);
+          this.run('DELETE FROM chunks WHERE fid=?', id); this.run('DELETE FROM files WHERE id=?', id);
+          for (let i = 0, seq = 0; i < u8.length; i += CHUNK, seq++) this.run('INSERT INTO chunks (fid, part, seq, data) VALUES (?,?,?,?)', id, 'a', seq, u8.slice(i, i + CHUNK).buffer);
+          this.run("INSERT INTO files (id, kind, meta, a_bytes, a_mime, created, updated) VALUES (?, 'pod', '{}', ?, ?, ?, ?)", id, u8.length, mime, now(), now());
+          return json({ ok: true });
+        }
+        if (m === 'GET' || m === 'HEAD') {
+          const f = this.one('SELECT * FROM files WHERE id=?', id);
+          if (!f) return err(404, 'No existe');
+          const res = this.stream(req, id, 'a', f.a_bytes, f.a_mime);
+          res.headers.set('cache-control', 'public, max-age=3600');
+          return res;
+        }
+      }
       // Todo: lista + espacio usado
       if (p === '/api/cloud' && m === 'GET') {
-        return json({ files: this.all('SELECT * FROM files ORDER BY created DESC').map((f) => this.out(f)), usage: this.usage(), limits: cloudLimits() });
+        return json({ files: this.all("SELECT * FROM files WHERE kind IN ('rec','snd','del') ORDER BY created DESC").map((f) => this.out(f)), usage: this.usage(), limits: cloudLimits() });
       }
       // Preferencias del Estudio (favoritos, sonido de entrada…)
       if (p === '/api/cloud/prefs') {
@@ -111,7 +132,7 @@ export class Locker extends DurableObject {
       }
       // Borrar todo (cuando se borra la identidad)
       if (p === '/api/cloud/wipe' && m === 'POST') {
-        this.run('DELETE FROM chunks'); this.run('DELETE FROM files'); this.run('DELETE FROM prefs');
+        this.run("DELETE FROM chunks WHERE fid NOT LIKE 'pod\_%' ESCAPE '\\'"); this.run("DELETE FROM files WHERE kind != 'pod'"); this.run('DELETE FROM prefs');
         return json({ ok: true });
       }
 

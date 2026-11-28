@@ -739,8 +739,9 @@ button.role-badge { width: 100%; text-align: left; cursor: pointer; }
 /* Cabeceras: logo + título en una línea, subtítulo debajo empezando por la izquierda */
 .brand-head { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .brand-row { display: flex; align-items: flex-end; gap: 10px; }
-.brand-row .brand-wm { height: 28px; margin-bottom: 2px; }
-.brand-row .h1 { font-size: 32px; line-height: .9; }
+/* Las letras del logo acaban ~4 px por encima de su borde inferior: el título sube lo mismo para compartir línea */
+.brand-row .brand-wm { height: 28px; margin-bottom: 0; }
+.brand-row .h1 { font-size: 32px; line-height: .9; padding-bottom: 3px; }
 .brand-head .sub { margin-top: 2px; font-size: 13px; }
 .top:has(.brand-head) { align-items: flex-start; margin-top: -4px; }
 .freq-tag { display: inline-block; background: var(--yellow); color: var(--ink); font: 700 12px/1 var(--mono); padding: 3px 5px; border-radius: 4px; vertical-align: 1px; }
@@ -784,3 +785,4 @@ button.role-badge { width: 100%; text-align: left; cursor: pointer; }
 .pad .star .ic { width: 15px; height: 15px; }
 .pad .star.on { background: var(--ink); color: var(--yellow); border-color: var(--ink); }
 .icon-btn.fav-btn.on { color: var(--yellow); }
+.brand-head.grow { min-width: 0; } .brand-head.grow .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

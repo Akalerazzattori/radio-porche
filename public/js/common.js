@@ -102,6 +102,11 @@ export async function requireIdentity(reason = '') {
   return (await s.done) === 'ok';
 }
 
+/** Cabecera común de las pantallas principales: logo + título alineados en la misma línea. */
+export function brandHead(title, sub = null, cls = '') {
+  return html`<div class="brand-head ${cls}"><div class="brand-row"><img class="brand-wm" src="/img/logo-sm.webp" alt="Radio Porche" width="116" height="40"><h1 class="h1">${title}</h1></div>${sub ? html`<div class="sub">${sub}</div>` : ''}</div>`;
+}
+
 export function recoveryLink() {
   return `${location.origin}/#recuperar=${encodeURIComponent(session.token)}`;
 }
