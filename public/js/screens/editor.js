@@ -5,9 +5,10 @@
 // Todo en el navegador: no se sube nada hasta publicar.
 import { api, turnstileWidget } from '../api.js';
 import { LIMITS } from '../config.js';
-import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtTime, setPct } from '../util.js';
+import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtTime, setPct, DEVICE_KIND } from '../util.js';
 import { requireIdentity } from '../common.js';
 import { db } from '../db.js';
+import { sendDelete, pickup } from '../inbox.js';
 import { audioCtx } from '../audio/voice.js';
 import { renderSegments, mixToMono, encodeBest, canEncodeOpus } from '../audio/encode.js';
 import { composeCover, SCENES, shrinkPhoto } from '../cover.js';
@@ -67,8 +68,9 @@ export function recordingDetailsSheet(rec) {
 }
 
 export async function render(view, [id], { go }) {
-  const rec = await db.get('recordings', id);
-  if (!rec) { mount(view, html`<section class="screen"><div class="top"><h1 class="h1">Editor</h1><button class="icon-btn" data-x>${icon('close')}</button></div><div class="empty"><p>Esta grabación ya no está en este móvil.</p></div></section>`); view.querySelector('[data-x]').onclick = () => go('/mi-porche'); return; }
+  let rec = await db.get('recordings', id);
+  if (!rec) { await pickup(); rec = await db.get('recordings', id); } // ¿estaba llegando de tu otro aparato?
+  if (!rec) { mount(view, html`<section class="screen"><div class="top"><h1 class="h1">Editor</h1><button class="icon-btn" data-x>${icon('close')}</button></div><div class="empty"><p>Esta grabación no está en este aparato. Si está en tu otro aparato, ábrela allí y pulsa «Pasar al ${DEVICE_KIND}».</p></div></section>`); view.querySelector('[data-x]').onclick = () => go('/mi-porche'); return; }
 
   mount(view, html`
     <section class="screen">
@@ -433,6 +435,7 @@ export async function render(view, [id], { go }) {
             const res = await api('/api/podcasts', { method: 'POST', form: fd });
             ps.set(1, '¡Publicado!');
             await db.del('recordings', rec.id);
+            sendDelete('recordings', rec.id);
             ps.close();
             toast('¡Publicado en el archivo!', 'good');
             go(`/p/${res.podcast.id}`);

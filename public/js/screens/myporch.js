@@ -5,6 +5,7 @@ import { LIMITS, SOUND_TABS } from '../config.js';
 import { html, mount, icon, toast, sheet, confirmSheet, promptSheet, fmtDur, fmtDate, fmtShortDur, fmtBytes, setPct, esc } from '../util.js';
 import { requireIdentity, porchCover, podcastCover, shareUrl, copy } from '../common.js';
 import { db } from '../db.js';
+import { OTHER, sendRecording, pickup } from '../inbox.js';
 import { live } from '../live.js';
 import { loadStandard, loadMine, importSound, deleteSound, renameSound, recordMic, saveRecordedSound, decode } from '../audio/sounds.js';
 import { audioCtx } from '../audio/voice.js';
@@ -71,18 +72,20 @@ export async function render(view, _p, { go }) {
     const list = (await db.all('recordings')).sort((a, b) => b.created - a.created);
     const left = (r) => Math.max(0, Math.ceil((r.created + LIMITS.DRAFT_DAYS * 86400000 - Date.now()) / 86400000));
     mount(panel, html`<div class="list">
-      <div class="banner yellow small">${icon('lock')} Lo grabado vive solo en este aparato hasta que lo publiques. ${LIMITS.DRAFT_DAYS ? `Las grabaciones se borran solas a los ${LIMITS.DRAFT_DAYS} días.` : 'No se borran solas.'}</div>
+      <div class="banner yellow small">${icon('lock')} Tus grabaciones viven en este aparato hasta que las publiques${LIMITS.DRAFT_DAYS ? ` (se borran solas a los ${LIMITS.DRAFT_DAYS} días)` : ''}. Si emites desde el ordenador, llegan solas a tu móvil. Para editar una en el otro aparato, pulsa ${icon('send')}.</div>
       ${list.length ? list.map((r) => html`
         <div class="item rec-row" data-play="${r.id}">
           <div class="thumb-play"><img class="rec-thumb" src="${recordingThumb(r)}" alt=""><span class="pp" data-pp="${r.id}">${icon('play')}</span></div>
           <div class="grow">
             <div class="row gap-s"><div class="t ellip grow">${r.title}${r.part > 1 ? ` · Parte ${r.part}` : ''}</div><button class="mini-ic" data-det="${r.id}" aria-label="Cambiar título y foto">${icon('edit')}</button></div>
+            ${r.from ? html`<div class="m">Llegó de tu ${r.from}</div>` : ''}
             <div class="m">${r.kind === 'draft' ? (LIMITS.DRAFT_DAYS ? `Sin publicar · se borra en ${left(r)} días` : 'Sin publicar') : 'Privado'} · ${fmtDur(r.duration)} · ${fmtDate(r.created)}</div>
             ${r.duration < LIMITS.MIN_PUBLISH_MIN * 60 ? html`<div class="m orange-t">Menos de ${LIMITS.MIN_PUBLISH_MIN} min: no se puede publicar.</div>` : ''}
             <div class="prog" data-prog="${r.id}"><i></i></div>
             <div class="rec-actions">
               ${r.duration >= LIMITS.MIN_PUBLISH_MIN * 60 ? html`<a class="btn sm red" href="/editor/${r.id}?publicar=1">Publicar</a>` : ''}
               <a class="btn sm yellow" href="/editor/${r.id}">${icon('scissors')} Recortar</a>
+              <button class="btn sm ghost" data-send="${r.id}" aria-label="Pasar a tu ${OTHER}" title="Pasar a tu ${OTHER}">${icon('send')}</button>
               <button class="btn sm ghost" data-del="${r.id}" aria-label="Borrar">${icon('trash')}</button>
             </div>
           </div>
@@ -95,9 +98,18 @@ export async function render(view, _p, { go }) {
       if (e.target.closest('a')) return;
       const d = e.target.closest('[data-det]');
       if (d) { const r = list.find((x) => x.id === d.dataset.det); if ((await recordingDetailsSheet(r)) === 'ok') recordingsTab(); return; }
+      const snd = e.target.closest('[data-send]');
+      if (snd) {
+        const r = list.find((x) => x.id === snd.dataset.send);
+        if (!(await confirmSheet(`¿Pasar a tu ${OTHER}?`, `«${r.title}» aparecerá en Grabaciones de tu ${OTHER} en cuanto lo abras. Aquí también se queda.`, { ok: 'Pasar' }))) return;
+        snd.disabled = true; toast('Enviando…');
+        await sendRecording(r, OTHER);
+        snd.disabled = false;
+        return;
+      }
       const del = e.target.closest('[data-del]');
       if (del) {
-        if (!(await confirmSheet('¿Borrar esta grabación?', 'Se borra de este móvil y no se puede recuperar.', { ok: 'Borrar', danger: true }))) return;
+        if (!(await confirmSheet('¿Borrar esta grabación?', 'Se borra de este aparato y no se puede recuperar. Si la habías pasado a tu otro aparato, allí sigue.', { ok: 'Borrar', danger: true }))) return;
         stopRec(); await db.del('recordings', del.dataset.del); recordingsTab(); return;
       }
       const prog = e.target.closest('[data-prog]');
@@ -354,7 +366,10 @@ export async function render(view, _p, { go }) {
   }
 
   show(tab);
-  return () => { stopRec(); stopPrev(); };
+  const onInbox = () => { if (tab === 'grabaciones' && !recPlaying) recordingsTab(); if (tab === 'sonidos') soundsTab(); };
+  window.addEventListener('rp:inbox', onInbox);
+  pickup();
+  return () => { stopRec(); stopPrev(); window.removeEventListener('rp:inbox', onInbox); };
 }
 
 // Grabar un corte con el móvil y recortarlo

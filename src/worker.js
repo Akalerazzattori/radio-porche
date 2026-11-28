@@ -2,11 +2,23 @@
 // Sirve la web estática (con cabeceras de seguridad), la API (Hub) y los WebSockets (Room).
 import { Hub } from './hub.js';
 import { Room } from './room.js';
+import { Locker } from './locker.js';
 import { APP } from '../public/js/config.js';
 
-export { Hub, Room };
+export { Hub, Room, Locker };
 
 const TURNSTILE = 'https://challenges.cloudflare.com';
+
+/** Identidad del token: deviceId, null si no vale, undefined si no se ha podido comprobar. */
+async function whoami(env, req) {
+  const h = req.headers.get('authorization') || '';
+  const token = h.startsWith('Bearer ') ? h.slice(7) : '';
+  if (!token) return null;
+  try {
+    const r = await env.HUB.get(env.HUB.idFromName('main')).fetch('https://hub/internal/whoami', { method: 'POST', body: JSON.stringify({ token }) });
+    return (await r.json()).deviceId || null;
+  } catch { return undefined; }
+}
 
 const SECURITY_HEADERS = {
   'Content-Security-Policy': [
@@ -117,8 +129,25 @@ export default {
       const headers = new Headers(req.headers);
       headers.set('x-rp-ip', ip);
       headers.delete('cookie');
+
+      // Tu espacio (grabaciones y sonidos en tu cuenta): un Durable Object por identidad
+      if (path === '/api/cloud' || path.startsWith('/api/cloud/')) {
+        const dev = await whoami(env, req);
+        if (dev === undefined) return withHeaders(new Response(JSON.stringify({ error: 'Inténtalo de nuevo en un momento' }), { status: 503, headers: { 'content-type': 'application/json' } }));
+        if (!dev) return withHeaders(new Response(JSON.stringify({ error: 'Entra con tu nombre para usar tu espacio' }), { status: 401, headers: { 'content-type': 'application/json' } }));
+        if (path === '/api/cloud/wipe') return withHeaders(new Response('No', { status: 403 }));
+        const lk = env.LOCKER.get(env.LOCKER.idFromName(dev));
+        return withHeaders(await lk.fetch(new Request(new URL(path + url.search, 'https://locker'), { method: req.method, headers, body: req.body })));
+      }
+
+      // Borrar mi identidad: también se vacía su espacio
+      const wipeDev = path === '/api/me/delete' && req.method === 'POST' ? await whoami(env, req) : null;
+
       const fwd = new Request(new URL(path + url.search, 'https://hub'), { method: req.method, headers, body: req.body });
       const res = await hub(env).fetch(fwd);
+      if (wipeDev && res.ok) {
+        try { await env.LOCKER.get(env.LOCKER.idFromName(wipeDev)).fetch('https://locker/api/cloud/wipe', { method: 'POST' }); } catch {}
+      }
       return withHeaders(res);
     }
 

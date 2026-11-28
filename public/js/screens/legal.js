@@ -53,8 +53,8 @@ export const DOCS = {
 <p>Usamos <b>Cloudflare</b> como encargado del tratamiento para alojar la web y los datos. El audio en directo viaja directamente entre móviles (WebRTC) y usa servidores STUN públicos de Google solo para establecer la conexión. No vendemos ni cedemos tus datos.</p>
 <h3>Tus derechos</h3>
 <p>Puedes acceder, rectificar, suprimir, oponerte, limitar y portar tus datos. Desde <b>Perfil</b> tienes "Descargar mis datos" y "Borrar todos mis datos". Para lo demás, escribe a <b>${MAIL}</b>. Si no te atendemos bien, puedes reclamar ante la <b>Agencia Española de Protección de Datos</b> (aepd.es).</p>
-<h3>Qué se guarda en tu móvil</h3>
-<p>Tus <b>grabaciones sin publicar</b>${LIMITS.DRAFT_DAYS ? ` (se borran solas a los ${LIMITS.DRAFT_DAYS} días)` : ''}, tus <b>podcasts privados</b>, los <b>sonidos y música</b> que añadas y tus <b>ajustes</b> se quedan en tu móvil (almacenamiento del navegador) y nunca se suben salvo que publiques. Si borras los datos del navegador, se borran. Al cambiar de móvil, usa "Exportar copia" e "Importar copia".</p>
+<h3>Qué se guarda en tu aparato</h3>
+<p>Tus <b>grabaciones sin publicar</b>${LIMITS.DRAFT_DAYS ? ` (se borran solas a los ${LIMITS.DRAFT_DAYS} días)` : ''}, tus <b>podcasts privados</b>, los <b>sonidos y música</b> que añadas y tus <b>ajustes</b> se quedan en tu aparato (almacenamiento del navegador) y no se suben salvo que publiques, con una excepción: si usas la app en dos aparatos (móvil y ordenador), lo que pasas de uno a otro (una grabación, tus sonidos propios) espera cifrado en tránsito en nuestro servidor <b>solo hasta que el otro aparato lo recoge</b>, y entonces se borra. Tus favoritos de la botonera se guardan en tu cuenta para verlos en todos tus aparatos. Si borras los datos del navegador, se borran. Al cambiar de móvil, usa "Exportar copia" e "Importar copia".</p>
 <h3>Cookies y almacenamiento</h3>
 <p>No usamos cookies de seguimiento, publicidad ni analítica. Solo guardamos en tu dispositivo lo imprescindible para que funcione (tu identidad, tus ajustes y tus archivos privados). Por eso no te mostramos un banner de cookies.</p>`,
   },

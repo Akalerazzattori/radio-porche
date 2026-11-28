@@ -1,6 +1,7 @@
 // Biblioteca de sonidos: tres zonas (Efectos · Música de fondo · Canciones),
 // cada una con lo "De serie" (repo + panel admin, para todos) y lo "Mío" (en el móvil).
 import { db, uid } from '../db.js';
+import { sendSound, sendDelete } from '../inbox.js';
 import { LIMITS } from '../config.js';
 import { audioCtx } from './voice.js';
 import { canEncodeOpus, encodeOpusWebm, encodeWav, mixToMono, recorderMime } from './encode.js';
@@ -95,6 +96,7 @@ export async function importSound(file, { zone, name, section = '' }, onProgress
   };
   await db.put('sounds', item);
   cache.set('mias:' + item.id, buf);
+  sendSound(item);
   return item;
 }
 
@@ -105,17 +107,21 @@ export async function saveRecordedSound(pcm, sampleRate, { zone, name, section =
   else blob = encodeWav(pcm, sampleRate);
   const item = { id: uid(), zone, name: name.slice(0, 40), section: section.slice(0, 40), duration: Math.round((pcm.length / sampleRate) * 10) / 10, mime: blob.type, blob, created: Date.now() };
   await db.put('sounds', item);
+  sendSound(item);
   return item;
 }
 
 export async function renameSound(id, patch) {
   const s = await db.get('sounds', id);
   if (!s) return;
-  await db.put('sounds', { ...s, ...patch });
+  const next = { ...s, ...patch };
+  await db.put('sounds', next);
+  sendSound(next);
 }
 export async function deleteSound(id) {
   await db.del('sounds', id);
   cache.delete('mias:' + id);
+  sendDelete('sounds', id);
 }
 
 /** Graba con el micro del móvil (para crear cortes). */

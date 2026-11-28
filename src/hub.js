@@ -942,6 +942,11 @@ export class Hub extends DurableObject {
   // ------------------------------------------------------------ interno (solo Worker y salas)
   async internal(req, url, ip) {
     const p = url.pathname;
+    if (p === '/internal/whoami') {
+      const b = await req.json().catch(() => ({}));
+      const ident = b.token ? await this.verifyToken(String(b.token)) : null;
+      return json(ident && !ident.blocked ? { deviceId: ident.device_id } : { deviceId: null });
+    }
     if (p === '/internal/auth') {
       const b = await req.json();
       const pr = this.one('SELECT * FROM porches WHERE id=?', String(b.porchId || ''));

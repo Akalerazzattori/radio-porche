@@ -33,6 +33,8 @@ export const LIMITS = {
   //   PORCH_MAX_BYTES (espacio publicado por porche), MAX_PUBLICADOS (nº de episodios),
   //   MAX_MIN_PUBLICADOS_MES (minutos publicados al mes, null = sin límite).
   MAX_MIN_PUBLICADOS_MES: null,
+  CLOUD_REC_MIN: 180, // buzón de paso entre tus aparatos: grabaciones esperando a ser recogidas (minutos, 64 kbps ≈ 29 MB/hora)
+  CLOUD_SND_MB: 50, // buzón de paso: sonidos esperando a ser recogidos
   DRAFT_DAYS: null, // null = las grabaciones no se borran nunca solas (si un día falta espacio, poner días)
   MAX_UPLOAD_BYTES: 26 * 1024 * 1024, // ~40 min de Opus mono
   COVER_MAX_BYTES: 500 * 1024,

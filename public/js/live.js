@@ -8,7 +8,8 @@ import { StudioPeers, ClientPeer } from './audio/rtc.js';
 import { recorderMime } from './audio/encode.js';
 import { loadAll, decode } from './audio/sounds.js';
 import { db, uid, getSetting } from './db.js';
-import { toast } from './util.js';
+import { toast, DEVICE_KIND } from './util.js';
+import { markUsed, hasUsed, sendRecording } from './inbox.js';
 
 const listeners = new Map();
 export function onLive(ev, fn) {
@@ -64,7 +65,7 @@ export const live = {
   // sonidos del estudio
   items: [], fxPlaying: new Map(),
 
-  kind: /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)) ? 'móvil' : 'ordenador',
+  kind: DEVICE_KIND,
   get active() { return !!this.ws; },
   get onAir() { return this.state.live; },
   get speaking() { return this.role === 'host' || this.role === 'guest'; },
@@ -137,7 +138,7 @@ export const live = {
         if (['blocked', 'banned', 'full', 'ip', 'private', 'noporch'].includes(m.code)) { this.fatal = m; this.closedByUser = true; emit('update'); }
         break;
       case 'info': toast(m.msg); break;
-      case 'people': this.people = m.people; this.counts = { listeners: m.listeners, mics: m.mics }; this.guardEcho(); emit('update'); break;
+      case 'people': this.people = m.people; this.counts = { listeners: m.listeners, mics: m.mics }; for (const p of m.people) if (p.owner && p.cid !== this.cid) markUsed(p.kind); this.guardEcho(); emit('update'); break;
       case 'state': this.state = m.state; emit('update'); break;
       case 'chat': this.chat.push(m.m); if (this.chat.length > 200) this.chat.shift(); emit('chat', m.m); break;
       case 'react': emit('react', m.e); break;
@@ -550,7 +551,9 @@ export const live = {
       part: r.part, series: this.series, duration, mime: r.mime, blob, scene: this.porch?.scene || 1, porchName: this.porch?.name || '', chapters: [],
       programId: this.programId || '',
     };
-    try { await db.put('recordings', item); this.recParts.push(item); } catch { toast('No se ha podido guardar la grabación en el móvil', 'bad'); }
+    try { await db.put('recordings', item); this.recParts.push(item); } catch { toast('No se ha podido guardar la grabación en este aparato', 'bad'); }
+    // Emitiendo desde el ordenador: la grabación llega sola a tu móvil (tu casa). En el ordenador también se queda.
+    if (DEVICE_KIND === 'ordenador' && hasUsed('móvil')) sendRecording(item, 'móvil', { quiet: true }).then((ok) => { if (ok) toast(`Parte ${item.part} enviada a tu móvil.`, 'good'); });
     emit('update');
     return item;
   },
@@ -574,3 +577,6 @@ document.addEventListener('visibilitychange', () => {
     else if (live.role !== 'host' && live.rtcState && live.rtcState !== 'connected') { live.peer?.close(); live.want(); }
   }
 });
+
+// Han llegado sonidos de tu otro aparato: el Estudio los recarga para la botonera
+window.addEventListener('rp:inbox', (e) => { if (e.detail?.snds && live.items.length) live.loadItems(true).then(() => emit('sounds')).catch(() => {}); });

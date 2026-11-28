@@ -6,6 +6,7 @@ import { purgeOldDrafts, requestPersist } from './db.js';
 import { live, onLive } from './live.js';
 import { player } from './screens/player.js';
 import { renderLegal } from './screens/legal.js';
+import { watchInbox, loadPrefs } from './inbox.js';
 
 let view = document.getElementById('view');
 const tabbar = document.getElementById('tabbar');
@@ -194,5 +195,7 @@ function watchVersion() {
   pollNotices();
   setInterval(pollNotices, 45000);
   watchVersion();
+  watchInbox();
+  loadPrefs();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 })();
