@@ -327,6 +327,18 @@ export class Room extends DurableObject {
         this.send(tw, { t: 'signal', from: a.cid, data: msg.data });
         return;
       }
+      case 'gfx': {
+        // Un invitado con micro lanza un efecto o una cortinilla de la biblioteca de serie (el estudio decide si lo permite)
+        if (a.role !== 'guest' || a.isOwner) return;
+        const nowMs = Date.now();
+        if (a.lastGfx && nowMs - a.lastGfx < 1500) return; // como mucho uno cada segundo y medio
+        a.lastGfx = nowMs; this.setAtt(ws, a);
+        const key = String(msg.key || '');
+        if (!/^serie:[A-Za-z0-9_-]{1,60}$/.test(key)) return;
+        const h = this.host();
+        if (h) this.send(h, { t: 'gfx', key, cid: a.cid, name: a.name });
+        return;
+      }
       case 'ctl': {
         // Mando a distancia: otro aparato del anfitrión controla la cabina del estudio
         if (!a.isOwner || isHost) return;

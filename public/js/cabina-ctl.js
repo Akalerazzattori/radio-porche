@@ -17,6 +17,21 @@ export function stopPreview() {
   pv.src = null; pv.key = null; pvEmit();
 }
 export const previewKey = () => pv.key;
+/** Pre-escuchar un sonido cualquiera en este aparato (sin que salga al aire). Tocar el mismo = parar. */
+export async function cueSource(key, src) {
+  if (pv.key === key) { stopPreview(); return false; }
+  stopPreview();
+  try {
+    const c = audioCtx();
+    if (c.state === 'suspended') await c.resume();
+    const buf = await decode(src);
+    const s = c.createBufferSource(); s.buffer = buf; s.connect(c.destination);
+    s.onended = () => { if (pv.src === s) { pv.src = null; pv.key = null; pvEmit(); } };
+    s.start();
+    pv.src = s; pv.key = key; pvEmit();
+    return true;
+  } catch { return false; }
+}
 
 export function makeCtl() {
   const R = () => live.role !== 'host';

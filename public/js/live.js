@@ -197,6 +197,15 @@ export const live = {
         break;
       case 'invite': this.inviteKey = m.key; emit('update'); break;
       case 'ctl': if (this.role === 'host') this.runCtl(m.cmd, m.args || {}); break;
+      case 'gfx': {
+        // Un invitado lanza un efecto: solo efectos y cortinillas de serie, y si lo permites
+        if (this.role !== 'host' || !this.mixer || localStorage.getItem('rp_guestfx') === '0') break;
+        const it = this.findItem(m.key);
+        if (!it || !['fx', 'jingle'].includes(it.zone)) break;
+        this.fireSound(m.key);
+        toast(`${m.name || 'Un invitado'} ha lanzado «${it.name}»`);
+        break;
+      }
       case 'handoff': if (this.role !== 'host' && this.isOwner) { if (this.role === 'guest') this.leaveMic(true); this.takeStudio(); } break;
       case 'studioState': this.remoteState = m.s; emit('remote'); break;
       case 'studioSounds': {
@@ -413,6 +422,7 @@ export const live = {
         else if (typeof a.id === 'string' && a.id.startsWith('v:')) m.setVoiceGain(a.id.slice(2), num(a.v));
         break;
       case 'ducking': m.ducking = !!a.on; break;
+      case 'guestfx': localStorage.setItem('rp_guestfx', a.on ? '1' : '0'); break;
       case 'solo': m.setSoloMusic(!!a.on); break;
       case 'up': m.musicUp(); break;
       case 'down': m.musicDown(); break;
