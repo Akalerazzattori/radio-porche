@@ -202,7 +202,8 @@ function watchVersion() {
   // ¿Se borró la identidad de localStorage pero queda la copia? La recuperamos sin pedirte nada.
   if (!session.token) {
     try {
-      const b = await getSetting('identity');
+      // Como mucho 2,5 s: si el almacén del aparato se cuelga (pasa en Safari), arrancamos igual
+      const b = await Promise.race([getSetting('identity'), new Promise((r) => setTimeout(() => r(null), 2500))]);
       if (b?.token) {
         const r = await fetch('/api/me', { headers: { authorization: `Bearer ${b.token}` } });
         if (r.ok) session.set(b);
@@ -210,6 +211,7 @@ function watchVersion() {
     } catch {}
   }
   if (session.get()?.token) api('/api/me').then((me) => { if ((me.avatar || 0) !== (session.get()?.avatar || 0)) { session.update({ avatar: me.avatar || 0 }); if (location.pathname === '/perfil') route(); } }).catch(() => {});
+  window.__rpBooted = true;
   route();
   welcomeOnce();
   checkTermsVersion();

@@ -16,8 +16,11 @@ function open() {
         if (!db.objectStoreNames.contains('sounds')) db.createObjectStore('sounds', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
       };
-      r.onsuccess = () => res(r.result);
-      r.onerror = () => rej(r.error);
+      r.onsuccess = () => { clearTimeout(to); res(r.result); };
+      r.onerror = () => { clearTimeout(to); dbp = null; rej(r.error); };
+      r.onblocked = () => { clearTimeout(to); dbp = null; rej(new Error('almacén bloqueado')); };
+      // En Safari a veces indexedDB.open no contesta nunca: no dejamos la app colgada esperando
+      const to = setTimeout(() => { dbp = null; rej(new Error('El almacén del aparato no responde')); }, 4000);
     });
   }
   return dbp;
