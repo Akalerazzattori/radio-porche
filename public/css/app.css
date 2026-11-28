@@ -585,14 +585,15 @@ body { -webkit-user-select: none; user-select: none; }
 }
 .pad:active, .pad.hit { transform: translateY(5px); box-shadow: 0 1px 0 var(--edge); }
 .pad .tape { display: none; }
-.pad .n { font-size: 15.5px; font-weight: 800; padding-right: 30px; }
-.pad .d { font-size: 12px; font-weight: 700; opacity: .7; }
+.pad .n { font-size: 13.5px; font-weight: 800; line-height: 1.12; -webkit-line-clamp: 3; overflow-wrap: anywhere; hyphens: auto; padding-right: 0; }
+.pad .d { font-size: 11px; font-weight: 700; opacity: .7; padding-right: 34px; }
 .pad .p { top: auto; height: 7px; bottom: 0; background: rgba(18,13,12,.55); width: var(--p, 0%); }
 .pad.playing { border-color: var(--cream); box-shadow: 0 6px 0 var(--edge), 0 0 0 3px rgba(251,238,224,.25); animation: padglow 1s ease-in-out infinite; }
 @keyframes padglow { 50% { box-shadow: 0 6px 0 var(--edge), 0 0 0 6px rgba(251,238,224,.18); } }
-.pad .cue { right: 6px; top: 6px; width: 30px; height: 30px; border-radius: 50%; background: rgba(18,13,12,.2); border: 2px solid rgba(18,13,12,.35); }
+.pad .cue { right: 5px; top: auto; bottom: 9px; width: 30px; height: 30px; border-radius: 50%; background: rgba(18,13,12,.2); border: 2px solid rgba(18,13,12,.35); }
 .pad .cue:active { background: rgba(18,13,12,.45); }
-.pad .zone-ic { position: absolute; right: 8px; bottom: 8px; font-size: 16px; opacity: .55; }
+.pad .zone-ic { display: none; }
+.pad { min-height: 88px; gap: 6px; }
 
 /* Interruptores y deslizadores del kit */
 .switch span { background: #4a3d39; border: 2.5px solid var(--edge); }
