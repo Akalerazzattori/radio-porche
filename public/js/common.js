@@ -111,7 +111,7 @@ export function recoverSheet() {
   const s = sheet(html`
     <h2 class="h2">Usar mi porche en este aparato</h2>
     <p class="muted small">En el aparato donde ya tienes tu porche, ve a <b>Perfil → Vincular otro aparato</b>. Te saldrá un código de 6 cifras: escríbelo aquí.</p>
-    <input class="input link-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" data-el="code">
+    <input class="input link-code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" data-el="code">
     <button class="btn yellow big" data-a="code">Vincular</button>
     <details class="small muted"><summary>Tengo un enlace de recuperación</summary>
       <input class="input mt-s" placeholder="https://…/#recuperar=…" data-el="link">
@@ -120,7 +120,14 @@ export function recoverSheet() {
     onMount(a) {
       const code = a.el.querySelector('[data-el=code]');
       setTimeout(() => code.focus(), 80);
+      const tryLink = async (v) => {
+        const t = recoveryTokenFrom(v);
+        if (!t) return false;
+        if (await useRecoveryToken(t)) a.close('ok');
+        return true;
+      };
       const go = async () => {
+        if (await tryLink(code.value)) return;
         const c = code.value.replace(/\D/g, '');
         if (c.length !== 6) return toast('El código tiene 6 cifras', 'bad');
         try {
@@ -132,13 +139,15 @@ export function recoverSheet() {
           a.close('ok');
         } catch (e) { toast(e.message, 'bad'); }
       };
-      code.addEventListener('input', () => { if (code.value.replace(/\D/g, '').length === 6) go(); });
+      code.addEventListener('input', () => {
+        const v = code.value.trim();
+        if (recoveryTokenFrom(v)) return go();
+        if (/^\d{6}$/.test(v.replace(/\s/g, ''))) go();
+      });
       a.el.querySelector('[data-a=code]').onclick = go;
       a.el.querySelector('[data-a=link]').onclick = async () => {
-        const v = a.el.querySelector('[data-el=link]').value.trim();
-        const m = /recuperar=([^&\s]+)/.exec(v);
-        if (!m) return toast('Ese enlace no parece de recuperación', 'bad');
-        if (await useRecoveryToken(decodeURIComponent(m[1]))) a.close('ok');
+        const v = a.el.querySelector('[data-el=link]').value;
+        if (!(await tryLink(v))) toast('Ese enlace no parece de recuperación', 'bad');
       };
     },
   });
@@ -155,7 +164,7 @@ export async function linkDeviceSheet() {
     <p class="muted small">En el ordenador (o el otro móvil) abre <b>${location.host}</b>, ve a <b>Perfil → Ya tengo porche en otro aparato</b> y escribe:</p>
     <div class="link-code">${r.code}</div>
     <p class="muted tiny center" data-el="left"></p>
-    <p class="muted tiny">Ese aparato será tú: podrá ser el estudio, un micro o el control a distancia. El código sirve una sola vez y caduca en 10 minutos. No se lo des a nadie.</p>
+    <p class="muted tiny">Ese aparato será tú: tendrás el mismo porche y el mismo Estudio en los dos. El código sirve una sola vez y caduca en 10 minutos. No se lo des a nadie.</p>
     <div class="row gap"><button class="btn ghost grow" data-a="new">Código nuevo</button><button class="btn yellow grow" data-close="">Hecho</button></div>`);
   const left = s.el.querySelector('[data-el=left]');
   s.el.querySelector('[data-a=new]').onclick = async () => {
@@ -168,6 +177,15 @@ export async function linkDeviceSheet() {
   }, 500);
   await s.done;
   clearInterval(iv);
+}
+
+/** Saca el token de un enlace de recuperación (o del token suelto). */
+export function recoveryTokenFrom(v) {
+  v = String(v || '').trim();
+  let m = /recuperar=([^&\s]+)/.exec(v);
+  if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
+  m = /^([A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,})$/.exec(v);
+  return m ? m[1] : null;
 }
 
 export async function useRecoveryToken(token) {
