@@ -74,10 +74,10 @@ export function makeCtl() {
     },
     pause(on) { R() ? live.ctl('pause', { on }) : live.pause(on); },
     nextPart() { R() ? live.ctl('nextpart') : live.continueNextPart(); },
-    golive(mode, title, jingle = false, programId = '') {
-      if (R()) return live.ctl('golive', { mode, title, jingle, programId });
+    golive(mode, title, intro = '', programId = '') {
+      if (R()) return live.ctl('golive', { mode, title, intro, programId });
       live.goLive(mode, title, programId);
-      if (jingle) live.introJingle();
+      if (intro) live.introJingle(intro);
     },
     rec() {
       if (R()) return S().rec || null;

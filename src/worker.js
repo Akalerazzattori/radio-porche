@@ -96,6 +96,7 @@ export default {
       auth.ip = ip;
       auth.invite = url.searchParams.get('i') || '';
       auth.tab = (url.searchParams.get('c') || '').replace(/[^A-Za-z0-9_-]/g, '');
+      auth.kind = url.searchParams.get('d') === 'ordenador' ? 'ordenador' : 'móvil';
       const room = env.ROOM.get(env.ROOM.idFromName(ws[1]));
       const fwd = new Request(req.url, { headers: { upgrade: 'websocket', 'x-rp-auth': JSON.stringify(auth) } });
       return room.fetch(fwd);

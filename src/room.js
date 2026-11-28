@@ -46,7 +46,8 @@ export class Room extends DurableObject {
 
   publicState() {
     const s = this.state;
-    return { live: s.live, mode: s.mode, title: s.title, since: s.since, pinned: s.pinned, paused: s.paused, rec: s.rec, part: s.part, studio: s.studio, hostOnline: !!this.host() };
+    const h = this.host();
+    return { live: s.live, mode: s.mode, title: s.title, since: s.since, pinned: s.pinned, paused: s.paused, rec: s.rec, part: s.part, studio: s.studio, hostOnline: !!h, studioKind: h ? this.att(h).kind || 'móvil' : '' };
   }
   counts() {
     let listeners = 0, mics = 0;
@@ -62,7 +63,7 @@ export class Room extends DurableObject {
     for (const w of this.sockets()) {
       const a = this.att(w);
       if (!full && a.role === 'listener') continue;
-      out.push({ cid: a.cid, av: a.av || 0, owner: !!a.isOwner, name: a.name || 'Oyente', role: a.role, mode: a.mode || '', hp: !!a.hp, muted: !!a.muted, isMod: !!a.isMod, dev: a.dev || '', micReq: a.micReq || null });
+      out.push({ cid: a.cid, kind: a.kind || 'móvil', av: a.av || 0, owner: !!a.isOwner, name: a.name || 'Oyente', role: a.role, mode: a.mode || '', hp: !!a.hp, muted: !!a.muted, isMod: !!a.isMod, dev: a.dev || '', micReq: a.micReq || null });
     }
     return out;
   }
@@ -139,7 +140,7 @@ export class Room extends DurableObject {
     const devAlready = !!auth.ident && this.sockets().some((w) => w !== server && this.att(w).dev === auth.ident.deviceId);
     const cid = randomId(6);
     const a = {
-      tab,
+      tab, kind: auth.kind || 'móvil',
       cid, ip: auth.ip, dev: auth.ident?.deviceId || '', name: auth.ident?.name || '', av: auth.ident?.avatar || 0, isNew: !!auth.ident?.isNew,
       isOwner: !!auth.isOwner, isMod: !!auth.isMod, invited: hasInvite, role: 'listener', mode: '', hp: false,
       muted: false, last: Date.now(), lastChat: 0, chatWin: 0, chatN: 0, lastMic: 0, lastReact: 0, micReq: null,

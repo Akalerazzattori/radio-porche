@@ -739,3 +739,30 @@ img.av { object-fit: cover; background: var(--panel2); }
 .prog-hero { display: flex; gap: 14px; align-items: flex-end; }
 .prog-hero img { width: 120px; height: 120px; border-radius: 16px; object-fit: cover; border: 2px solid var(--edge); flex: none; }
 .prog-hero .h1 { font-size: 28px; }
+
+/* ---------- Qué papel tiene este aparato ---------- */
+.role-badge { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; font-size: 13.5px; border: 2px solid var(--edge); flex: none; }
+.role-badge .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.role-badge.studio { background: var(--cream); color: var(--ink); } .role-badge.studio .dot { background: var(--red); box-shadow: 0 0 0 3px rgba(232,50,30,.25); }
+.role-badge.remote { background: var(--teal); color: var(--ink); } .role-badge.remote .dot { background: var(--ink); }
+.role-badge.mic { background: var(--yellow); color: var(--ink); } .role-badge.mic .dot { background: var(--red); animation: blink 1.2s steps(2) infinite; }
+.role-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 12px 14px; border-radius: 14px; background: var(--panel2); border: 2px solid var(--line); width: 100%; }
+.role-opt b { font-size: 15.5px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.role-opt span { color: var(--muted); font-size: 13px; }
+.role-opt.rec { border-color: var(--yellow); }
+.role-opt:active { transform: translateY(2px); }
+
+/* Botón-selector (categorías, sonido de entrada) */
+.cat-btn { justify-content: space-between; width: 100%; text-align: left; font-weight: 700; }
+.cat-list { display: flex; flex-direction: column; gap: 6px; }
+.cat-opt { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: var(--panel2); border: 2px solid var(--line); font-weight: 700; text-align: left; }
+.cat-opt .box { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--muted); display: grid; place-items: center; color: transparent; flex: none; }
+.cat-opt .box .ic { width: 16px; height: 16px; }
+.cat-opt.on { border-color: var(--yellow); } .cat-opt.on .box { background: var(--yellow); border-color: var(--yellow); color: var(--ink); }
+
+/* Botonera del camerino: todas las cintas, deslizando, y se pueden escuchar */
+.tapes { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px 6px; }
+.tapes::-webkit-scrollbar { display: none; }
+.tapes .tape-card { flex: 0 0 96px; padding: 0; transition: transform .08s; }
+.tapes .tape-card:active { transform: translateY(2px) scale(.97); }
+.tapes .tape-label { font-size: 10px; }

@@ -240,6 +240,13 @@ export class Hub extends DurableObject {
     const cats = this.categories();
     return cats.some((c) => c.id === v) ? v : 'otros';
   }
+  /** Hasta 3 categorías (lista separada por comas). */
+  cleanCategories(v) {
+    const ids = new Set(this.categories().map((c) => c.id));
+    const arr = (Array.isArray(v) ? v : String(v || '').split(',')).map((x) => String(x).trim()).filter((x) => ids.has(x));
+    const out = [...new Set(arr)].slice(0, 3);
+    return out.length ? out.join(',') : 'otros';
+  }
   programPublic(r, viewer = null) {
     if (!r) return null;
     const porch = this.one('SELECT name, slug, freq FROM porches WHERE id=?', r.porch_id);
@@ -366,6 +373,7 @@ export class Hub extends DurableObject {
       if (p === '/api/podcasts' && m === 'GET') return await this.listPodcasts(req, url);
       if (p === '/api/categories' && m === 'GET') {
         const used = new Set(this.all("SELECT DISTINCT category FROM podcasts WHERE hidden=0 AND category!=''").map((r) => r.category));
+        for (const r of this.all('SELECT category FROM programs WHERE hidden=0 AND id IN (SELECT DISTINCT program_id FROM podcasts WHERE hidden=0)')) for (const c of String(r.category).split(',')) used.add(c);
         return json({ categories: this.categories().map((c) => ({ ...c, used: used.has(c.id) })) });
       }
       if (p === '/api/home' && m === 'GET') {
@@ -483,7 +491,7 @@ export class Hub extends DurableObject {
     if (q) { where.push('(p.title LIKE ? OR h.name LIKE ? OR p.description LIKE ?)'); const l = `%${q.replace(/[%_]/g, '')}%`; args.push(l, l, l); }
     if (porch) { where.push('p.porch_id=?'); args.push(porch); }
     const cat = cleanId(url.searchParams.get('category') || '');
-    if (cat) { where.push('p.category=?'); args.push(cat); }
+    if (cat) { where.push("(p.category=? OR p.program_id IN (SELECT id FROM programs WHERE ',' || category || ',' LIKE ?))"); args.push(cat, `%,${cat},%`); }
     const prog = cleanId(url.searchParams.get('program') || '');
     if (prog) { where.push('p.program_id=?'); args.push(prog); }
     const order = sort === 'top' ? 'p.listens DESC, p.likes DESC, p.created DESC' : 'p.created DESC';
@@ -607,7 +615,7 @@ export class Hub extends DurableObject {
       if (!name) return err(400, 'Ponle nombre al programa');
       const id = randomId(7);
       this.run('INSERT INTO programs (id,porch_id,owner,name,description,category,scene,created) VALUES (?,?,?,?,?,?,?,?)',
-        id, pr.id, me, name, cleanText(b.description, LIMITS.DESC_MAX, { multiline: true }), this.cleanCategory(b.category), cleanInt(b.scene, 1, 4, pr.scene || 1), now());
+        id, pr.id, me, name, cleanText(b.description, LIMITS.DESC_MAX, { multiline: true }), this.cleanCategories(b.categories ?? b.category), cleanInt(b.scene, 1, 4, pr.scene || 1), now());
       return json({ program: this.programPublic(this.one('SELECT * FROM programs WHERE id=?', id), me) });
     }
     if ((mm = /^\/api\/programs\/([A-Za-z0-9_-]+)\/edit$/.exec(p)) && m === 'POST') {
@@ -615,9 +623,9 @@ export class Hub extends DurableObject {
       if (!r) return err(404, 'No es tuyo o no existe');
       const b = await req.json().catch(() => ({}));
       const name = cleanText(b.name ?? r.name, 60) || r.name;
-      const cat = b.category !== undefined ? this.cleanCategory(b.category) : r.category;
+      const cat = b.categories !== undefined || b.category !== undefined ? this.cleanCategories(b.categories ?? b.category) : r.category;
       this.run('UPDATE programs SET name=?, description=?, category=?, scene=? WHERE id=?', name, cleanText(b.description ?? r.description, LIMITS.DESC_MAX, { multiline: true }), cat, cleanInt(b.scene ?? r.scene, 1, 4, 1), r.id);
-      this.run('UPDATE podcasts SET category=? WHERE program_id=?', cat, r.id);
+      this.run('UPDATE podcasts SET category=? WHERE program_id=?', cat.split(',')[0], r.id);
       return json({ program: this.programPublic(this.one('SELECT * FROM programs WHERE id=?', r.id), me) });
     }
     if ((mm = /^\/api\/programs\/([A-Za-z0-9_-]+)\/cover$/.exec(p)) && m === 'POST') {
@@ -653,7 +661,7 @@ export class Hub extends DurableObject {
       let programId = r.program_id, category = r.category;
       if (b.programId !== undefined) {
         const pg = b.programId ? this.one('SELECT id, category FROM programs WHERE id=? AND owner=?', cleanId(b.programId) || '', me) : null;
-        programId = pg ? pg.id : ''; category = pg ? pg.category : r.category;
+        programId = pg ? pg.id : ''; category = pg ? String(pg.category).split(',')[0] : r.category;
       }
       const episode = b.episode !== undefined ? cleanInt(b.episode, 0, 9999, 0) : r.episode;
       this.run('UPDATE podcasts SET title=?, description=?, chapters=?, program_id=?, category=?, episode=? WHERE id=?', title, description, chapters, programId, category, episode, r.id);
@@ -769,7 +777,7 @@ export class Hub extends DurableObject {
     let programId = '', category = 'otros', episode = 0;
     const pg = meta.programId ? this.one('SELECT * FROM programs WHERE id=? AND owner=?', cleanId(meta.programId) || '', me) : null;
     if (pg) {
-      programId = pg.id; category = pg.category;
+      programId = pg.id; category = String(pg.category).split(',')[0];
       const maxEp = this.one('SELECT COALESCE(MAX(episode),0) AS n FROM podcasts WHERE program_id=?', pg.id).n;
       episode = cleanInt(meta.episode, 0, 9999, 0) || (part > 1 && prev ? (this.one('SELECT episode FROM podcasts WHERE id=?', prev)?.episode || maxEp + 1) : maxEp + 1);
     }

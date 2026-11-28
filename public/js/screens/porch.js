@@ -59,6 +59,7 @@ export async function render(view, [slug], ctx) {
   }
   sub('update', () => { if (decide() !== mode) build(); });
   sub('studioBusy', () => studioBusySheet());
+  sub('studioLost', () => { toast('El estudio ha pasado a tu otro aparato.'); studioBusySheet(); });
   sub('resumed', (ms) => resumedOverlay(ms));
   build();
 
@@ -71,19 +72,33 @@ export async function render(view, [slug], ctx) {
 
 // ============================================================ comunes
 function studioBusySheet() {
+  const other = live.state.studioKind || 'otro aparato';
+  const here = live.kind;
+  const recStudio = here === 'ordenador'; // en el ordenador lo normal es hacer de estudio; en el móvil, de micro
+  const opt = (v, title, desc, rec) => html`<button class="role-opt ${rec ? 'rec' : ''}" data-close="${v}"><b>${title}${rec ? html` <span class="chip patio">Recomendado</span>` : ''}</b><span>${desc}</span></button>`;
   sheet(html`
-    <h2 class="h2">Ya estás emitiendo desde otro dispositivo</h2>
-    <p class="muted">Solo puede haber un estudio (el aparato que mezcla y emite). ¿Qué quieres hacer en este?</p>
-    <button class="btn yellow" data-close="remote">${icon('settings')} Controlar la cabina desde aquí</button>
-    <p class="muted tiny">Mando a distancia: todo lo de la cabina (sonidos, volúmenes, micros, pausa, fin) manejado desde este aparato.</p>
-    <button class="btn red" data-close="take">Pasar el estudio a este</button>
-    <button class="btn ghost" data-close="patio">Entrar como micro (modo Patio)</button>
-    <button class="btn ghost" data-close="listen">Solo escuchar</button>`, { dismissable: false }).done.then((v) => {
+    <h2 class="h2">Tu cabina ya está abierta en tu ${other}</h2>
+    <p class="muted small">Solo un aparato puede ser el <b>estudio</b> (el que mezcla y manda el sonido a los oyentes). ¿Qué hace este ${here}?</p>
+    ${opt('take', `Ser el ESTUDIO aquí, en este ${here}`, `Este ${here} mezcla y emite. Tu ${other} deja de ser estudio y puedes usarlo como micro.`, recStudio)}
+    ${opt('patio', `Ser MICRO`, `Hablas por este ${here}. El estudio (tu ${other}) te mete en la emisión. No suena nada por el altavoz.`, !recStudio)}
+    ${opt('remote', 'Ser MANDO a distancia', `Manejas la cabina de tu ${other} desde aquí (sonidos, volúmenes, pausa…). El micro sigue siendo el del ${other}.`, false)}
+    ${opt('listen', 'Solo escuchar', 'Oyes la emisión como un oyente más.', false)}`, { dismissable: false }).done.then((v) => {
     if (v === 'remote') live.becomeRemote();
     else if (v === 'take') live.takeStudio();
-    else if (v === 'patio') live.ownerAsGuest(true);
+    else if (v === 'patio') live.ownerAsGuest(false);
     else if (live.audio) live.audio.muted = false;
   });
+}
+
+/** Cartel fijo que dice qué papel tiene ESTE aparato. */
+function roleBadge() {
+  const k = live.kind;
+  if (live.role === 'host') {
+    const mics = live.people.filter((p) => p.role === 'guest' && p.owner);
+    return html`<div class="role-badge studio"><span class="dot"></span><span class="grow"><b>Este ${k} es el ESTUDIO</b> · mezcla y emite${mics.length ? html` · tu ${mics[0].kind} es micro` : ''}</span></div>`;
+  }
+  if (live.remote) return html`<div class="role-badge remote"><span class="dot"></span><span class="grow"><b>Este ${k} es el MANDO</b> · el estudio es tu ${live.state.studioKind || 'otro aparato'}</span></div>`;
+  return '';
 }
 
 function resumedOverlay(ms) {
@@ -287,6 +302,7 @@ function buildListener(view, porch, ctx) {
     } else {
       const vs = voiceSelector(() => live.guestVoice);
       mount(b, html`<div class="mic-panel">
+        ${live.isOwner ? html`<div class="role-badge mic"><span class="dot"></span><span class="grow"><b>Este ${live.kind} es MICRO</b> · el estudio es tu ${live.state.studioKind || 'otro aparato'}</span></div>` : ''}
         <div class="row between gap">
           <div class="row gap-s"><span class="chip ${live.guestMode}">${live.guestMode === 'patio' ? 'Patio · solo micro' : 'Casa · cascos'}</span>${live.state.rec ? html`<span class="rec-chip">REC</span>` : ''}</div>
           <button class="btn sm ghost" data-act="leavemic">Dejar el micro</button>
@@ -346,7 +362,6 @@ function buildListener(view, porch, ctx) {
 // ============================================================ CAMERINO (estudio o mando a distancia)
 function remoteBanner() {
   return html`<div class="banner yellow col remote-banner">
-    <div class="row gap"><span class="grow">${icon('settings')} <b>Mando a distancia.</b> El estudio es tu otro aparato.</span></div>
     <div class="row gap wrap">
       <label class="row gap-s small"><span class="switch"><input type="checkbox" data-act="hearhere" ${live.hearHere ? 'checked' : ''}><span></span></span> Oír la emisión aquí</label>
       <button class="btn sm ghost" data-act="takestudio">Pasar el estudio a este</button>
@@ -374,6 +389,7 @@ function buildGreenRoom(view, porch, ctx) {
         <button class="btn sm ghost" data-act="x" aria-label="Volver">${icon('back')} Volver</button>
         <div class="grow right"><h1 class="h1">Camerino</h1><div class="sub ellip">${porch.name} · <span class="mono">${porch.freq.toFixed(1)}</span></div></div>
       </div>
+      <div data-el="role">${roleBadge()}</div>
       ${remote ? remoteBanner() : ''}
       <div class="banner teal" data-el="status">${icon('lock')} <span>Aún no estás en el aire</span></div>
       <div class="fill scroll col gap">
@@ -395,7 +411,8 @@ function buildGreenRoom(view, porch, ctx) {
         <div class="h3">3 · ¿Cómo sales?</div>
         <div class="modes">${BROADCAST_MODES.map((m) => html`
           <label class="radio-opt"><input type="radio" name="mode" value="${m.id}" ${m.id === 'rec' ? 'checked' : ''}><div class="grow"><div class="t">${m.name}</div><div class="d">${m.hint}</div></div>${m.id === 'rec' ? html`<span class="rec-chip">REC</span>` : ''}</label>`)}</div>
-        <label class="toggle-row"><span class="grow"><b>Sintonía al salir</b> <span class="muted tiny">suena al entrar en antena</span></span><span class="switch"><input type="checkbox" data-el="jingle" ${localStorage.getItem('rp_jingle') === '1' ? 'checked' : ''}><span></span></span></label>
+        <div class="h3">Al salir al aire suena</div>
+        <button class="btn ghost cat-btn" data-act="intro"><span class="grow ellip" data-el="introlbl">Nada</span>${icon('down')}</button>
         <div class="row between"><div class="h3">4 · Tu botonera</div>${remote ? '' : html`<a class="btn sm ghost" href="/mi-porche?tab=sonidos">${icon('edit')} Editar botonera</a>`}</div>
         <div class="tapes" data-el="tapes"></div>
         <div class="muted tiny" data-el="ncortes"></div>
@@ -435,11 +452,16 @@ function buildGreenRoom(view, porch, ctx) {
     programId = b.dataset.prog; localStorage.setItem('rp_lastprog', programId);
     $el('progs').querySelectorAll('[data-prog]').forEach((x) => x.classList.toggle('on', x === b));
   });
+  let allItems = [];
+  let introKey = localStorage.getItem('rp_intro') || '';
+  const paintIntro = () => { const it = allItems.find((x) => x.key === introKey); $el('introlbl').textContent = it ? it.name : 'Nada (sales en silencio)'; };
   ctl.sounds().then((items) => {
     const n = (zs) => items.filter((i) => zs.includes(i.zone)).length;
     $el('ncortes').textContent = SOUND_TABS.map((t) => `${n(t.zones)} ${t.label.toLowerCase()}`).join(' · ');
-    const pick = [...items.filter((i) => i.zone === 'jingle'), ...items.filter((i) => i.zone === 'fx'), ...items.filter((i) => i.zone !== 'jingle' && i.zone !== 'fx')].slice(0, 4);
-    mount($el('tapes'), html`${pick.map((it, i) => html`<div class="tape-card"><img src="/img/cassettes/cassette-${(i % 6) + 1}.webp" alt="" width="138" height="82"><span class="tape-label">${it.name}</span></div>`)}`);
+    allItems = items;
+    const pick = [...items.filter((i) => i.zone === 'jingle'), ...items.filter((i) => i.zone === 'fx'), ...items.filter((i) => i.zone !== 'jingle' && i.zone !== 'fx')];
+    mount($el('tapes'), html`${pick.map((it, i) => html`<button class="tape-card" data-tape="${it.key}" aria-label="Escuchar ${it.name}"><img src="/img/cassettes/cassette-${(i % 6) + 1}.webp" alt="" width="138" height="82"><span class="tape-label">${it.name}</span></button>`)}`);
+    paintIntro();
   });
 
   async function startMic() {
@@ -453,6 +475,7 @@ function buildGreenRoom(view, porch, ctx) {
   }
 
   function paint() {
+    mount($el('role'), roleBadge());
     const waiting = live.counts.listeners;
     $el('status').innerHTML = `${icon('lock').html} <span>Aún no estás en el aire · ${waiting} ${waiting === 1 ? 'persona espera' : 'personas esperan'}</span>`;
     if (remote && $el('studiomic')) $el('studiomic').textContent = live.remoteState ? (live.remoteState.hasVoice ? 'Activo en el estudio' : 'Aún no activado en el estudio (se activará al salir)') : 'Esperando al estudio…';
@@ -491,8 +514,7 @@ function buildGreenRoom(view, porch, ctx) {
     cancelAnimationFrame(holdRaf); holdStart = 0; hold.classList.remove('pressing');
     const title = $el('title').value.trim();
     localStorage.setItem('rp_lasttitle', title);
-    const jingle = $el('jingle').checked;
-    localStorage.setItem('rp_jingle', jingle ? '1' : '0');
+    const jingle = allItems.some((x) => x.key === introKey) ? introKey : '';
     const prog = programs.find((p) => p.id === programId);
     ctl.golive(view.querySelector('input[name=mode]:checked').value, title || prog?.name || '', jingle, programId);
     beep(1200, 0.3);
@@ -502,9 +524,20 @@ function buildGreenRoom(view, porch, ctx) {
   view.addEventListener('click', async (e) => {
     const g = e.target.closest('[data-grant]');
     if (g) { live.send({ t: 'grant', cid: g.dataset.grant }); return; }
+    const tp = e.target.closest('[data-tape]');
+    if (tp) { const it = allItems.find((x) => x.key === tp.dataset.tape); if (it) { ctl.cue(it); toast(`Escuchando «${it.name}» (solo tú)`); } return; }
     const b = e.target.closest('[data-act]');
     if (!b) return;
     if (b.dataset.act === 'startmic') startMic();
+    if (b.dataset.act === 'intro') {
+      const opts = allItems.filter((x) => x.zone === 'jingle' || x.zone === 'fx');
+      const v = await sheet(html`<h2 class="h2">Sonido al salir al aire</h2><p class="muted small">Suena justo al entrar en antena. Toca ▶ para oírlo antes.</p>
+        <button class="opt" data-close="__none">— Nada (sales en silencio)</button>
+        ${opts.map((x) => html`<div class="row gap"><button class="opt grow ${x.key === introKey ? 'yellow-t' : ''}" data-close="${x.key}">${x.key === introKey ? '✓ ' : ''}${x.name} <span class="muted small">· ${ZONES[x.zone]?.label || ''}</span></button><button class="mini-ic" data-prev="${x.key}" aria-label="Escuchar">${icon('play')}</button></div>`)}`, {
+        onMount(a) { a.el.addEventListener('click', (ev) => { const pv = ev.target.closest('[data-prev]'); if (pv) { ev.stopPropagation(); const it = allItems.find((y) => y.key === pv.dataset.prev); if (it) ctl.cue(it); } }); },
+      }).done;
+      if (v) { introKey = v === '__none' ? '' : v; localStorage.setItem('rp_intro', introKey); paintIntro(); }
+    }
     if (b.dataset.act === 'invite') inviteSheet(porch);
     if (b.dataset.act === 'takestudio') live.takeStudio();
   });
@@ -552,6 +585,7 @@ function buildBooth(view, porch, ctx) {
         <div class="onair-sign" data-el="sign"><span class="lamp"></span><span data-el="onair">En el aire</span></div>
         <div class="onair-meta"><span class="mono clock" data-el="clock">00:00:00</span><span class="rec-chip off" data-el="rec">REC</span></div>
       </div>
+      <div data-el="role">${roleBadge()}</div>
       <div class="row between small" data-el="partrow"></div>
       ${remote ? remoteBanner() : ''}
       <div class="col gap-s" data-el="reqs"></div>
@@ -576,6 +610,7 @@ function buildBooth(view, porch, ctx) {
 
   function header() {
     const s = live.state;
+    if (!header.t || Date.now() - header.t > 3000) { header.t = Date.now(); mount($el('role'), roleBadge()); }
     $el('clock').textContent = fmtTime(s.since ? (Date.now() - s.since) / 1000 : 0, true);
     const onair = $el('onair');
     onair.textContent = s.paused ? 'En pausa' : 'En el aire';

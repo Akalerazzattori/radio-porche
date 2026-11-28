@@ -127,8 +127,8 @@ export async function render(view, _p, { go }) {
         </div>
         <div class="card col gap-s">
           <b>Categorías de podcast</b>
-          <p class="muted tiny">Una por línea: emoji y nombre (p. ej. «🎸 Rock»). En la app solo se ven las que ya tienen algún programa.</p>
-          <textarea class="input" rows="8" data-el="cats">${data.categories.map((c) => `${c.emoji} ${c.name}`).join('\n')}</textarea>
+          <p class="muted tiny">Una por línea (p. ej. «Rock»). En la app solo se ven las que ya tienen algún episodio.</p>
+          <textarea class="input" rows="8" data-el="cats">${data.categories.map((c) => c.name).join('\n')}</textarea>
           <button class="btn yellow" data-act="cats">Guardar categorías</button>
         </div>
         <div class="card col gap-s">

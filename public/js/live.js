@@ -41,6 +41,7 @@ export const live = {
   // sonidos del estudio
   items: [], fxPlaying: new Map(),
 
+  kind: /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)) ? 'móvil' : 'ordenador',
   get active() { return !!this.ws; },
   get onAir() { return this.state.live; },
   get speaking() { return this.role === 'host' || this.role === 'guest'; },
@@ -60,6 +61,7 @@ export const live = {
     let tab = sessionStorage.getItem('rp_tab');
     if (!tab) { tab = Math.random().toString(36).slice(2, 12); sessionStorage.setItem('rp_tab', tab); }
     q.set('c', tab);
+    q.set('d', this.kind);
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${proto}://${location.host}/api/room/${this.porch.id}/ws?${q}`);
     this.ws = ws;
@@ -131,7 +133,7 @@ export const live = {
       case 'youAreStudio': this.studioBusy = false; this.state = m.state; this.inviteKey = m.inviteKey; this.setRole('host'); emit('update'); break;
       case 'studioLost':
         toast('El estudio ha pasado a otro dispositivo. Aquí quedas como oyente (silenciado).');
-        this.teardownStudio(); this.setRole('listener'); this.remote = true; this.hearHere = false; if (this.audio) this.audio.muted = true; emit('update');
+        this.teardownStudio(); this.setRole('listener'); this.remote = true; this.hearHere = false; if (this.audio) this.audio.muted = true; emit('update'); emit('studioLost');
         break;
       case 'granted': this.onGranted(m.mode); break;
       case 'denied': toast('Ahora no puede darte paso. Prueba más tarde.'); emit('update'); break;
@@ -219,7 +221,7 @@ export const live = {
     if (!silent) this.want();
     emit('update');
   },
-  ownerAsGuest(hp) { this.guestHp = hp; this.send({ t: 'ownerGuest', hp }); },
+  ownerAsGuest(hp) { this.guestHp = hp; this.remote = false; this.send({ t: 'ownerGuest', hp }); },
   takeStudio() { this.send({ t: 'takeStudio' }); },
 
   // ================= ESTUDIO
@@ -321,7 +323,7 @@ export const live = {
         if (!this.state.live) {
           if (!this.voice) { try { await this.startVoice(localStorage.getItem('rp_hp') !== '0'); } catch {} }
           this.goLive(['ensayo', 'directo', 'rec'].includes(a.mode) ? a.mode : 'directo', String(a.title || '').slice(0, 80), typeof a.programId === 'string' ? a.programId.slice(0, 40) : '');
-          if (a.jingle === true) this.introJingle();
+          if (typeof a.intro === 'string' && a.intro) this.introJingle(a.intro);
         }
         break;
       case 'end': if (this.state.live) { await this.endBroadcast(true); toast('El mando a distancia ha terminado la emisión. La grabación está en Borradores.'); } break;
@@ -329,10 +331,12 @@ export const live = {
     emit('update');
     this.pushStudioState();
   },
-  async introJingle() {
+  /** Sonido de entrada al salir al aire (el que elijas en el camerino). */
+  async introJingle(key) {
+    if (!key) return;
     try {
       await this.loadItems();
-      const s = this.items.find((i) => i.id === 'sintonia') || this.items.find((i) => i.zone === 'fx');
+      const s = this.findItem(key);
       if (s && this.mixer) this.mixer.playFx(await decode(s));
     } catch {}
   },

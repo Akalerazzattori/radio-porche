@@ -61,17 +61,17 @@ export async function render(view, _p, { go }) {
     const catRows = [...home.byCategory].sort((a, b) => (fav.includes(b.category.id) ? 1 : 0) - (fav.includes(a.category.id) ? 1 : 0));
     const askFavs = used.length >= 3 && !localStorage.getItem('rp_favcats') && !localStorage.getItem('rp_favcats_skip');
     mount(body, html`
-      ${used.length > 1 ? html`<div class="chips-row">${used.map((c) => html`<button class="cat-chip" data-cat="${c.id}">${c.emoji} ${c.name}</button>`)}</div>` : ''}
+      ${used.length > 1 ? html`<div class="chips-row">${used.map((c) => html`<button class="cat-chip" data-cat="${c.id}">${c.name}</button>`)}</div>` : ''}
       ${askFavs ? html`<div class="card col gap-s fav-card">
         <b>¿Qué te gusta escuchar?</b><span class="muted small">Elige tus categorías y te las pondremos primero.</span>
-        <div class="chips-wrap">${used.map((c) => html`<button class="cat-chip" data-fav="${c.id}">${c.emoji} ${c.name}</button>`)}</div>
+        <div class="chips-wrap">${used.map((c) => html`<button class="cat-chip" data-fav="${c.id}">${c.name}</button>`)}</div>
         <div class="row gap"><button class="btn sm ghost" data-act="favskip">Ahora no</button><button class="btn sm yellow grow" data-act="favsave">Guardar</button></div>
       </div>` : ''}
       ${continueItems.length ? row('Sigue escuchando', continueItems.map((p) => card(p, 'wide'))) : ''}
       ${home.popular.length ? row('Populares', home.popular.map((p) => card(p))) : ''}
       ${home.programs.length ? row('Programas', home.programs.map((g) => progCard(g, cats))) : ''}
       ${home.recent.length ? row('Nuevos episodios', home.recent.map((p) => card(p))) : ''}
-      ${catRows.map((r) => row(`${r.category.emoji} ${r.category.name}`, r.podcasts.map((p) => card(p)), html`<button class="link-btn" data-cat="${r.category.id}">Ver todo</button>`))}
+      ${catRows.map((r) => row(r.category.name, r.podcasts.map((p) => card(p)), html`<button class="link-btn" data-cat="${r.category.id}">Ver todo</button>`))}
     `);
     paintBars();
   }
@@ -84,7 +84,7 @@ export async function render(view, _p, { go }) {
       lastList = r.podcasts;
       const c = cats.find((x) => x.id === cat);
       mount(body, html`
-        <div class="row gap-s wrap">${c ? html`<button class="cat-chip on" data-act="clearcat">${c.emoji} ${c.name} ✕</button>` : ''}${q ? html`<span class="muted small">Resultados para «${q}»</span>` : ''}</div>
+        <div class="row gap-s wrap">${c ? html`<button class="cat-chip on" data-act="clearcat">${c.name} ✕</button>` : ''}${q ? html`<span class="muted small">Resultados para «${q}»</span>` : ''}</div>
         <div class="list mt-s">${r.podcasts.length ? r.podcasts.map((p) => html`
           <a class="item" href="/p/${p.id}">
             <img class="thumb" src="${podcastCover(p)}" alt="" loading="lazy">
