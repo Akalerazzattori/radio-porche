@@ -95,7 +95,7 @@ export function makeCtl() {
     ducking() { return R() ? !!S().ducking : !!live.mixer?.ducking; },
     setDucking(on) { R() ? live.ctl('ducking', { on }) : live.mixer && (live.mixer.ducking = on); },
     solo() { return R() ? !!S().solo : !!live.mixer?.soloMusic; },
-    setSolo(on) { R() ? live.ctl('solo', { on }) : live.mixer?.setSoloMusic(on); },
+    setSolo(on) { R() ? live.ctl('solo', { on }) : live.setSolo(on); },
     up() { R() ? live.ctl('up') : live.mixer?.musicUp(); },
     down() { R() ? live.ctl('down') : live.mixer?.musicDown(); },
     hasVoice() { return R() ? !!S().hasVoice : !!live.voice; },

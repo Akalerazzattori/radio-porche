@@ -332,6 +332,7 @@ function buildListener(view, porch, ctx) {
           <div class="row gap-s"><span class="chip ${live.guestMode}">${live.guestMode === 'patio' ? 'A su lado · solo micro' : 'En otro sitio · cascos'}</span>${live.state.rec ? html`<span class="rec-chip">REC</span>` : ''}</div>
           <button class="btn sm ghost" data-act="leavemic">Dejar el micro</button>
         </div>
+        <div data-el="airstate"></div>
         ${raw(meterHtml())}
         ${vs.tpl}
         <div class="row gap">
@@ -357,6 +358,14 @@ function buildListener(view, porch, ctx) {
     btn.classList.toggle('off', !!muted);
     mount(btn, icon(muted ? 'micoff' : 'mic'));
     if (live.mutedByHost) btn.disabled = true; else btn.disabled = false;
+    // Siempre a la vista: ¿me están oyendo o no?
+    const as = view.querySelector('[data-el=airstate]');
+    if (as) {
+      const s = live.state || {};
+      const why = live.mutedByHost ? 'El presentador te ha silenciado el micro.' : muted ? 'Has cortado tu micro.' : s.solo ? 'Ahora suena solo música.' : s.paused ? 'La emisión está en pausa.' : !s.live ? 'Aún no ha empezado la emisión.' : '';
+      as.className = `air-state ${why ? 'off' : 'on'}`;
+      as.innerHTML = why ? `<b>NO ESTÁS EN ANTENA</b><span>${why}</span>` : `<b>EN ANTENA</b><span>Te están oyendo.</span>`;
+    }
   }
 
   section.addEventListener('click', (e) => {
@@ -470,7 +479,7 @@ function buildGreenRoom(view, porch, ctx) {
   let allItems = [];
   const offPv = onPreview(() => { document.querySelectorAll('[data-prev]').forEach((el) => mount(el, icon(el.dataset.prev === previewKey() ? 'pause' : 'play'))); });
   let introKey = localStorage.getItem('rp_intro') || '';
-  const paintIntro = () => { const it = allItems.find((x) => x.key === introKey); $el('introlbl').textContent = it ? it.name : 'Nada (sales en silencio)'; };
+  const paintIntro = () => { const it = allItems.find((x) => x.key === introKey); $el('introlbl').textContent = it ? `${it.name}${it.duration ? ` · ${fmtShortDur(it.duration)}` : ''}` : 'Nada (sales en silencio)'; };
   let lastSoundsN = -1;
   const loadSounds = () => ctl.sounds().then((items) => {
     if (items.length === lastSoundsN) return;
@@ -558,7 +567,7 @@ function buildGreenRoom(view, porch, ctx) {
             const T = SOUND_TABS.find((t) => t.id === tab);
             const opts = allItems.filter((x) => T.zones.includes(x.zone));
             const secs = [...new Set(opts.map((x) => x.section || ''))];
-            mount(a.el.querySelector('[data-el=ilist]'), opts.length ? html`${secs.map((sec) => html`${sec ? html`<div class="sec-title">${sec}</div>` : ''}${opts.filter((x) => (x.section || '') === sec).map((x) => html`<div class="row gap"><button class="opt grow ${x.key === introKey ? 'yellow-t' : ''}" data-close="${x.key}">${x.key === introKey ? '✓ ' : ''}${x.name}</button><button class="mini-ic" data-prev="${x.key}" aria-label="Escuchar">${icon(x.key === previewKey() ? 'pause' : 'play')}</button></div>`)}`)}` : html`<p class="muted small">No hay nada en ${T.label.toLowerCase()}.</p>`);
+            mount(a.el.querySelector('[data-el=ilist]'), opts.length ? html`${secs.map((sec) => html`${sec ? html`<div class="sec-title">${sec}</div>` : ''}${opts.filter((x) => (x.section || '') === sec).map((x) => html`<div class="row gap"><button class="opt grow ${x.key === introKey ? 'yellow-t' : ''}" data-close="${x.key}">${x.key === introKey ? '✓ ' : ''}${x.name}${x.duration ? html` <span class="muted mono small">· ${fmtShortDur(x.duration)}</span>` : ''}</button><button class="mini-ic" data-prev="${x.key}" aria-label="Escuchar">${icon(x.key === previewKey() ? 'pause' : 'play')}</button></div>`)}`)}` : html`<p class="muted small">No hay nada en ${T.label.toLowerCase()}.</p>`);
           };
           paintList();
           a.el.addEventListener('click', (ev) => {
@@ -609,7 +618,7 @@ function buildBooth(view, porch, ctx) {
   const ctl = makeCtl();
   const remote = ctl.remote;
   let tab = 'voces';
-  let stab = 'jingle', folder = '', query = '', cueMode = false;
+  let stab = 'jingle', folder = '', query = '';
   let items = [];
   mount(view, html`
     <section class="screen is-live">
@@ -720,9 +729,8 @@ function buildBooth(view, porch, ctx) {
     items = await ctl.sounds();
     // Esqueleto fijo (la lupa no pierde el foco al escribir); cada zona se repinta por separado
     mount(panel, html`
-      <div class="col gap sb ${cueMode ? 'cue-mode' : ''}" data-el="sb">
-        <button class="cue-toggle ${cueMode ? 'on' : ''}" data-act="cuemode" aria-pressed="${cueMode}">${icon('hp')}<span class="grow"><b>Pre-escucha</b><span class="tiny">${cueMode ? 'Activada: lo que toques solo lo oyes tú' : 'Actívala para oír un sonido antes de emitirlo'}</span></span><span class="sw"></span></button>
-        <div class="cue-banner ${cueMode ? '' : 'hidden'}" data-el="cueban">${icon('hp')}<span class="grow"><b>PRE-ESCUCHA</b> · solo lo oyes tú · no sale al aire<span class="cue-now" data-el="cuenow"></span></span><button class="btn sm ghost" data-act="cuestop">Parar</button></div>
+      <div class="col gap sb" data-el="sb">
+        <div class="cue-banner hidden" data-el="cueban">${icon('hp')}<span class="grow"><b>PRE-ESCUCHA</b> · solo lo oyes tú · no sale al aire<span class="cue-now" data-el="cuenow"></span></span><button class="btn sm ghost" data-act="cuestop">Parar</button></div>
         <div class="fav-head"><span class="h3">${icon('starf')} Favoritos</span>${remote ? '' : html`<a class="btn sm ghost" href="/mi-porche?tab=sonidos" aria-label="Añadir sonidos propios">${icon('plus')} Añadir</a>`}</div>
         <div class="fav-strip" data-el="favs"></div>
         <div class="row gap-s"><div class="seg grow" data-el="stabs"></div><button class="icon-btn sq ${query ? 'on' : ''}" data-act="search" aria-label="Buscar sonido">${icon('search')}</button></div>
@@ -805,11 +813,12 @@ function buildBooth(view, porch, ctx) {
     const strips = [
       // def = volumen normal (queda en el MEDIO de la tira); abajo del todo = silencio; arriba = máximo
       ...f.voices.map((v) => ({ id: 'v:' + v.id, vid: v.id, label: voiceLabel(v), val: v.gain, def: 1, max: 2, kind: 'voz', mute: v.id })),
-      { id: 'music', label: 'Música', val: f.music, def: 0.3, max: 1, kind: 'music' },
-      { id: 'fx', label: 'Cortinillas y efectos', val: f.fx, def: 0.9, max: 1.8, kind: 'fx' },
-      ...(f.tab != null ? [{ id: 'tab', label: 'Pestaña', val: f.tab, def: 0.8, max: 1.6, kind: 'tab' }] : []),
+      { id: 'music', label: 'Música', val: f.music, def: 0.28, max: 1, kind: 'music', bmute: 'music' },
+      { id: 'fx', label: 'Cortinillas y efectos', val: f.fx, def: 0.9, max: 1.8, kind: 'fx', bmute: 'fx' },
+      ...(f.tab != null ? [{ id: 'tab', label: 'Pestaña', val: f.tab, def: 0.8, max: 1.6, kind: 'tab', bmute: 'tab' }] : []),
     ];
-    const muted = (st) => (st.mute === 'me' ? ctl.selfMuted() : !!live.people.find((x) => x.cid === st.mute)?.muted);
+    // Silenciada = su botón lo dice (voz: silenciada por ti o por «Solo música»; línea: deslizador abajo del todo)
+    const muted = (st) => st.bmute ? (ctl.faders()[st.bmute] ?? 1) <= 0.001 : (st.mute === 'me' ? ctl.selfMuted() : !!live.people.find((x) => x.cid === st.mute)?.muted) || ctl.solo();
     const SEG = 14;
     mount(panel, html`<div class="col gap">
       <div class="mesa">${strips.map((st) => html`
@@ -822,7 +831,7 @@ function buildBooth(view, porch, ctx) {
             </div>
           </div>
           <div class="strip-val mono" data-sv="${st.id}"></div>
-          ${st.mute ? html`<button class="strip-mute ${muted(st) ? 'on' : ''}" data-mute="${st.mute}" aria-label="Silenciar ${st.label}">${icon(muted(st) ? 'micoff' : 'mic')}</button>` : html`<span class="strip-mute ghost"></span>`}
+          ${st.mute ? html`<button class="strip-mute ${muted(st) ? 'on' : ''}" data-mute="${st.mute}" aria-label="Silenciar ${st.label}">${icon(muted(st) ? 'micoff' : 'mic')}</button>` : html`<button class="strip-mute ${muted(st) ? 'on' : ''}" data-bmute="${st.bmute}" aria-label="Silenciar ${st.label}">${icon(muted(st) ? 'volumeoff' : 'volume')}</button>`}
         </div>`)}</div>
       <div class="muted tiny">Cada tira es una línea de la emisión: el medidor enseña lo que suena y el deslizador sube o baja su volumen. Lo que oyes en tus cascos de tu propia voz sigue a tu tira.</div>
       <div class="toggle-row"><div class="grow"><b>Los invitados pueden lanzar efectos</b><div class="muted tiny">Efectos y cortinillas de serie, desde su móvil. La música la pones solo tú.</div></div><span class="switch"><input type="checkbox" data-act="guestfx" ${localStorage.getItem('rp_guestfx') !== '0' ? 'checked' : ''}><span></span></span></div>
@@ -839,7 +848,7 @@ function buildBooth(view, porch, ctx) {
       const v = toVal(el, k);
       const pct = Math.round((v / Number(el.dataset.def)) * 100);
       el.setAttribute('aria-valuenow', pct);
-      const sv = panel.querySelector(`[data-sv="${CSS.escape(el.dataset.vf)}"]`); if (sv) sv.textContent = pct === 100 ? 'normal' : pct;
+      const sv = panel.querySelector(`[data-sv="${CSS.escape(el.dataset.vf)}"]`); if (sv) sv.textContent = el.dataset.vf === 'music' ? (pct <= 0 ? '0' : k >= 0.98 ? 'alta' : pct === 100 ? 'de fondo' : pct) : pct === 100 ? 'normal' : pct;
       return v;
     };
     panel.querySelectorAll('[data-vf]').forEach((el) => paintFader(el, toPos(el, Number(el.dataset.val))));
@@ -852,12 +861,20 @@ function buildBooth(view, porch, ctx) {
       const now = Date.now();
       if (final || now - lastSend > (remote ? 120 : 30)) { lastSend = now; ctl.setFader(el.dataset.vf, Math.round(v * 100) / 100); }
     };
-    mesaPanel.sync = () => {
-      // Si alguien mueve la mesa desde otro aparato, aquí se ve
+    mesaPanel.sync = (force = false) => {
+      // La mesa siempre enseña lo que suena: si alguien la mueve desde otro aparato, o pulsas
+      // «Música alta», «Música de fondo», «Solo música» o un silencio, las tiras y botones se mueven solos
       const f2 = ctl.faders();
       const vals = { music: f2.music, fx: f2.fx, tab: f2.tab };
       for (const v of f2.voices) vals['v:' + v.id] = v.gain;
-      panel.querySelectorAll('[data-vf]').forEach((el) => { if (!el.classList.contains('drag') && vals[el.dataset.vf] != null && Date.now() - lastSend > 1500) paintFader(el, toPos(el, vals[el.dataset.vf])); });
+      panel.querySelectorAll('[data-vf]').forEach((el) => { if (!el.classList.contains('drag') && vals[el.dataset.vf] != null && (force || Date.now() - lastSend > 1500)) paintFader(el, toPos(el, vals[el.dataset.vf])); });
+      for (const st of strips) {
+        const on = muted(st);
+        const sel = st.bmute ? `[data-bmute="${st.bmute}"]` : `.strip-mute[data-mute="${CSS.escape(st.mute)}"]`;
+        const btn = panel.querySelector(sel);
+        if (btn && btn.classList.contains('on') !== on) { btn.classList.toggle('on', on); mount(btn, icon(st.bmute ? (on ? 'volumeoff' : 'volume') : on ? 'micoff' : 'mic')); }
+        panel.querySelector(`[data-strip="${CSS.escape(st.id)}"]`)?.classList.toggle('is-muted', on);
+      }
     };
     panel.querySelectorAll('[data-vf]').forEach((el) => {
       el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); el.classList.add('drag'); setFromY(el, e.clientY); });
@@ -884,8 +901,10 @@ function buildBooth(view, porch, ctx) {
         const lit = Math.round(m.v * SEG), pki = Math.min(SEG - 1, Math.round(m.pk * SEG) - 1);
         m.segs.forEach((sg, i) => { sg.classList.toggle('on', i < lit); sg.classList.toggle('pk', i === pki && i >= lit); });
       }
+      if (now - lastSync > 400) { lastSync = now; mesaPanel.sync(); }
       raf = requestAnimationFrame(loop);
     };
+    let lastSync = 0;
     loop();
   }
 
@@ -920,7 +939,7 @@ function buildBooth(view, porch, ctx) {
     const it = items.find((i) => i.key === key);
     if (!it) return;
     haptic(8);
-    if (cue) { ctl.cue(it).then((on) => { if (on && !cueMode) toast(`Pre-escucha: ${it.name} (solo tú). Toca otra vez para parar.`); }); return; }
+    if (cue) { ctl.cue(it).then((on) => { if (on) toast(`Pre-escucha: ${it.name} (solo tú). Toca otra vez para parar.`); }); return; }
     ctl.fire(key, { loop: it.zone === 'bg' ? true : it.zone === 'song' ? false : undefined });
     setTimeout(() => soundsPanel.repaint?.(), remote ? 900 : 80);
   }
@@ -935,6 +954,7 @@ function buildBooth(view, porch, ctx) {
   panel.addEventListener('pointerup', () => clearTimeout(pressT));
   panel.addEventListener('pointercancel', () => clearTimeout(pressT));
 
+  const busBefore = {};
   view.addEventListener('click', async (e) => {
     const t = e.target;
     let b;
@@ -951,14 +971,22 @@ function buildBooth(view, porch, ctx) {
       return soundsPanel.repaint?.();
     }
     if ((b = t.closest('[data-cue]'))) { e.stopPropagation(); return fire(b.dataset.cue, true); }
-    if ((b = t.closest('[data-pad]'))) { if (pressed) { pressed = false; return; } b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 120); return fire(b.dataset.pad, cueMode); }
+    if ((b = t.closest('[data-pad]'))) { if (pressed) { pressed = false; return; } b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 120); return fire(b.dataset.pad, false); }
     if ((b = t.closest('[data-stab]'))) { stab = b.dataset.stab; folder = ''; query = ''; const sq = panel.querySelector('[data-el=sq]'); if (sq) sq.value = ''; panel.querySelector('[data-el=srow]')?.classList.add('hidden'); return soundsPanel.repaint(); }
     if ((b = t.closest('[data-folder]'))) { folder = b.dataset.folder; return soundsPanel.repaint(); }
+    if ((b = t.closest('[data-bmute]'))) {
+      const id = b.dataset.bmute, cur = ctl.faders()[id] ?? 0;
+      if (cur <= 0.001) ctl.setFader(id, busBefore[id] || { music: 0.28, fx: 0.9, tab: 0.8 }[id]);
+      else { busBefore[id] = cur; ctl.setFader(id, 0); }
+      haptic(8);
+      setTimeout(() => mesaPanel.sync?.(true), remote ? 900 : 60);
+      return;
+    }
     if ((b = t.closest('[data-mute]'))) {
       const cid = b.dataset.mute;
       const muted = cid === 'me' ? ctl.selfMuted() : live.people.find((x) => x.cid === cid)?.muted;
       ctl.muteVoice(cid, !muted);
-      setTimeout(() => { header(); voicesPanel.paint?.(); if (tab === 'mesa') { const nb = panel.querySelector(`.strip-mute[data-mute="${CSS.escape(cid)}"]`); if (nb) { nb.classList.toggle('on', !muted); mount(nb, icon(!muted ? 'micoff' : 'mic')); } } }, remote ? 900 : 60);
+      setTimeout(() => { header(); voicesPanel.paint?.(); if (tab === 'mesa') mesaPanel.sync?.(true); }, remote ? 900 : 60);
       return;
     }
     if ((b = t.closest('[data-menu]'))) {
@@ -976,7 +1004,7 @@ function buildBooth(view, porch, ctx) {
       if (q === 'up') { ctl.up(); toast('Música en primer plano'); }
       if (q === 'down') { ctl.down(); toast('Música de fondo, bajo las voces'); }
       haptic(8);
-      setTimeout(() => { header(); if (tab === 'voces') voicesPanel.paint?.(); }, remote ? 900 : 60);
+      setTimeout(() => { header(); if (tab === 'voces') voicesPanel.paint?.(); if (tab === 'mesa') mesaPanel.sync?.(true); }, remote ? 900 : 60);
       return;
     }
     if (!(b = t.closest('[data-act]'))) return;
@@ -989,7 +1017,6 @@ function buildBooth(view, porch, ctx) {
         try { audioCtx(); await live.startVoice(localStorage.getItem('rp_hp') !== '0'); reqs(); toast('Micro activo', 'good'); } catch { toast('No se ha podido abrir el micro', 'bad'); }
         break;
       case 'stopmusic': ctl.stopMusic(); setTimeout(() => soundsPanel.repaint?.(), remote ? 900 : 80); break;
-      case 'cuemode': cueMode = !cueMode; if (!cueMode) stopPreview(); soundsPanel(); break;
       case 'cuestop': stopPreview(); break;
       case 'search': {
         const row = panel.querySelector('[data-el=srow]');
@@ -1057,8 +1084,8 @@ function buildBooth(view, porch, ctx) {
       const it = items.find((i) => i.key === k);
       const now = panel.querySelector('[data-el=cuenow]'); if (now) now.textContent = it ? ` · Suena: ${it.name}` : '';
       panel.querySelectorAll('[data-pad]').forEach((el) => el.classList.toggle('previewing', el.dataset.pad === k));
-      if (k && !cueMode && it) { const ban = panel.querySelector('[data-el=cueban]'); if (ban) ban.classList.remove('hidden'); }
-      if (!k && !cueMode) panel.querySelector('[data-el=cueban]')?.classList.add('hidden');
+      if (k && it) { const ban = panel.querySelector('[data-el=cueban]'); if (ban) ban.classList.remove('hidden'); }
+      if (!k) panel.querySelector('[data-el=cueban]')?.classList.add('hidden');
     }),
     onLive('partClosed', (part) => {
       sheet(html`<h2 class="h2">Parte ${part} guardada</h2><p class="muted">Has llegado a ${LIMITS.MAX_PART_MIN} minutos. Esta parte se ha cerrado y está en Grabaciones. El directo sigue sonando para los oyentes.</p><button class="btn yellow big" data-close="go">Grabar Parte ${part + 1}</button><button class="btn ghost" data-close="">Seguir sin grabar</button>`).done.then((v) => { if (v === 'go') live.continueNextPart(); });
@@ -1072,37 +1099,31 @@ function buildBooth(view, porch, ctx) {
 async function guestFxSheet() {
   let list = [];
   try { list = (await loadStandard()).filter((i) => i.zone === 'fx' || i.zone === 'jingle'); } catch {}
-  let cueMode = false, tab = 'fx', off = () => {};
+  let tab = 'fx', off = () => {};
   const s = sheet(html`
     <h2 class="h2">Efectos y cortinillas</h2>
-    <button class="cue-toggle" data-a="cue">${icon('hp')}<span class="grow"><b>Pre-escucha</b><span class="tiny" data-el="ct">Actívala para oír un sonido antes de lanzarlo</span></span><span class="sw"></span></button>
-    <div class="cue-banner hidden" data-el="cb">${icon('hp')}<span class="grow"><b>PRE-ESCUCHA</b> · solo lo oyes tú · no sale al aire</span></div>
+    <div class="cue-banner hidden" data-el="cb">${icon('hp')}<span class="grow"><b>PRE-ESCUCHA</b> · solo lo oyes tú · no sale al aire</span><button class="btn sm ghost" data-a="cuestop">Parar</button></div>
     <div class="seg"><button data-t="fx" class="on">Efectos</button><button data-t="jingle">Cortinillas</button></div>
     <div class="pads" data-el="pads"></div>
-    <p class="muted tiny">Sin pre-escucha, al tocar un sonido suena para todos (si quien presenta lo permite). Uno cada segundo y medio, como mucho.</p>`, {
+    <p class="muted tiny">Toca un sonido y suena para todos (si quien presenta lo permite; uno cada segundo y medio como mucho). Toca sus cascos ${icon('hp')} para oírlo antes tú solo.</p>`, {
     onMount(a) {
       const paint = () => {
         const pk = previewKey();
-        mount(a.el.querySelector('[data-el=pads]'), html`${list.filter((i) => i.zone === tab).map((i) => html`<button class="pad z-${i.zone} ${pk === 'serie:' + i.id ? 'previewing' : ''}" data-k="${i.id}"><span class="n">${i.name}</span><span class="d">${fmtShortDur(i.duration)}</span><span class="p"></span></button>`)}`);
-        a.el.querySelector('[data-el=pads]').parentElement.classList.toggle('cue-mode', cueMode);
+        mount(a.el.querySelector('[data-el=pads]'), html`${list.filter((i) => i.zone === tab).map((i) => html`<button class="pad z-${i.zone} ${pk === 'serie:' + i.id ? 'previewing' : ''}" data-k="${i.id}"><span class="n">${i.name}</span><span class="d">${fmtShortDur(i.duration)}</span><span class="p"></span><span class="cue" data-cue="${i.id}" role="button" aria-label="Pre-escuchar ${i.name} solo en tus cascos">${icon('hp')}</span></button>`)}`);
+        a.el.querySelector('[data-el=cb]').classList.toggle('hidden', !pk);
       };
       paint();
       off = onPreview(paint);
       a.el.addEventListener('click', (e) => {
-        const b = e.target.closest('[data-a=cue]');
-        if (b) {
-          cueMode = !cueMode; b.classList.toggle('on', cueMode);
-          a.el.querySelector('[data-el=ct]').textContent = cueMode ? 'Activada: lo que toques solo lo oyes tú' : 'Actívala para oír un sonido antes de lanzarlo';
-          a.el.querySelector('[data-el=cb]').classList.toggle('hidden', !cueMode);
-          if (!cueMode) stopPreview();
-          return paint();
-        }
+        if (e.target.closest('[data-a=cuestop]')) return stopPreview();
+        // Cascos = solo lo oyes tú (otra vez = parar). El resto del botón = al aire.
+        const c = e.target.closest('[data-cue]');
+        if (c) { const it = list.find((i) => i.id === c.dataset.cue); return it && cueSource('serie:' + it.id, it); }
         const t = e.target.closest('[data-t]');
         if (t) { tab = t.dataset.t; a.el.querySelectorAll('[data-t]').forEach((x) => x.classList.toggle('on', x === t)); return paint(); }
         const k = e.target.closest('[data-k]');
         if (!k) return;
         const it = list.find((i) => i.id === k.dataset.k);
-        if (cueMode) return cueSource('serie:' + it.id, it);
         haptic(10);
         live.send({ t: 'gfx', key: 'serie:' + it.id });
         toast(`«${it.name}» al aire`);

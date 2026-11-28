@@ -85,12 +85,16 @@ export class Voice {
     this.out = c.createGain(); // silenciar
     // Igualador de volumen de los efectos: mide antes (fxIn) y después (fxOut) y compensa
     this.agc = c.createGain();
-    this.fxOut.connect(this.agc); this.agc.connect(this.out);
+    // Puerta: si dos personas están en la misma habitación, cada micro recoge también al otro
+    // (y su voz de personaje se le aplicaría). Deja pasar la voz cercana y baja la lejana.
+    this.gate = c.createGain();
+    this.gateOpen = true; this.gateQuietSince = 0;
+    this.fxOut.connect(this.agc); this.agc.connect(this.gate); this.gate.connect(this.out);
     this.preA = c.createAnalyser(); this.preA.fftSize = 2048; this.fxIn.connect(this.preA);
     this.postA = c.createAnalyser(); this.postA.fftSize = 2048; this.fxOut.connect(this.postA);
     this.agcBuf = new Float32Array(2048);
     this.agcGain = 1;
-    this.agcIv = setInterval(() => this.levelMatch(), 60);
+    this.agcIv = setInterval(() => this.levelMatch(), 30);
     this.analyser = c.createAnalyser(); this.analyser.fftSize = 512;
     this.out.connect(this.analyser);
     this.dest = c.createMediaStreamDestination();
@@ -113,13 +117,20 @@ export class Voice {
   levelMatch() {
     if (!this.preA) return;
     const rms = (an) => { an.getFloatTimeDomainData(this.agcBuf); let q = 0; for (let i = 0; i < this.agcBuf.length; i++) q += this.agcBuf[i] * this.agcBuf[i]; return Math.sqrt(q / this.agcBuf.length); };
+    // Puerta con histéresis: abre rápido con tu voz, cierra si 300 ms solo llega sonido lejano
+    const lvl = rms(this.preA);
+    if (lvl > 0.04) { if (!this.gateOpen) { this.gateOpen = true; this.gate.gain.setTargetAtTime(1, this.ctx.currentTime, 0.008); } this.gateQuietSince = 0; }
+    else if (this.gateOpen && lvl < 0.025) {
+      if (!this.gateQuietSince) this.gateQuietSince = performance.now();
+      else if (performance.now() - this.gateQuietSince > 300) { this.gateOpen = false; this.gate.gain.setTargetAtTime(this.effect ? 0.05 : 0.15, this.ctx.currentTime, 0.08); }
+    }
     let target = 1;
     if (this.effect) {
-      const pre = rms(this.preA), post = rms(this.postA);
+      const pre = lvl, post = rms(this.postA);
       if (pre < 0.008 || post < 1e-5) return; // en silencio no se toca
       target = Math.min(4, Math.max(0.25, pre / post));
     }
-    this.agcGain += (target - this.agcGain) * (this.effect ? 0.12 : 0.5);
+    this.agcGain += (target - this.agcGain) * (this.effect ? 0.06 : 0.3);
     this.agc.gain.setTargetAtTime(this.agcGain, this.ctx.currentTime, 0.05);
   }
 

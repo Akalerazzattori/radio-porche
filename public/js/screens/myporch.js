@@ -236,6 +236,7 @@ export async function render(view, _p, { go }) {
           <a href="/programa/${p.id}"><img src="${programCover(p)}" alt=""></a>
           <div class="b ellip">${p.name}</div>
           <div class="muted tiny ellip">${catName(cats, p.category)} · ${p.episodes} ep.</div>
+          <a class="btn sm red" href="/estudio" data-newep="${p.id}">${icon('rec')} Nuevo capítulo</a>
           <button class="btn sm ghost" data-editprog="${p.id}">${icon('edit')} Editar</button>
         </div>`)}</div>` : html`<p class="muted small">Crea tu primer programa (por ejemplo «La noche del porche»). Cada vez que lo emitas y publiques, será un episodio nuevo.</p>`}
       <div class="h3 mt">Episodios publicados · ${r.podcasts.length}</div>
@@ -255,6 +256,9 @@ export async function render(view, _p, { go }) {
     panel.querySelectorAll('.progress').forEach((el) => setPct(el, '--p', Number(el.dataset.p)));
     panel.onclick = async (e) => {
       if (e.target.closest('[data-act=newprog]')) { if (await programSheet()) publishedTab(); return; }
+      // «Nuevo capítulo»: abre el Estudio con este programa ya elegido
+      const ne = e.target.closest('[data-newep]');
+      if (ne) { try { localStorage.setItem('rp_lastprog', ne.dataset.newep); } catch {} return; }
       const ep = e.target.closest('[data-editprog]');
       if (ep) { if (await programSheet(programs.find((x) => x.id === ep.dataset.editprog))) publishedTab(); return; }
       const b = e.target.closest('[data-edit]');

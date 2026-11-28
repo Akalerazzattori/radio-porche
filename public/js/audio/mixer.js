@@ -166,7 +166,8 @@ export class Mixer {
   setFxLevel(v) { this.fxBus.gain.setTargetAtTime(v, this.ctx.currentTime, 0.03); }
 
   // ---------- Música (una pista a la vez)
-  playMusic(buffer, { loop = false, id = '', name = '', onEnd } = {}) {
+  playMusic(buffer, { loop = false, id = '', name = '', onEnd, offset = 0 } = {}) {
+    this.pausedMusic = null;
     this.stopMusic(0.6);
     const c = this.ctx;
     const s = c.createBufferSource();
@@ -174,9 +175,9 @@ export class Mixer {
     const g = c.createGain(); g.gain.value = 0;
     s.connect(g); g.connect(this.musicBus);
     g.gain.setTargetAtTime(1, c.currentTime, 0.15);
-    const m = { src: s, gain: g, id, name, loop, start: c.currentTime, duration: buffer.duration };
+    const m = { src: s, gain: g, id, name, loop, start: c.currentTime - offset, duration: buffer.duration, buffer, onEnd };
     s.onended = () => { if (this.music === m) { this.music = null; onEnd?.(); } };
-    s.start();
+    s.start(0, offset % buffer.duration);
     this.music = m;
     return m;
   }
@@ -195,6 +196,18 @@ export class Mixer {
     if (!m) return 0;
     const e = this.ctx.currentTime - m.start;
     return m.loop ? e % m.duration : Math.min(e, m.duration);
+  }
+  /** Pausa del directo: la música se para donde iba (y sigue desde ahí al reanudar) y se cortan los efectos. */
+  pauseAll() {
+    for (const h of this.fxPlaying) if (!h.cue) h.stop();
+    const m = this.music;
+    this.pausedMusic = m ? { buffer: m.buffer, loop: m.loop, id: m.id, name: m.name, onEnd: m.onEnd, offset: this.musicPosition() } : null;
+    if (m) this.stopMusic(0.3);
+  }
+  resumeAll() {
+    const p = this.pausedMusic;
+    this.pausedMusic = null;
+    if (p && p.offset < p.buffer.duration - 0.5) return this.playMusic(p.buffer, p);
   }
   cue(buffer) { return this.playFx(buffer, { cue: true }); }
 

@@ -399,8 +399,11 @@ export async function render(view, [id], { go }) {
       <div class="ts"></div>
       <button class="btn red big" data-a="go">Publicar como podcast</button>`, {
       async onMount(a) {
-        getTs = await turnstileWidget(a.el.querySelector('.ts'));
-        let programs = await myPrograms();
+        let ready = false;
+        a.el.addEventListener('click', (e) => { if (!ready && e.target.closest('[data-a=go]')) toast('Un segundo, preparando…'); });
+        const tsReady = turnstileWidget(a.el.querySelector('.ts')).then((f) => (getTs = f));
+        let programs = [];
+        try { programs = await myPrograms(); } catch {}
         let programId = rec.programId && programs.some((p) => p.id === rec.programId) ? rec.programId : programs[0]?.id || '';
         const progsEl = a.el.querySelector('[data-el=progs]');
         const paintProgs = () => mount(progsEl, programPickerHtml(programs, programId));
@@ -424,13 +427,18 @@ export async function render(view, [id], { go }) {
           }
           return composeCover({ photo, scene: p && !rec.photo ? p.scene || rec.scene || 1 : rec.scene || 1, title: rec.title, date: rec.created, kicker: p ? `${p.name} · Episodio ${(p.lastEpisode || 0) + 1}` : '' });
         };
-        const refresh = async () => { prev.src = URL.createObjectURL(await coverFor()); };
+        const refresh = async () => { try { prev.src = URL.createObjectURL(await coverFor()); } catch {} };
         refresh();
+        ready = true;
         a.el.addEventListener('click', async (e) => {
           if (e.target.closest('[data-a=details]')) { await recordingDetailsSheet(rec); $el('title').textContent = `${rec.title} ✎`; a.el.querySelector('b.ellip').textContent = rec.title; refresh(); return; }
           if (!e.target.closest('[data-a=go]')) return;
           if (!a.el.querySelector('[name=ok]').checked) return toast('Confirma el aviso antes de publicar', 'bad');
-          const ts = getTs();
+          await tsReady;
+          // La comprobación anti‑robots tarda unos segundos: esperamos en vez de mandar el formulario vacío
+          let ts = getTs();
+          for (let i = 0; !ts && a.el.querySelector('.ts iframe') && i < 30; i++) { await new Promise((r) => setTimeout(r, 500)); ts = getTs(); }
+          if (!ts && a.el.querySelector('.ts iframe')) return toast('Completa la comprobación de que eres una persona (el recuadro de arriba del botón)', 'bad');
           a.close('go');
           const ps = progressSheet('Publicando');
           try {
@@ -453,7 +461,9 @@ export async function render(view, [id], { go }) {
             go(`/p/${res.podcast.id}`);
           } catch (err) {
             ps.close();
-            toast(err.message || 'No se ha podido publicar', 'bad');
+            // Antes era un aviso de 3 s y volvías a la misma hoja sin saber por qué: ahora el motivo se queda a la vista
+            const again = await confirmSheet('No se ha publicado', `${err.message || 'No se ha podido publicar.'} La grabación sigue guardada en este ${DEVICE_KIND}: no se ha perdido nada.`, { ok: 'Probar otra vez', cancel: 'Ahora no' });
+            if (again) publishSheet();
           }
         });
       },

@@ -28,15 +28,19 @@ Red de radios de barrio: cada persona tiene su «porche», emite en directo desd
 - Móvil = casa; ordenador = apoyo. Grabaciones viven en el aparato que graba; lo grabado en el ordenador llega solo al móvil; botón «Ordenador/Móvil» para pasar una grabación; al publicar en uno se quita del otro. **No** guardamos las grabaciones de todos en la nube (salvo enlace privado 30 días y buzón de paso).
 - Grabaciones nunca se borran solas (`DRAFT_DAYS: null`). Publicar exige 5 min (clips 20 s).
 - Fila de grabación: lápiz junto al título; botones Borrar · Ordenador · Recortar · Compartir (privado) · **Publicar** (grande, rojo, a la derecha).
-- Botonera: Favoritos ⭐ (en la cuenta), pestañas Cortinillas/Efectos/Música, carpetas = secciones, lupa, color por tipo, interruptor **Pre-escucha** con franja violeta. Invitados: botón «Efectos» (serie, con pre-escucha) si el anfitrión lo permite (Mesa → «Los invitados pueden lanzar efectos»). Invitados solo se silencian a sí mismos.
-- Mesa: tira por línea (tus micros como «Tú · móvil/ordenador», invitados, Música, Cortinillas y efectos, Pestaña), medidor, deslizador vertical con **normal en el medio**, silenciar por micro. «Solo música» silencia todos los micros.
+- Botonera: Favoritos ⭐ (en la cuenta), pestañas Cortinillas/Efectos/Música, carpetas = secciones, lupa, color por tipo y duración en cada sonido. **Pre-escucha = botón de cascos de cada sonido** (otra vez = parar; sin interruptor general, Marc lo pidió así); franja violeta con «Parar» mientras suena solo para ti. Invitados: botón «Efectos» (serie, mismos cascos) si el anfitrión lo permite (Mesa → «Los invitados pueden lanzar efectos»). Invitados solo se silencian a sí mismos.
+- Mesa: tira por línea (tus micros como «Tú · móvil/ordenador», invitados, Música, Cortinillas y efectos, Pestaña), medidor, deslizador vertical con **normal en el medio**, botón de silencio en **todas** las tiras (micros y líneas). La mesa siempre enseña lo que suena: «Música alta/de fondo», «Solo música» y los silencios mueven tiras y botones. «Solo música» silencia todos los micros. El invitado ve siempre «EN ANTENA» / «NO ESTÁS EN ANTENA» con el motivo (silenciado, micro cortado, solo música, pausa).
+- Pausa: corta la salida, para la música donde iba (sigue desde ahí al reanudar) y corta efectos.
+- Voz de personaje: es por aparato. El micro tiene una puerta que baja la voz lejana (dos personas en la misma habitación se cuelan en el micro del otro).
+- Mi porche → Programas: «Nuevo capítulo» abre el Estudio con ese programa elegido.
+- Publicar: si falla, el motivo sale en una hoja fija con «Probar otra vez» (antes era un aviso de 3 s y parecía un bucle).
 - Invitados eligen «Estoy a su lado» / «Estoy en otro sitio» (antes Patio/Casa).
 - Portada de episodio: foto del programa + «PROGRAMA · EPISODIO N» + título del episodio.
 - Logo: se mantiene el actual en la cabecera (cabecera común `brandHead` en common.js). El icono de la app es el de la torre y el barrio.
 
 ## Pendiente / por verificar con Marc
-1. **Entrar con Google**: Marc tiene el ID `319749056185-fb23eiek427qih4guvsm649d3of53pjd.apps.googleusercontent.com`; debe pegarlo en Admin → Ajustes (su enlace de admin le daba «no válida»: usar el secreto `ADMIN_KEY` si hace falta) y publicar la app en Google Cloud («Público» → En producción). Luego Perfil → unir con Google.
-2. Probar en real: grabación con pausa/bloqueo/relevo, compartir pantalla, efectos de invitados, pre-escucha, mesa sincronizada, enlace privado con portada en WhatsApp.
+1. **Entrar con Google**: ya funciona (28‑nov el cordobés unió su usuario). Queda comprobar que la app está «En producción» en Google Cloud. ID `319749056185-fb23eiek427qih4guvsm649d3of53pjd.apps.googleusercontent.com`; debe pegarlo en Admin → Ajustes (su enlace de admin le daba «no válida»: usar el secreto `ADMIN_KEY` si hace falta) y publicar la app en Google Cloud («Público» → En producción). Luego Perfil → unir con Google.
+2. Probar en real (prueba 28‑nov hecha: arreglados publicar, pausa, voces, mesa, pre-escucha): grabación con pausa/bloqueo/relevo, compartir pantalla, efectos de invitados, pre-escucha, mesa sincronizada, enlace privado con portada en WhatsApp.
 3. Revisar efectos sintetizados (timbre, puerta, pasos, teléfono…) y sustituir los malos; Marc subirá risas/aplausos reales (Pixabay, Freesound CC0) en Admin → Biblioteca por carpetas.
 4. Ideas aparcadas: podcasts por cercanía, más oyentes (repetidor de pago), TURN, notificaciones push, premium, más hojas de ilustraciones/vecinos.
 5. Límites conocidos: ~15–20 oyentes y 8 micros; avisos solo con la app abierta; con datos móviles alguna conexión puede fallar; en iPhone la app instalada no comparte datos con Safari.
