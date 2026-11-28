@@ -127,6 +127,7 @@ export const live = {
         this.cid = m.cid; this.isOwner = m.isOwner; this.isMod = m.isMod; this.state = m.state; this.porch = { ...this.porch, ...m.porch };
         this.chat = m.chat || []; if (m.inviteKey) this.inviteKey = m.inviteKey;
         this.setRole(m.role);
+        if (m.isOwner && document.visibilityState !== 'visible') this.send({ t: 'vis', v: false });
         if (m.role !== 'host' && m.state.hostOnline) this.want();
         emit('update');
         break;
@@ -297,6 +298,9 @@ export const live = {
   setListenHere(on) {
     if (this.role === 'host') this.mixer?.setMonitor(on);
     else { this.hearHere = on; if (this.audio) this.audio.muted = !on; }
+    // Escuchar aquí = lo oyes todo, también tu voz (si llevas cascos)
+    const v = this.role === 'host' ? this.voice : this.guestVoice;
+    if (v) v.setMonitor(on && v.headphones !== false);
     emit('update');
   },
   listenHere() { return this.role === 'host' ? !!this.mixer?.monitorOn : !!this.hearHere; },
@@ -556,6 +560,7 @@ export const live = {
 // Si el móvil se bloquea o se cambia de app mientras se emite: aviso grande y reconexión.
 document.addEventListener('visibilitychange', () => {
   if (!live.active) return;
+  if (live.isOwner) live.send({ t: 'vis', v: document.visibilityState === 'visible' });
   if (document.visibilityState === 'hidden') {
     if (live.speaking) live.wasHidden = Date.now();
     // El móvil que emite se va a dormir o cambias de app: si tienes el ordenador conectado, emite él.

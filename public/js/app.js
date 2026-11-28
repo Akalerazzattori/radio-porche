@@ -164,6 +164,23 @@ async function pollNotices() {
 window.addEventListener('rp:noticesSeen', () => { badge = 0; paintTabbar(); });
 window.addEventListener('rp:identity', () => { pollNotices(); paintTabbar(); });
 
+// ---------- Versión nueva: se recarga sola (nunca en mitad de un directo o con micro)
+let bootVersion = null;
+async function checkVersion() {
+  try {
+    const { v } = await (await fetch('/api/version', { cache: 'no-store' })).json();
+    if (!bootVersion) { bootVersion = v; return; }
+    if (v === bootVersion) return;
+    const busy = (live.active && (live.role === 'guest' || live.state?.live || (live.role === 'host' && document.visibilityState === 'visible'))) || (player.audio && !player.audio.paused) || location.pathname.startsWith('/editor');
+    if (!busy) location.reload();
+  } catch {}
+}
+function watchVersion() {
+  checkVersion();
+  setInterval(checkVersion, 5 * 60_000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
+}
+
 // ---------- Arranque
 (async function start() {
   const m = /#recuperar=([^&]+)/.exec(location.hash);
@@ -176,5 +193,6 @@ window.addEventListener('rp:identity', () => { pollNotices(); paintTabbar(); });
   requestPersist();
   pollNotices();
   setInterval(pollNotices, 45000);
+  watchVersion();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 })();

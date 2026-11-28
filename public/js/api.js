@@ -11,6 +11,7 @@ export const session = {
   get token() { return ident?.token || ''; },
   get deviceId() { return ident?.deviceId || ''; },
   get name() { return ident?.name || ''; },
+  get porchId() { return ident?.porchId || null; },
   set(v) { ident = v; try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {} },
   update(patch) { this.set({ ...(ident || {}), ...patch }); },
   clear() { ident = null; try { localStorage.removeItem(KEY); } catch {} },

@@ -102,6 +102,11 @@ export default {
       return room.fetch(fwd);
     }
 
+    // ---------- Versión desplegada (la app se recarga sola si cambia)
+    if (path === '/api/version') {
+      return withHeaders(new Response(JSON.stringify({ v: env.CF_VERSION_METADATA?.id || 'dev' }), { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } }));
+    }
+
     // ---------- API
     if (path.startsWith('/api/')) {
       // CSRF: las escrituras deben venir de este mismo origen

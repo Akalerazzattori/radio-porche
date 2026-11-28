@@ -24,5 +24,7 @@
     // Opcional: clave PÚBLICA de Turnstile. La secreta va como secret (ver README).
     "TURNSTILE_SITEKEY": ""
   },
+  // Identificador de cada despliegue: la app se recarga sola cuando hay versión nueva
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "observability": { "enabled": true }
 }

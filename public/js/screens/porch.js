@@ -39,7 +39,8 @@ export async function render(view, [slug], ctx) {
     if (live.fatal) return 'fatal';
     if (!live.role) return 'loading';
     // El anfitrión, en cualquier aparato, siempre ve el Estudio (emita desde aquí o no)
-    if (live.role === 'host' || live.isOwner) return live.state.live ? 'cabina' : 'camerino';
+    // (si este aparato pasa a emitir o deja de hacerlo, se vuelve a montar: cambian los mandos disponibles)
+    if (live.role === 'host' || live.isOwner) return (live.state.live ? 'cabina' : 'camerino') + (live.role === 'host' ? '' : ':r');
     return 'oyente';
   }
   const outer = view;
@@ -53,8 +54,8 @@ export async function render(view, [slug], ctx) {
     if (mode === 'loading') mount(view, html`<section class="screen"><div class="top"><div><h1 class="h1">${porch.name}</h1><div class="sub mono">${porch.freq.toFixed(1)} FM</div></div><button class="icon-btn" data-act="x">${icon('close')}</button></div><div class="empty"><div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>Sintonizando…</p></div></section>`);
     else if (mode === 'fatal') mount(view, html`<section class="screen"><div class="top"><h1 class="h1">${porch.name}</h1><button class="icon-btn" data-act="x">${icon('close')}</button></div><div class="empty"><img src="/img/scenes/escena-4.webp" alt=""><p>${live.fatal.msg}</p><button class="btn ghost" data-act="x">Volver</button></div></section>`);
     else if (mode === 'oyente') cleanup.push(buildListener(view, porch, ctx));
-    else if (mode === 'camerino') cleanup.push(buildGreenRoom(view, porch, ctx));
-    else if (mode === 'cabina') cleanup.push(buildBooth(view, porch, ctx));
+    else if (mode.startsWith('camerino')) cleanup.push(buildGreenRoom(view, porch, ctx));
+    else if (mode.startsWith('cabina')) cleanup.push(buildBooth(view, porch, ctx));
     view.querySelectorAll('[data-act=x]').forEach((b) => (b.onclick = () => leave()));
   }
   function leave() {
@@ -438,6 +439,7 @@ function buildGreenRoom(view, porch, ctx) {
     const loop = () => { const l = live.voice?.level() || 0; setMeter(meter, l); if (live.voice) $el('probe').textContent = l > 0.1 ? '¡Te oigo!' : 'Habla para probar'; raf = requestAnimationFrame(loop); };
     loop();
   }
+  $el('title').addEventListener('input', (e) => localStorage.setItem('rp_lasttitle', e.target.value));
   let programId = localStorage.getItem('rp_lastprog') || '';
   let programs = [];
   async function paintProgs(force = false) {

@@ -141,7 +141,7 @@ export class Room extends DurableObject {
     const devAlready = !!auth.ident && this.sockets().some((w) => w !== server && this.att(w).dev === auth.ident.deviceId);
     const cid = randomId(6);
     const a = {
-      tab, kind: auth.kind || 'móvil',
+      tab, kind: auth.kind || 'móvil', vis: true,
       cid, ip: auth.ip, dev: auth.ident?.deviceId || '', name: auth.ident?.name || '', av: auth.ident?.avatar || 0, isNew: !!auth.ident?.isNew,
       isOwner: !!auth.isOwner, isMod: !!auth.isMod, invited: hasInvite, role: 'listener', mode: '', hp: false,
       muted: false, last: Date.now(), lastChat: 0, chatWin: 0, chatN: 0, lastMic: 0, lastReact: 0, micReq: null,
@@ -153,7 +153,9 @@ export class Room extends DurableObject {
       if (h) {
         studioBusy = true;
         // Emite el ordenador si está disponible (no se bloquea): si aún no estáis en el aire, se pasa solo
-        if (!this.state.live && a.kind === 'ordenador' && this.att(h).kind !== 'ordenador') { autoTake = true; studioBusy = false; }
+        // y si el que emitía está escondido (app en segundo plano, ventana minimizada), pasa a este, que es el que miras
+        const ho = this.att(h);
+        if (!this.state.live && ((a.kind === 'ordenador' && ho.kind !== 'ordenador') || ho.vis === false)) { autoTake = true; studioBusy = false; }
       } else { a.role = 'host'; this.state.studio = cid; this.state.hostGoneAt = 0; await this.save(); }
     }
     // ¿Ya tenía micro en este programa? (reconexión, cambio de app…) → lo recupera sin pedirlo otra vez
@@ -374,6 +376,21 @@ export class Room extends DurableObject {
       case 'end': {
         if (!isHost) return;
         await this.endLive('Fin de la emisión. ¡Gracias por escuchar!');
+        return;
+      }
+      case 'vis': {
+        // ¿Este aparato está a la vista? Antes de salir al aire, emite el aparato del anfitrión que tienes delante.
+        a.vis = !!msg.v; this.setAtt(ws, a);
+        if (a.isOwner && !this.state.live) {
+          const h = this.host();
+          if (a.vis && !isHost && h && this.att(h).vis === false) await this.promote(ws);
+          else if (!a.vis && isHost) {
+            const others = this.sockets().filter((w) => w !== ws && this.att(w).isOwner && this.att(w).vis !== false);
+            const next = others.find((w) => this.att(w).kind === 'ordenador') || others[0];
+            if (next) await this.promote(next);
+          }
+        }
+        this.pushPeople();
         return;
       }
       case 'takeStudio': {
